@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Tailwind v4 Theme Configuration */
+@theme {
+  /* Custom gray shades */
+  --color-gray-750: #2d3748;
+  --color-gray-850: #1a202c;
+  --color-gray-950: #0d1117;
+
+  /* Brand colors */
+  --color-brand-primary: #3b82f6;
+  --color-brand-secondary: #8b5cf6;
+  --color-brand-accent: #06b6d4;
+
+  /* Surface colors */
+  --color-surface-dark: #0f172a;
+  --color-surface-card: #1e293b;
+  --color-surface-elevated: #334155;
+
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', Menlo, monospace;
+}
+
+/* Source paths for Tailwind to scan */
+@source "./*.{js,ts,jsx,tsx}";
+@source "./components/**/*.{js,ts,jsx,tsx}";
+@source "./services/**/*.{js,ts,jsx,tsx}";
+
+/* Base styles */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-dark);
+    color: #f8fafc;
+  }
+
+  ::selection {
+    background-color: rgb(59 130 246 / 0.3);
+  }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 4px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+}
