@@ -27,7 +27,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     showNotes: boolean;
   } | null>(null);
 
-  // Zoom controls
+  // Zoom controls - simple percentage
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
   const handleZoomReset = () => setZoom(1);
@@ -44,44 +44,46 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     <div data-component="ExportLayout" className="flex h-full gap-6 relative">
       
       {/* PREVIEW PANEL - The dark container that holds the calendar preview */}
-      <div data-component="PreviewPanel" className="flex-1 overflow-auto">
+      <div data-component="PreviewPanel" className="flex-1 overflow-auto relative">
         
-        {/* PREVIEW VIEWPORT - Adjusts height to fit ZoomWrapper, centers horizontally */}
-        <div data-component="PreviewViewport" className="min-h-full p-6 flex flex-col items-center relative">
-          
-          {/* ZOOM TOOLBAR - Zoom controls in top right */}
-          <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50 flex gap-2">
-            <button
-              onClick={handleZoomOut}
-              className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
-              title="Zoom Out"
-            >
-              <ZoomOut size={16} className="text-gray-200 group-hover:text-white" />
-            </button>
-            <button
-              onClick={handleZoomReset}
-              className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
-              title="Reset Zoom (100%)"
-            >
-              <Maximize2 size={16} className="text-gray-200 group-hover:text-white" />
-            </button>
-            <button
-              onClick={handleZoomIn}
-              className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
-              title="Zoom In"
-            >
-              <ZoomIn size={16} className="text-gray-200 group-hover:text-white" />
-            </button>
-          </div>
+        {/* ZOOM TOOLBAR - Absolute positioned, overlays on calendar */}
+        <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50 flex items-center gap-2">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
+            title="Zoom Out"
+          >
+            <ZoomOut size={16} className="text-gray-200 group-hover:text-white" />
+          </button>
+          <button
+            onClick={handleZoomReset}
+            className="px-3 py-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group min-w-[60px] text-center"
+            title="Reset to 100%"
+          >
+            <span className="text-xs font-mono text-gray-200 group-hover:text-white">
+              {Math.round(zoom * 100)}%
+            </span>
+          </button>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
+            title="Zoom In"
+          >
+            <ZoomIn size={16} className="text-gray-200 group-hover:text-white" />
+          </button>
+        </div>
 
-          {/* ZOOM WRAPPER - Applies zoom transform to the calendar */}
+        {/* PREVIEW VIEWPORT - Centers the calendar */}
+        <div 
+          data-component="PreviewViewport" 
+          className="min-h-full p-6 flex items-start justify-center"
+        >
+          {/* ZOOM WRAPPER - Applies zoom transform */}
           <div 
             data-component="ZoomWrapper"
-            className="shadow-2xl transition-transform duration-200 origin-top" 
+            className="transition-transform duration-200 origin-top" 
             style={{ 
               transform: `scale(${zoom})`,
-              minWidth: '800px',
-              width: 'max(800px, 90%)'
             }}
           >
             {/* EXPORT NODE - This exact element is captured for image export */}
@@ -92,18 +94,18 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               />
             </div>
           </div>
-
-          {/* SIDEBAR TOGGLE - Shows when sidebar is collapsed */}
-          {!isSidebarOpen && (
-            <button 
-              data-component="SidebarToggle"
-              onClick={() => setIsSidebarOpen(true)}
-              className="absolute top-4 right-16 z-50 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg"
-            >
-              <SlidersHorizontal size={20} />
-            </button>
-          )}
         </div>
+
+        {/* SIDEBAR TOGGLE - Shows when sidebar is collapsed */}
+        {!isSidebarOpen && (
+          <button 
+            data-component="SidebarToggle"
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute top-4 left-4 z-50 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg"
+          >
+            <SlidersHorizontal size={20} />
+          </button>
+        )}
       </div>
 
       {/* SETTINGS SIDEBAR - Right panel with all style controls */}

@@ -194,8 +194,8 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   return (
     <div className="flex h-full gap-6">
-      {/* Left: Interactive Canvas */}
-      <div className="flex-1 bg-gray-800/30 rounded-2xl p-4 overflow-y-auto custom-scrollbar border border-gray-700/50">
+      {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
+      <div className="flex-1 bg-gray-800/30 rounded-2xl p-4 overflow-auto custom-scrollbar border border-gray-700/50 flex items-start justify-center">
         <CalendarCanvas
           events={events}
           template={template}
@@ -209,7 +209,7 @@ export const EditStep: React.FC<EditStepProps> = ({
       {/* Right: Inspector Panel */}
       <div className="w-96 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl flex-shrink-0">
         <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900 z-10 rounded-t-2xl">
-          <h3 className="font-semibold text-white">Class Inspector</h3>
+          <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Class' : 'Class Inspector'}</h3>
           <div className="flex gap-2">
             {!selectedEvent && (
               <button onClick={onReupload} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
@@ -220,9 +220,9 @@ export const EditStep: React.FC<EditStepProps> = ({
             {selectedEvent ? (
               <button
                 onClick={() => setSelectedEventId(null)}
-                className="px-4 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                ← Back
+                Done
               </button>
             ) : (
               <button

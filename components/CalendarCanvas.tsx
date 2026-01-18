@@ -10,9 +10,162 @@ interface CalendarCanvasProps {
   interactive?: boolean;
   id?: string;
   showFullTitle?: boolean;
+  /** Callback to report computed dimensions to parent */
+  onDimensionsComputed?: (dimensions: { width: number; height: number }) => void;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// =============================================================================
+// Dimension Constants & Utilities
+// =============================================================================
+
+/** Absolute minimum width per day column in pixels */
+const ABSOLUTE_MIN_BLOCK_WIDTH = 60;
+
+/** Fixed layout dimensions */
+const HEADER_HEIGHT = 40;
+const FOOTER_HEIGHT = 40;
+const GRID_PADDING = 64; // p-8 = 32px * 2
+const TIME_COLUMN_WIDTH = 48; // w-12 = 48px
+
+/** Aspect ratio constants */
+const LANDSCAPE_RATIO = 16 / 9;  // ~1.778 (slider = 0)
+const PORTRAIT_RATIO = 9 / 16;   // ~0.5625 (slider = 1)
+
+/** Event block internal padding (left-1 right-1 + p-1.5 = 4px + 6px each side) */
+const EVENT_BLOCK_PADDING = 20;
+
+/**
+ * Calculate minimum width per column needed to keep text to max 2 lines.
+ * 
+ * Each field in the event block should wrap at most once (2 lines max).
+ * Returns the minimum column width that satisfies this for the longest text.
+ */
+const calculateMinBlockWidth = (
+  events: CalendarEvent[],
+  template: TemplateConfig,
+  showFullTitle: boolean
+): number => {
+  if (events.length === 0) return ABSOLUTE_MIN_BLOCK_WIDTH;
+  
+  // Average character widths at different font sizes (approximate)
+  const titleFontSize = template.fontScale * 12; // 0.75rem = 12px base
+  const detailFontSize = template.fontScale * 9.6; // 0.6rem = 9.6px base
+  
+  // Average char width is roughly 0.55x font size for proportional fonts
+  const titleCharWidth = titleFontSize * 0.55;
+  const detailCharWidth = detailFontSize * 0.55;
+  
+  let maxRequiredWidth = ABSOLUTE_MIN_BLOCK_WIDTH;
+  
+  events.forEach(event => {
+    // Title text
+    const title = showFullTitle ? event.title : event.displayTitle;
+    // Width needed for title to fit in 2 lines: (chars * charWidth) / 2
+    const titleWidth = (title.length * titleCharWidth) / 2;
+    
+    // Class type text
+    let classTypeWidth = 0;
+    if (template.showClassType) {
+      const classTypeText = event.classType === 'Custom' ? (event.customClassType || '') : event.classType;
+      classTypeWidth = (classTypeText.length * detailCharWidth) / 2;
+    }
+    
+    // Location text
+    let locationWidth = 0;
+    if (template.showLocation && event.location && !template.compact) {
+      // Account for icon width (~14px)
+      locationWidth = ((event.location.length * detailCharWidth) / 2) + 14;
+    }
+    
+    // Time is usually fixed length "HH:MM - HH:MM" = 13 chars, rarely wraps
+    // Notes can be multi-line so we don't constrain based on notes
+    
+    // Required block width = max of all fields + padding
+    const requiredWidth = Math.max(titleWidth, classTypeWidth, locationWidth) + EVENT_BLOCK_PADDING;
+    maxRequiredWidth = Math.max(maxRequiredWidth, requiredWidth);
+  });
+  
+  return maxRequiredWidth;
+};
+
+/**
+ * Calculate canvas dimensions based on content and aspect ratio slider.
+ * 
+ * Slider range:
+ * - 0 = 16:9 landscape
+ * - 1 = 9:16 portrait
+ * - Default (~0.6) = near natural content dimensions
+ * 
+ * Strategy:
+ * - Calculate target aspect ratio from slider
+ * - Try to achieve target by shrinking width (never shrink below minimum)
+ * - If can't shrink width enough, expand height instead
+ * - Minimum height = content-based (fits all text)
+ * - Minimum width = dynamic based on text (max 2 line wrap per field)
+ */
+const calculateCanvasDimensions = (
+  numDays: number,
+  hourRange: number,
+  contentBasedHourHeight: number,
+  aspectRatioSlider: number, // 0 = 16:9 landscape, 1 = 9:16 portrait
+  minBlockWidth: number // Dynamic minimum based on text content
+): { width: number; height: number; gridWidth: number; gridHeight: number } => {
+  // Minimum grid dimensions
+  const minGridWidth = numDays * minBlockWidth;
+  const minGridHeight = hourRange * contentBasedHourHeight;
+
+  // Natural/default dimensions (what content needs)
+  // Use the larger of: minimum based on text wrapping, or 120px per column
+  const naturalGridWidth = Math.max(minGridWidth, numDays * 120);
+  const naturalGridHeight = minGridHeight;
+
+  // Total canvas dimensions (including chrome)
+  const minCanvasWidth = minGridWidth + TIME_COLUMN_WIDTH + GRID_PADDING;
+  const minCanvasHeight = minGridHeight + HEADER_HEIGHT + FOOTER_HEIGHT + GRID_PADDING;
+
+  const naturalCanvasWidth = naturalGridWidth + TIME_COLUMN_WIDTH + GRID_PADDING;
+  const naturalCanvasHeight = naturalGridHeight + HEADER_HEIGHT + FOOTER_HEIGHT + GRID_PADDING;
+
+  // Calculate target ratio from slider (interpolate between 16:9 and 9:16)
+  const targetRatio = LANDSCAPE_RATIO + (PORTRAIT_RATIO - LANDSCAPE_RATIO) * aspectRatioSlider;
+
+  // Current natural ratio
+  const naturalRatio = naturalCanvasWidth / naturalCanvasHeight;
+
+  let finalWidth = naturalCanvasWidth;
+  let finalHeight = naturalCanvasHeight;
+
+  // Adjust dimensions to achieve target ratio
+  if (targetRatio > naturalRatio) {
+    // Target is wider than natural - expand width
+    finalWidth = naturalCanvasHeight * targetRatio;
+  } else if (targetRatio < naturalRatio) {
+    // Target is narrower than natural - try shrinking width first
+    const targetWidth = naturalCanvasHeight * targetRatio;
+    
+    if (targetWidth >= minCanvasWidth) {
+      // Can achieve ratio by shrinking width
+      finalWidth = targetWidth;
+    } else {
+      // Can't shrink width enough - expand height instead
+      finalWidth = minCanvasWidth;
+      finalHeight = minCanvasWidth / targetRatio;
+    }
+  }
+
+  // Calculate grid dimensions from final canvas dimensions
+  const finalGridWidth = finalWidth - TIME_COLUMN_WIDTH - GRID_PADDING;
+  const finalGridHeight = finalHeight - HEADER_HEIGHT - FOOTER_HEIGHT - GRID_PADDING;
+
+  return {
+    width: finalWidth,
+    height: finalHeight,
+    gridWidth: finalGridWidth,
+    gridHeight: finalGridHeight,
+  };
+};
 
 // Round time value (in hours) to the nearest half hour for grid alignment
 const roundToNearestHalfHour = (timeInHours: number): number => {
@@ -68,22 +221,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   onBlankClick,
   interactive = false,
   id,
-  showFullTitle = false
+  showFullTitle = false,
+  onDimensionsComputed
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(800);
-
-  // Measure container width
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
 
   const visibleDays = useMemo(() => {
     const hasWeekendEvents = events.some(e => e.dayIndex >= 5);
@@ -152,24 +293,32 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return Math.max(baseHourHeight, Math.min(maxRequiredHourHeight, 200));
   }, [events, template, showFullTitle]);
 
-  // Calculate canvas dimensions based on aspect ratio
-  // aspectRatio: 0 = landscape (16:9), 1 = portrait (9:16)
+  // Calculate minimum block width based on text content (max 2 line wrap per field)
+  const minBlockWidth = useMemo(() => {
+    return calculateMinBlockWidth(events, template, showFullTitle);
+  }, [events, template, showFullTitle]);
+
+  // Calculate canvas dimensions based on aspect ratio with minimum constraints
+  // At slider=0 (landscape): 16:9, at slider=1 (portrait): 9:16
   const canvasDimensions = useMemo(() => {
-    const headerHeight = 40;
-    const footerHeight = 40;
-    const gridPadding = 64; // p-8
-    const gridHeight = hourRange * hourHeight;
-    const baseHeight = gridHeight + headerHeight + footerHeight + gridPadding;
-    
-    // Use aspect ratio to control the height multiplier smoothly
-    // 0 (landscape) = 1x, 1 (portrait) = 1.8x
-    const heightMultiplier = 1 + template.aspectRatio * 0.8;
-    
-    return {
-      minHeight: baseHeight * heightMultiplier,
-      gridHeight: gridHeight * heightMultiplier
-    };
-  }, [template.aspectRatio, hourRange, hourHeight]);
+    return calculateCanvasDimensions(
+      visibleDays.length,
+      hourRange,
+      hourHeight,
+      template.aspectRatio, // Pass slider value directly (0-1)
+      minBlockWidth // Dynamic minimum based on text wrapping
+    );
+  }, [template.aspectRatio, visibleDays.length, hourRange, hourHeight, minBlockWidth]);
+
+  // Report computed dimensions to parent (for ZoomWrapper sizing)
+  useEffect(() => {
+    if (onDimensionsComputed) {
+      onDimensionsComputed({
+        width: canvasDimensions.width,
+        height: canvasDimensions.height
+      });
+    }
+  }, [canvasDimensions.width, canvasDimensions.height, onDimensionsComputed]);
 
   // Theme styles
   const themeClasses = useMemo(() => {
@@ -214,10 +363,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       data-component="CalendarCard"
       ref={containerRef}
       id={id}
-      className={`w-full flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl shadow-2xl relative`}
+      className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl shadow-2xl relative`}
       style={{
         borderRadius: template.borderRadius,
-        height: `${canvasDimensions.minHeight}px`,
+        width: `${canvasDimensions.width}px`,
+        height: `${canvasDimensions.height}px`,
       }}
     >
 

@@ -25,7 +25,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   showGrid: true,
   showClassType: true,
   viewMode: 'desktop',
-  aspectRatio: 0.3, // Default: slightly landscape (0 = 16:9, 0.5 = square, 1 = 9:16)
+  aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
 };
 
 const App: React.FC = () => {

@@ -354,7 +354,7 @@ export interface TemplateConfig {
   showClassType: boolean;
   viewMode: 'desktop' | 'mobile';
 
-  // Aspect ratio slider (0 = landscape 16:9, 0.5 = square, 1 = portrait 9:16)
+  // Aspect ratio slider (0 = 16:9 landscape, 1 = 9:16 portrait, ~0.6 = natural content)
   aspectRatio: number;
 }
 
