@@ -24,6 +24,10 @@ type CSSBorder = string;
  */
 export interface CanvasTheme {
   background: CSSColor;
+  /** Optional background size (e.g., "cover", "contain") */
+  backgroundSize?: string;
+  /** Optional background position (e.g., "center", "top left") */
+  backgroundPosition?: string;
   border: CSSBorder;
   borderRadius: CSSBorderRadius;
   shadow: CSSBoxShadow;
@@ -86,6 +90,10 @@ export interface EventBlockTheme {
   gradient?: string;
   /** Optional backdrop filter for glass effect */
   backdropFilter?: string;
+  /** Optional acrylic-style layered background with texture */
+  acrylicBackground?: string;
+  /** Optional background blend mode for acrylic effect */
+  backgroundBlendMode?: string;
 }
 
 /**
@@ -317,7 +325,7 @@ export enum AppStep {
 }
 
 /** Theme family type */
-export type ThemeFamilyId = 'default' | 'glass' | 'matt';
+export type ThemeFamilyId = 'default' | 'glass' | 'matt' | 'acrylic';
 
 /** Theme variant type */
 export type ThemeVariantId = 'light' | 'dark';
@@ -356,6 +364,9 @@ export interface TemplateConfig {
 
   // Aspect ratio slider (0 = 16:9 landscape, 1 = 9:16 portrait, ~0.6 = natural content)
   aspectRatio: number;
+
+  /** Differentiate Labs/Tutorials with different colors */
+  differentiateTypes: boolean;
 }
 
 export interface ProcessedData {

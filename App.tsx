@@ -26,6 +26,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   showClassType: true,
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
+  differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
 };
 
 const App: React.FC = () => {
@@ -146,6 +147,7 @@ const App: React.FC = () => {
             events={events}
             template={template}
             onUpdateTemplate={setTemplate}
+            onUpdateEvents={setEvents}
             onBack={() => setStep(AppStep.EDIT)}
           />
         )}

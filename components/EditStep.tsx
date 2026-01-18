@@ -7,6 +7,7 @@ import { GuidanceNote } from './GuidanceNote';
 import { TimeInput } from './TimeInput';
 import { AlertBox } from './AlertBox';
 import { Trash2, ListPlus, Wand2, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2 } from 'lucide-react';
+import { getThemeColors } from '../themes';
 
 interface EditStepProps {
   events: CalendarEvent[];
@@ -30,7 +31,6 @@ export const EditStep: React.FC<EditStepProps> = ({
   onReupload
 }) => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [differentiateTypes, setDifferentiateTypes] = useState(false);
   const [showFullTitle, setShowFullTitle] = useState(false);
   const [isContentDisplayExpanded, setIsContentDisplayExpanded] = useState(true);
   const [showGuidanceNote, setShowGuidanceNote] = useState(true);
@@ -49,6 +49,11 @@ export const EditStep: React.FC<EditStepProps> = ({
   const hasValidCourseSections = useMemo(() => {
     return events.some(e => !isNaN(e.classSection) && e.classSection !== null && e.classSection !== undefined);
   }, [events]);
+
+  // Get theme-specific colors based on current theme family
+  const themeColors = useMemo(() => {
+    return getThemeColors(template.themeFamily);
+  }, [template.themeFamily]);
 
   // Group events by displayTitle for the overall view
   const groupedByDisplayTitle = useMemo(() => {
@@ -78,12 +83,14 @@ export const EditStep: React.FC<EditStepProps> = ({
   }, [events]);
 
   const triggerColorUpdate = (diff: boolean) => {
-     setDifferentiateTypes(diff);
+     // Update template setting
+     onUpdateTemplate({ ...template, differentiateTypes: diff });
+     
      const updatedEvents = events.map(event => {
        // Find base color from category (Course Name)
-       let baseColor = CATEGORY_COLORS[0];
+       let baseColor = themeColors[0];
        const catIndex = categories.findIndex(c => c.name === event.title);
-       if (catIndex >= 0) baseColor = CATEGORY_COLORS[catIndex % CATEGORY_COLORS.length];
+       if (catIndex >= 0) baseColor = themeColors[catIndex % themeColors.length];
 
        let newColor = baseColor;
        if (diff) {
@@ -136,7 +143,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
            const existingCatIndex = categories.findIndex(c => c.name === value);
            if (existingCatIndex >= 0) {
-             newEvent.color = CATEGORY_COLORS[existingCatIndex % CATEGORY_COLORS.length];
+             newEvent.color = themeColors[existingCatIndex % themeColors.length];
            }
         }
 
@@ -155,19 +162,19 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   // Get colors used by other courses (not the selected event's group)
   const getAvailableColors = () => {
-    if (!selectedEvent) return CATEGORY_COLORS;
+    if (!selectedEvent) return themeColors;
     const selectedDisplayTitle = selectedEvent.displayTitle;
     const usedColors = new Set(
       events
         .filter(e => e.displayTitle !== selectedDisplayTitle)
         .map(e => e.color)
     );
-    const available = CATEGORY_COLORS.filter(c => !usedColors.has(c));
+    const available = themeColors.filter(c => !usedColors.has(c));
     // Always include the current color
     if (selectedEvent.color && !available.includes(selectedEvent.color)) {
       available.unshift(selectedEvent.color);
     }
-    return available.length > 0 ? available : CATEGORY_COLORS;
+    return available.length > 0 ? available : themeColors;
   };
 
   // Update color for all events in the same group (displayTitle)
@@ -187,9 +194,9 @@ export const EditStep: React.FC<EditStepProps> = ({
     // Very dummy implementation, ideally use a library or proper HSL conversion
     // Returning the same hex for now if complex, but let's try a simple mapping for MVP
     // Or just map to a different palette color
-    const idx = CATEGORY_COLORS.indexOf(hex);
+    const idx = themeColors.indexOf(hex);
     if (idx === -1) return hex;
-    return CATEGORY_COLORS[(idx + 2) % CATEGORY_COLORS.length]; 
+    return themeColors[(idx + 2) % themeColors.length]; 
   };
 
   return (
@@ -256,8 +263,8 @@ export const EditStep: React.FC<EditStepProps> = ({
 
                 <div className="space-y-3">
                   <ToggleSwitch
-                    enabled={differentiateTypes}
-                    onToggle={() => triggerColorUpdate(!differentiateTypes)}
+                    enabled={template.differentiateTypes}
+                    onToggle={() => triggerColorUpdate(!template.differentiateTypes)}
                     label="Differentiate Labs/Tutorials"
                   />
 
@@ -571,8 +578,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                 {/* Differentiate Labs/Tutorials Toggle */}
                 <div className="p-2 bg-gray-800/50 rounded-lg">
                   <ToggleSwitch
-                    enabled={differentiateTypes}
-                    onToggle={() => triggerColorUpdate(!differentiateTypes)}
+                    enabled={template.differentiateTypes}
+                    onToggle={() => triggerColorUpdate(!template.differentiateTypes)}
                     label="Differentiate Labs/Tutorials"
                   />
                 </div>

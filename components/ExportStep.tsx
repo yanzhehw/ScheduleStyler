@@ -1,23 +1,38 @@
-import React, { useState } from 'react';
-import { CalendarEvent, TemplateConfig } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { CalendarEvent, TemplateConfig, ThemeFamilyId } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { downloadComponentAsImage } from '../services/imageUtils';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Sun, Moon, ZoomIn, ZoomOut } from 'lucide-react';
-import { THEME_FAMILY_LIST } from '../themes';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Sun, Moon, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
 
 interface ExportStepProps {
   events: CalendarEvent[];
   template: TemplateConfig;
   onUpdateTemplate: (t: TemplateConfig) => void;
+  onUpdateEvents: (events: CalendarEvent[]) => void;
   onBack: () => void;
 }
 
-export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onBack }) => {
+export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onUpdateEvents, onBack }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [zoom, setZoom] = useState(1);
+  
+  // Selected event for color picking
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [colorPickerPosition, setColorPickerPosition] = useState<{
+    x: number;
+    y: number;
+    placement: 'top' | 'bottom' | 'left' | 'right';
+    arrowOffset: number; // Offset from center for arrow positioning (in pixels)
+  } | null>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const previewPanelRef = useRef<HTMLDivElement>(null);
+
+  // Track previous theme family to detect changes
+  const prevThemeFamilyRef = useRef<ThemeFamilyId>(template.themeFamily);
 
   // Cache for toggle states before compact mode
   const [cachedToggles, setCachedToggles] = useState<{
@@ -27,7 +42,186 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     showNotes: boolean;
   } | null>(null);
 
-  // Zoom controls - simple percentage
+  // Get theme colors for the picker
+  const themeColors = useMemo(() => getThemeColors(template.themeFamily), [template.themeFamily]);
+  
+  // Get the selected event
+  const selectedEvent = useMemo(() => events.find(e => e.id === selectedEventId), [events, selectedEventId]);
+
+  // Handle event click - show color picker with smart positioning
+  const handleEventClick = (event: CalendarEvent) => {
+    const clickedElement = document.querySelector(`[data-event-id="${event.id}"]`);
+    const panel = previewPanelRef.current;
+
+    if (clickedElement && panel) {
+      const elementRect = clickedElement.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+
+      // Picker dimensions
+      const pickerHeight = 180;
+      const pickerWidth = 260;
+      const padding = 16;
+
+      // Calculate available space in each direction
+      const spaceAbove = elementRect.top - panelRect.top;
+      const spaceBelow = panelRect.bottom - elementRect.bottom;
+      const spaceRight = panelRect.right - elementRect.right;
+
+      // Element center position relative to panel
+      const elementCenterX = elementRect.left - panelRect.left + panel.scrollLeft + elementRect.width / 2;
+      const elementCenterY = elementRect.top - panelRect.top + panel.scrollTop + elementRect.height / 2;
+
+      // Determine best placement (prefer top, then bottom, then right, then left)
+      let placement: 'top' | 'bottom' | 'left' | 'right' = 'top';
+      let x: number, y: number;
+      let arrowOffset = 0;
+
+      if (spaceAbove >= pickerHeight + padding || spaceBelow >= pickerHeight + padding) {
+        // Top or bottom placement
+        placement = spaceAbove >= pickerHeight + padding ? 'top' : 'bottom';
+
+        // Start with centered position
+        x = elementCenterX;
+        y = placement === 'top'
+          ? elementRect.top - panelRect.top + panel.scrollTop - 8
+          : elementRect.bottom - panelRect.top + panel.scrollTop + 8;
+
+        // Check for horizontal overflow and adjust
+        const pickerLeft = x - pickerWidth / 2;
+        const pickerRight = x + pickerWidth / 2;
+        const panelContentWidth = panel.scrollWidth;
+
+        if (pickerLeft < padding) {
+          // Would overflow left - shift picker right, offset arrow left
+          const shift = padding - pickerLeft;
+          x += shift;
+          arrowOffset = -shift; // Arrow moves left relative to picker center
+        } else if (pickerRight > panelContentWidth - padding) {
+          // Would overflow right - shift picker left, offset arrow right
+          const shift = pickerRight - (panelContentWidth - padding);
+          x -= shift;
+          arrowOffset = shift; // Arrow moves right relative to picker center
+        }
+      } else if (spaceRight >= pickerWidth + padding) {
+        placement = 'right';
+        x = elementRect.right - panelRect.left + panel.scrollLeft + 8;
+        y = elementCenterY;
+      } else {
+        placement = 'left';
+        x = elementRect.left - panelRect.left + panel.scrollLeft - 8;
+        y = elementCenterY;
+      }
+
+      setColorPickerPosition({ x, y, placement, arrowOffset });
+    }
+    setSelectedEventId(event.id);
+  };
+
+  // Handle blank click - close color picker
+  const handleBlankClick = () => {
+    setSelectedEventId(null);
+    setColorPickerPosition(null);
+  };
+
+  // Update color for all events in the same group (displayTitle)
+  const handleColorSelect = (newColor: string) => {
+    if (!selectedEvent) return;
+    const updatedEvents = events.map(e => {
+      if (e.displayTitle === selectedEvent.displayTitle) {
+        return { ...e, color: newColor };
+      }
+      return e;
+    });
+    onUpdateEvents(updatedEvents);
+  };
+
+  // Helper to adjust color for differentiation (shift to different palette color)
+  const adjustColor = (hex: string, degree: number) => {
+    const idx = themeColors.indexOf(hex);
+    if (idx === -1) return hex;
+    return themeColors[(idx + 2) % themeColors.length]; 
+  };
+
+  // Trigger color differentiation for Labs/Tutorials
+  const triggerColorUpdate = (diff: boolean) => {
+    // Update template setting
+    onUpdateTemplate({ ...template, differentiateTypes: diff });
+    
+    // Get unique display titles and their base colors
+    const displayTitlesSet = new Set<string>();
+    events.forEach(e => displayTitlesSet.add(e.displayTitle));
+    const displayTitles = Array.from(displayTitlesSet);
+    const baseColorMap = new Map<string, string>();
+    displayTitles.forEach((title, index) => {
+      // Use existing color if available, otherwise assign from theme
+      const existingEvent = events.find(e => e.displayTitle === title);
+      baseColorMap.set(title, existingEvent?.color || themeColors[index % themeColors.length]);
+    });
+    
+    const updatedEvents = events.map(event => {
+      const baseColor = baseColorMap.get(event.displayTitle) || themeColors[0];
+      
+      let newColor = baseColor;
+      if (diff) {
+        // Only differentiate Lab and Tutorial, keep Lecture at base color
+        if (event.classType === 'Lab') {
+          newColor = adjustColor(baseColor, 40);
+        } else if (event.classType === 'Tutorial') {
+          newColor = adjustColor(baseColor, 90);
+        }
+        // Lecture, Seminar, and other types stay at baseColor
+      }
+      // When diff is false, all types use baseColor
+      return { ...event, color: newColor };
+    });
+    onUpdateEvents(updatedEvents);
+  };
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        // Check if click is on an event block
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-component="EventBlock"]')) {
+          setSelectedEventId(null);
+          setColorPickerPosition(null);
+        }
+      }
+    };
+    
+    if (selectedEventId) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [selectedEventId]);
+
+  // Apply theme colors when theme family changes (except for default)
+  const applyThemeColors = (newThemeFamily: ThemeFamilyId) => {
+    // Don't recolor for default theme - let users keep their own colors
+    if (newThemeFamily === 'default') return;
+    
+    const themeColors = getThemeColors(newThemeFamily);
+    
+    // Get unique display titles and assign colors
+    const displayTitlesSet = new Set<string>();
+    events.forEach(e => displayTitlesSet.add(e.displayTitle));
+    const displayTitles = Array.from(displayTitlesSet);
+    const colorMap = new Map<string, string>();
+    displayTitles.forEach((title, index) => {
+      colorMap.set(title, themeColors[index % themeColors.length]);
+    });
+    
+    // Update all events with new theme colors
+    const updatedEvents = events.map(event => ({
+      ...event,
+      color: colorMap.get(event.displayTitle) || event.color
+    }));
+    
+    onUpdateEvents(updatedEvents);
+  };
+
+  // Zoom controls
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
   const handleZoomReset = () => setZoom(1);
@@ -44,7 +238,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     <div data-component="ExportLayout" className="flex h-full gap-6 relative">
       
       {/* PREVIEW PANEL - The dark container that holds the calendar preview */}
-      <div data-component="PreviewPanel" className="flex-1 overflow-auto relative">
+      <div data-component="PreviewPanel" ref={previewPanelRef} className="flex-1 overflow-auto relative">
         
         {/* ZOOM TOOLBAR - Absolute positioned, overlays on calendar */}
         <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50 flex items-center gap-2">
@@ -91,10 +285,103 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               <CalendarCanvas
                 events={events}
                 template={template}
+                interactive={true}
+                onEventClick={handleEventClick}
+                onBlankClick={handleBlankClick}
               />
             </div>
           </div>
         </div>
+
+        {/* FLOATING COLOR PICKER - Smart positioning based on available space */}
+        {selectedEvent && colorPickerPosition && (
+          <div
+            ref={colorPickerRef}
+            className="absolute z-[100] animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
+            style={{
+              left: colorPickerPosition.x,
+              top: colorPickerPosition.y,
+              transform: colorPickerPosition.placement === 'top' ? 'translate(-50%, -100%)' :
+                         colorPickerPosition.placement === 'bottom' ? 'translate(-50%, 0%)' :
+                         colorPickerPosition.placement === 'right' ? 'translate(0%, -50%)' :
+                         'translate(-100%, -50%)'
+            }}
+          >
+            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative">
+              {/* Arrow pointer - direction based on placement, with offset */}
+              {colorPickerPosition.placement === 'top' && (
+                <div
+                  className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700"
+                  style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
+                />
+              )}
+              {colorPickerPosition.placement === 'bottom' && (
+                <div
+                  className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700"
+                  style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
+                />
+              )}
+              {colorPickerPosition.placement === 'right' && (
+                <div
+                  className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700"
+                  style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
+                />
+              )}
+              {colorPickerPosition.placement === 'left' && (
+                <div
+                  className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700"
+                  style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
+                />
+              )}
+
+              {/* Header */}
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="text-xs text-gray-400 font-medium italic">
+                  Color (applies to all {selectedEvent.displayTitle})
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedEventId(null);
+                    setColorPickerPosition(null);
+                  }}
+                  className="text-gray-500 hover:text-white transition-colors flex-shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Color swatches - 2 rows grid */}
+              <div className="grid grid-cols-6 gap-1.5 mb-2">
+                {themeColors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => handleColorSelect(color)}
+                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                      selectedEvent.color === color
+                        ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                        : 'border-transparent hover:border-gray-500'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+
+              {/* Different Lab/Tutorial Colors Toggle */}
+              <div className="pt-2 border-t border-gray-700/50">
+                <div className="flex items-center justify-between gap-3 px-1 py-1.5 bg-gray-800/50 rounded-lg">
+                  <span className="text-xs text-gray-300 font-medium whitespace-nowrap">Different Lab/Tutorial Colors</span>
+                  <div
+                    onClick={() => triggerColorUpdate(!template.differentiateTypes)}
+                    className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.differentiateTypes ? 'bg-blue-600' : 'bg-gray-700'}`}
+                  >
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.differentiateTypes ? 'left-6' : 'left-1'}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* SIDEBAR TOGGLE - Shows when sidebar is collapsed */}
         {!isSidebarOpen && (
@@ -139,11 +426,19 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             <div className="flex gap-2">
               <select
                 value={template.themeFamily}
-                onChange={(e) => onUpdateTemplate({ 
-                  ...template, 
-                  themeFamily: e.target.value as any,
-                  theme: `${e.target.value}-${template.themeVariant}` as any
-                })}
+                onChange={(e) => {
+                  const newFamily = e.target.value as ThemeFamilyId;
+                  onUpdateTemplate({ 
+                    ...template, 
+                    themeFamily: newFamily,
+                    theme: `${newFamily}-${template.themeVariant}` as any
+                  });
+                  // Apply theme colors when switching themes (except default)
+                  if (newFamily !== prevThemeFamilyRef.current) {
+                    applyThemeColors(newFamily);
+                    prevThemeFamilyRef.current = newFamily;
+                  }
+                }}
                 className="flex-1 px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all cursor-pointer hover:bg-gray-750"
               >
                 {THEME_FAMILY_LIST.map((family) => (

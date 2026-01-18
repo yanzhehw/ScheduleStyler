@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { CalendarEvent, TemplateConfig } from '../types';
 import { MapPin, AlignLeft } from 'lucide-react';
+import { getTheme } from '../themes';
+import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -320,26 +322,59 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     }
   }, [canvasDimensions.width, canvasDimensions.height, onDimensionsComputed]);
 
+  // Get the current theme object
+  const currentTheme = useMemo(() => {
+    return getTheme(template.themeFamily, template.themeVariant);
+  }, [template.themeFamily, template.themeVariant]);
+
   // Theme styles
   const themeClasses = useMemo(() => {
     // Handle both legacy single theme strings and new structured theme format
     const themeId = template.theme;
     const variant = template.themeVariant;
     const family = template.themeFamily;
-    
+
+    // For acrylic, we'll handle background via inline styles
+    if (family === 'acrylic') {
+      return variant === 'light'
+        ? 'text-gray-900 border-gray-200'
+        : 'text-gray-100 border-gray-700';
+    }
+
     // Check if it's glass family
     if (themeId?.includes('glass') || family === 'glass') {
       return 'bg-white/10 backdrop-blur-xl text-white border-white/20';
     }
-    
+
     // Check variant for light/dark
     if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
       return 'bg-white text-gray-900 border-gray-200';
     }
-    
+
     // Default to dark
     return 'bg-gray-900 text-gray-100 border-gray-700';
   }, [template.theme, template.themeVariant, template.themeFamily]);
+
+  // Canvas inline styles for acrylic theme
+  const canvasStyles = useMemo(() => {
+    const baseStyles: React.CSSProperties = {
+      borderRadius: template.borderRadius,
+      width: `${canvasDimensions.width}px`,
+      height: `${canvasDimensions.height}px`,
+    };
+
+    // Apply acrylic canvas background
+    if (template.themeFamily === 'acrylic') {
+      return {
+        ...baseStyles,
+        background: currentTheme.canvas.background,
+        backgroundSize: currentTheme.canvas.backgroundSize || 'cover',
+        backgroundPosition: currentTheme.canvas.backgroundPosition || 'center',
+      };
+    }
+
+    return baseStyles;
+  }, [template.borderRadius, template.themeFamily, canvasDimensions, currentTheme]);
 
   const gridBorderColor = useMemo(() => {
     const variant = template.themeVariant;
@@ -364,11 +399,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       ref={containerRef}
       id={id}
       className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl shadow-2xl relative`}
-      style={{
-        borderRadius: template.borderRadius,
-        width: `${canvasDimensions.width}px`,
-        height: `${canvasDimensions.height}px`,
-      }}
+      style={canvasStyles}
     >
 
       {/* CALENDAR CONTENT - Wrapper for header + grid */}
@@ -447,6 +478,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 // EVENT BLOCK - Individual class/event card
                 <div
                   data-component="EventBlock"
+                  data-event-id={event.id}
                   key={event.id}
                   onClick={() => interactive && onEventClick && onEventClick(event)}
                   className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border
@@ -457,13 +489,41 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   style={{
                     top: `${topPercent}%`,
                     height: `${heightPercent}%`,
-                    backgroundColor: event.color + ((template.themeFamily === 'glass' || template.theme?.includes('glass')) ? '90' : ''),
-                    borderColor: 'rgba(0,0,0,0.1)',
+                    // Apply acrylic effect for acrylic theme
+                    ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
+                      ? {
+                          background: currentTheme.eventBlock.acrylicBackground,
+                          backgroundBlendMode: currentTheme.eventBlock.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'],
+                          backdropFilter: currentTheme.eventBlock.backdropFilter,
+                          WebkitBackdropFilter: currentTheme.eventBlock.backdropFilter,
+                          boxShadow: currentTheme.eventBlock.shadow,
+                          border: currentTheme.eventBlock.border,
+                          overflow: 'hidden',
+                        }
+                      : {
+                          backgroundColor: event.color + ((template.themeFamily === 'glass' || template.theme?.includes('glass')) ? '90' : ''),
+                          borderColor: 'rgba(0,0,0,0.1)',
+                        }),
                     color: '#fff',
                     zIndex: 10,
                   }}
                 >
-                  <div className="flex flex-col min-w-0 overflow-hidden gap-0">
+                  {/* Grain texture overlay for acrylic theme */}
+                  {template.themeFamily === 'acrylic' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url('${acrylicTextureUrl}')`,
+                        backgroundRepeat: 'repeat',
+                        backgroundSize: '128px 128px',
+                        opacity: 0.1,
+                        pointerEvents: 'none',
+                        borderRadius: 'inherit',
+                      }}
+                    />
+                  )}
+                  <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
                       style={{ fontSize: `${template.fontScale * 0.75}rem`, color: '#1f2937' }}
