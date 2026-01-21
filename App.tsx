@@ -27,6 +27,11 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
   differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
+  gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
+  eventOpacity: 0.5, // Event block color layer opacity (0-1, default 50%)
+  titleFont: 'Inter', // Font for event block title
+  subtitleFont: 'Inter', // Font for event block subtitle
+  detailsFont: 'Inter', // Font for event block details
 };
 
 const App: React.FC = () => {

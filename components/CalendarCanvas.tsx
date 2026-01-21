@@ -14,6 +14,10 @@ interface CalendarCanvasProps {
   showFullTitle?: boolean;
   /** Callback to report computed dimensions to parent */
   onDimensionsComputed?: (dimensions: { width: number; height: number }) => void;
+  /** Callback when day header is clicked */
+  onHeaderClick?: () => void;
+  /** Callback when time column is clicked */
+  onTimeColumnClick?: () => void;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -224,7 +228,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   interactive = false,
   id,
   showFullTitle = false,
-  onDimensionsComputed
+  onDimensionsComputed,
+  onHeaderClick,
+  onTimeColumnClick
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -376,21 +382,36 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return baseStyles;
   }, [template.borderRadius, template.themeFamily, canvasDimensions, currentTheme]);
 
+  // Grid line color based on gridLineStyle setting (independent of theme variant)
   const gridBorderColor = useMemo(() => {
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light')) 
-      ? 'border-gray-100' 
-      : 'border-gray-800';
-  }, [template.theme, template.themeVariant]);
+    return template.gridLineStyle === 'bright'
+      ? 'border-gray-300'
+      : 'border-gray-700';
+  }, [template.gridLineStyle]);
 
+  // Time column text color - use custom color or fall back to theme-based default
   const hourTextColor = useMemo(() => {
+    if (template.timeColumnTextColor) {
+      return ''; // Will use inline style instead
+    }
     const variant = template.themeVariant;
     const themeId = template.theme;
     return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
       ? 'text-gray-400'
       : 'text-gray-500';
-  }, [template.theme, template.themeVariant]);
+  }, [template.theme, template.themeVariant, template.timeColumnTextColor]);
+
+  // Header text color - use custom color or fall back to theme-based default
+  const headerTextColor = useMemo(() => {
+    if (template.headerTextColor) {
+      return template.headerTextColor;
+    }
+    const variant = template.themeVariant;
+    const themeId = template.theme;
+    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
+      ? '#111827'
+      : '#f3f4f6';
+  }, [template.theme, template.themeVariant, template.headerTextColor]);
 
   return (
     // CALENDAR CARD - The main calendar container with theme styling
@@ -410,11 +431,16 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         <div data-component="DayHeader" className="flex mb-4">
           <div className="w-12 shrink-0"></div>
           <div
-            className="flex-1 grid"
+            onClick={() => interactive && onHeaderClick && onHeaderClick()}
+            className={`flex-1 grid ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
             style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
           >
             {visibleDays.map((day) => (
-              <div key={day} className="text-center font-semibold tracking-wider uppercase text-sm opacity-80">
+              <div
+                key={day}
+                className="text-center font-semibold tracking-wider uppercase text-sm opacity-80 py-1"
+                style={{ color: headerTextColor }}
+              >
                 {day}
               </div>
             ))}
@@ -424,9 +450,20 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       {/* SCHEDULE GRID - The main time grid with events */}
       <div data-component="ScheduleGrid" className="flex relative isolate" style={{ height: `${canvasDimensions.gridHeight}px` }}>
         {/* TIME COLUMN - Shows 8:00, 9:00, etc. */}
-        <div data-component="TimeColumn" className="w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0">
+        <div
+          data-component="TimeColumn"
+          onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
+          className={`w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0 ${interactive && onTimeColumnClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+        >
           {hours.map((hour) => (
-            <div key={hour} style={{ height: `${canvasDimensions.gridHeight / hourRange}px` }} className={`-mt-2.5 ${hourTextColor}`}>
+            <div
+              key={hour}
+              style={{
+                height: `${canvasDimensions.gridHeight / hourRange}px`,
+                ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {})
+              }}
+              className={`-mt-2.5 ${hourTextColor}`}
+            >
               {hour}:00
             </div>
           ))}
@@ -492,22 +529,40 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     // Apply acrylic effect for acrylic theme
                     ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
                       ? {
-                          background: currentTheme.eventBlock.acrylicBackground,
-                          backgroundBlendMode: currentTheme.eventBlock.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'],
-                          backdropFilter: currentTheme.eventBlock.backdropFilter,
-                          WebkitBackdropFilter: currentTheme.eventBlock.backdropFilter,
+                          // Use event color with opacity based on eventOpacity setting
+                          background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
                           boxShadow: currentTheme.eventBlock.shadow,
                           border: currentTheme.eventBlock.border,
                           overflow: 'hidden',
                         }
+                      : template.themeFamily === 'glass'
+                      ? {
+                          backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
+                          borderColor: 'rgba(255,255,255,0.2)',
+                          overflow: 'hidden',
+                        }
                       : {
-                          backgroundColor: event.color + ((template.themeFamily === 'glass' || template.theme?.includes('glass')) ? '90' : ''),
+                          backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
                           borderColor: 'rgba(0,0,0,0.1)',
                         }),
                     color: '#fff',
                     zIndex: 10,
                   }}
                 >
+                  {/* Backdrop blur layer for acrylic/glass themes */}
+                  {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        pointerEvents: 'none',
+                        borderRadius: 'inherit',
+                        zIndex: -1,
+                      }}
+                    />
+                  )}
                   {/* Grain texture overlay for acrylic theme */}
                   {template.themeFamily === 'acrylic' && (
                     <div
@@ -526,7 +581,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
-                      style={{ fontSize: `${template.fontScale * 0.75}rem`, color: '#1f2937' }}
+                      style={{
+                        fontSize: `${template.fontScale * 0.75}rem`,
+                        fontFamily: template.titleFont,
+                        color: template.titleTextColor || (template.themeFamily === 'acrylic'
+                          ? currentTheme.eventBlock.titleColor
+                          : '#1f2937')
+                      }}
                       title={showFullTitle ? event.title : event.displayTitle}
                     >
                       {showFullTitle ? event.title : event.displayTitle}
@@ -536,7 +597,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     {template.showClassType && (
                       <div
                         className="font-semibold opacity-90"
-                        style={{ fontSize: `${template.fontScale * 0.6}rem`, color: '#1f2937', marginTop: '2px' }}
+                        style={{
+                          fontSize: `${template.fontScale * 0.6}rem`,
+                          fontFamily: template.subtitleFont,
+                          color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
+                            ? currentTheme.eventBlock.subtitleColor
+                            : '#1f2937'),
+                          marginTop: '2px'
+                        }}
                       >
                         {event.classType === 'Custom' ? event.customClassType : event.classType}
                       </div>
@@ -546,7 +614,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   {!template.compact && (
                     <div
                       className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
-                      style={{ fontSize: `${template.fontScale * 0.6}rem`, color: '#374151', marginTop: '2px' }}
+                      style={{
+                        fontSize: `${template.fontScale * 0.6}rem`,
+                        fontFamily: template.detailsFont,
+                        color: template.detailsTextColor || (template.themeFamily === 'acrylic'
+                          ? currentTheme.eventBlock.detailsColor
+                          : '#374151'),
+                        marginTop: '2px'
+                      }}
                     >
                       {template.showTime && (
                         <div className="flex items-center gap-1 font-mono opacity-80">

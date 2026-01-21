@@ -333,6 +333,9 @@ export type ThemeVariantId = 'light' | 'dark';
 /** Combined theme ID (family-variant) */
 export type ThemeId = `${ThemeFamilyId}-${ThemeVariantId}` | 'light' | 'dark' | 'glass';
 
+/** Grid line style type */
+export type GridLineStyle = 'bright' | 'dark';
+
 export interface TemplateConfig {
   id: string;
   name: string;
@@ -367,6 +370,36 @@ export interface TemplateConfig {
 
   /** Differentiate Labs/Tutorials with different colors */
   differentiateTypes: boolean;
+
+  /** Grid line style - bright or dark (independent of theme variant) */
+  gridLineStyle: GridLineStyle;
+
+  /** Custom day header text color (optional, uses theme default if not set) */
+  headerTextColor?: string;
+
+  /** Custom time column text color (optional, uses theme default if not set) */
+  timeColumnTextColor?: string;
+
+  /** Event block color layer opacity (0-1, default 0.5) */
+  eventOpacity: number;
+
+  /** Font for event block title */
+  titleFont: string;
+
+  /** Font for event block subtitle (class type) */
+  subtitleFont: string;
+
+  /** Font for event block details (time, location, notes) */
+  detailsFont: string;
+
+  /** Custom text color for event block title (optional) */
+  titleTextColor?: string;
+
+  /** Custom text color for event block subtitle/class type (optional) */
+  subtitleTextColor?: string;
+
+  /** Custom text color for event block details (optional) */
+  detailsTextColor?: string;
 }
 
 export interface ProcessedData {

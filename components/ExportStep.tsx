@@ -3,8 +3,9 @@ import { CalendarEvent, TemplateConfig, ThemeFamilyId } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { downloadComponentAsImage } from '../services/imageUtils';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Sun, Moon, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon } from 'lucide-react';
 import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
+import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
 interface ExportStepProps {
   events: CalendarEvent[];
@@ -18,10 +19,33 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [isExporting, setIsExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [isScaleRatioExpanded, setIsScaleRatioExpanded] = useState(false);
+
+  // Header/Time column text editing
+  const [headerTextEditorOpen, setHeaderTextEditorOpen] = useState(false);
+  const [timeColumnEditorOpen, setTimeColumnEditorOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   
   // Selected event for color picking
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [applyColorToAll, setApplyColorToAll] = useState(false);
+  const [showFontSelector, setShowFontSelector] = useState(false);
+  const [openFontDropdown, setOpenFontDropdown] = useState<'title' | 'subtitle' | 'details' | null>(null);
+  const [openTextColorPicker, setOpenTextColorPicker] = useState<'title' | 'subtitle' | 'details' | null>(null);
+
+  // Available fonts for selection (loaded from Google Fonts)
+  const availableFonts = [
+    'Inter',
+    'Poppins',
+    'Nunito',
+    'Outfit',
+    'DM Sans',
+    'Playfair Display',
+    'Lora',
+    'JetBrains Mono',
+    'Fira Code',
+    'Space Mono',
+  ];
   const [colorPickerPosition, setColorPickerPosition] = useState<{
     x: number;
     y: number;
@@ -42,8 +66,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     showNotes: boolean;
   } | null>(null);
 
-  // Get theme colors for the picker
-  const themeColors = useMemo(() => getThemeColors(template.themeFamily), [template.themeFamily]);
+  // Get theme colors for the picker (with variant support for acrylic)
+  const themeColors = useMemo(() => getThemeColors(template.themeFamily, template.themeVariant), [template.themeFamily, template.themeVariant]);
   
   // Get the selected event
   const selectedEvent = useMemo(() => events.find(e => e.id === selectedEventId), [events, selectedEventId]);
@@ -58,27 +82,32 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       const panelRect = panel.getBoundingClientRect();
 
       // Picker dimensions
-      const pickerHeight = 180;
-      const pickerWidth = 260;
+      const pickerHeight = 260;
+      const pickerWidth = 180;
       const padding = 16;
 
-      // Calculate available space in each direction
+      // Calculate available space in each direction (using visible panel area)
       const spaceAbove = elementRect.top - panelRect.top;
       const spaceBelow = panelRect.bottom - elementRect.bottom;
       const spaceRight = panelRect.right - elementRect.right;
+      const spaceLeft = elementRect.left - panelRect.left;
 
       // Element center position relative to panel
       const elementCenterX = elementRect.left - panelRect.left + panel.scrollLeft + elementRect.width / 2;
       const elementCenterY = elementRect.top - panelRect.top + panel.scrollTop + elementRect.height / 2;
 
-      // Determine best placement (prefer top, then bottom, then right, then left)
-      let placement: 'top' | 'bottom' | 'left' | 'right' = 'top';
+      // Determine best placement (prefer bottom, then top, then right, then left)
+      let placement: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
       let x: number, y: number;
       let arrowOffset = 0;
 
-      if (spaceAbove >= pickerHeight + padding || spaceBelow >= pickerHeight + padding) {
-        // Top or bottom placement
-        placement = spaceAbove >= pickerHeight + padding ? 'top' : 'bottom';
+      // Check if we have enough space below or above
+      const hasSpaceBelow = spaceBelow >= pickerHeight + padding;
+      const hasSpaceAbove = spaceAbove >= pickerHeight + padding;
+
+      if (hasSpaceBelow || hasSpaceAbove) {
+        // Prefer bottom, fall back to top
+        placement = hasSpaceBelow ? 'bottom' : 'top';
 
         // Start with centered position
         x = elementCenterX;
@@ -89,32 +118,45 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         // Check for horizontal overflow and adjust
         const pickerLeft = x - pickerWidth / 2;
         const pickerRight = x + pickerWidth / 2;
-        const panelContentWidth = panel.scrollWidth;
+        const panelVisibleWidth = panelRect.width;
 
         if (pickerLeft < padding) {
           // Would overflow left - shift picker right, offset arrow left
           const shift = padding - pickerLeft;
           x += shift;
           arrowOffset = -shift; // Arrow moves left relative to picker center
-        } else if (pickerRight > panelContentWidth - padding) {
+        } else if (pickerRight > panelVisibleWidth - padding) {
           // Would overflow right - shift picker left, offset arrow right
-          const shift = pickerRight - (panelContentWidth - padding);
+          const shift = pickerRight - (panelVisibleWidth - padding);
           x -= shift;
           arrowOffset = shift; // Arrow moves right relative to picker center
+        }
+
+        // Clamp vertical position to stay within visible area
+        if (placement === 'top') {
+          y = Math.max(pickerHeight + padding, y);
+        } else {
+          y = Math.min(panelRect.height + panel.scrollTop - padding, y);
         }
       } else if (spaceRight >= pickerWidth + padding) {
         placement = 'right';
         x = elementRect.right - panelRect.left + panel.scrollLeft + 8;
-        y = elementCenterY;
-      } else {
+        y = Math.min(Math.max(pickerHeight / 2 + padding, elementCenterY), panelRect.height - pickerHeight / 2 - padding);
+      } else if (spaceLeft >= pickerWidth + padding) {
         placement = 'left';
         x = elementRect.left - panelRect.left + panel.scrollLeft - 8;
-        y = elementCenterY;
+        y = Math.min(Math.max(pickerHeight / 2 + padding, elementCenterY), panelRect.height - pickerHeight / 2 - padding);
+      } else {
+        // Fallback: place at center of visible area
+        placement = 'bottom';
+        x = panelRect.width / 2;
+        y = panel.scrollTop + panelRect.height / 2;
       }
 
       setColorPickerPosition({ x, y, placement, arrowOffset });
     }
     setSelectedEventId(event.id);
+    setShowFontSelector(false); // Close font selector when clicking an event block
   };
 
   // Handle blank click - close color picker
@@ -123,11 +165,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     setColorPickerPosition(null);
   };
 
-  // Update color for all events in the same group (displayTitle)
+  // Update color for events - either all events or just the same group (displayTitle)
   const handleColorSelect = (newColor: string) => {
     if (!selectedEvent) return;
     const updatedEvents = events.map(e => {
-      if (e.displayTitle === selectedEvent.displayTitle) {
+      if (applyColorToAll || e.displayTitle === selectedEvent.displayTitle) {
         return { ...e, color: newColor };
       }
       return e;
@@ -189,35 +231,48 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         }
       }
     };
-    
+
     if (selectedEventId) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [selectedEventId]);
 
-  // Apply theme colors when theme family changes (except for default)
-  const applyThemeColors = (newThemeFamily: ThemeFamilyId) => {
-    // Don't recolor for default theme - let users keep their own colors
-    if (newThemeFamily === 'default') return;
-    
-    const themeColors = getThemeColors(newThemeFamily);
-    
+  // Close font dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-component="FontSelectorPanel"]')) {
+        setOpenFontDropdown(null);
+      }
+    };
+
+    if (openFontDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [openFontDropdown]);
+
+  // Apply theme colors when theme family or variant changes
+  const applyThemeColors = (newThemeFamily: ThemeFamilyId, newVariant?: 'light' | 'dark') => {
+    const variant = newVariant ?? template.themeVariant;
+    const newThemeColors = getThemeColors(newThemeFamily, variant);
+
     // Get unique display titles and assign colors
     const displayTitlesSet = new Set<string>();
     events.forEach(e => displayTitlesSet.add(e.displayTitle));
     const displayTitles = Array.from(displayTitlesSet);
     const colorMap = new Map<string, string>();
     displayTitles.forEach((title, index) => {
-      colorMap.set(title, themeColors[index % themeColors.length]);
+      colorMap.set(title, newThemeColors[index % newThemeColors.length]);
     });
-    
+
     // Update all events with new theme colors
     const updatedEvents = events.map(event => ({
       ...event,
       color: colorMap.get(event.displayTitle) || event.color
     }));
-    
+
     onUpdateEvents(updatedEvents);
   };
 
@@ -288,6 +343,18 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 interactive={true}
                 onEventClick={handleEventClick}
                 onBlankClick={handleBlankClick}
+                onHeaderClick={() => {
+                  setHeaderTextEditorOpen(true);
+                  setTimeColumnEditorOpen(false);
+                  setSelectedEventId(null);
+                  setColorPickerPosition(null);
+                }}
+                onTimeColumnClick={() => {
+                  setTimeColumnEditorOpen(true);
+                  setHeaderTextEditorOpen(false);
+                  setSelectedEventId(null);
+                  setColorPickerPosition(null);
+                }}
               />
             </div>
           </div>
@@ -337,7 +404,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               {/* Header */}
               <div className="flex items-center justify-between gap-3 mb-2">
                 <span className="text-xs text-gray-400 font-medium italic">
-                  Color (applies to all {selectedEvent.displayTitle})
+                  {applyColorToAll ? 'Color (applies to all blocks)' : `Color (applies to all ${selectedEvent.displayTitle})`}
                 </span>
                 <button
                   onClick={() => {
@@ -350,22 +417,104 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </button>
               </div>
 
+              {/* Apply to All Toggle */}
+              <div className="flex items-center justify-between gap-3 px-1 py-1.5 mb-2 bg-gray-800/50 rounded-lg">
+                <span className="text-xs text-gray-300 font-medium whitespace-nowrap">Apply to All Blocks</span>
+                <div
+                  onClick={() => {
+                    const newValue = !applyColorToAll;
+                    setApplyColorToAll(newValue);
+                    // When toggling ON, immediately apply current color to all blocks
+                    if (newValue && selectedEvent?.color) {
+                      const updatedEvents = events.map(e => ({ ...e, color: selectedEvent.color }));
+                      onUpdateEvents(updatedEvents);
+                    }
+                  }}
+                  className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${applyColorToAll ? 'bg-blue-600' : 'bg-gray-700'}`}
+                >
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-6' : 'left-1'}`} />
+                </div>
+              </div>
+
               {/* Color swatches - 2 rows grid */}
               <div className="grid grid-cols-6 gap-1.5 mb-2">
                 {themeColors.map(color => (
                   <button
                     key={color}
                     onClick={() => handleColorSelect(color)}
-                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 relative overflow-hidden ${
                       selectedEvent.color === color
                         ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
                         : 'border-transparent hover:border-gray-500'
                     }`}
-                    style={{ backgroundColor: color }}
+                    style={{
+                      // For acrylic: neutral gray base + color layers
+                      backgroundColor: template.themeFamily === 'acrylic' ? '#6b7280' : color,
+                    }}
                     title={color}
-                  />
+                  >
+                    {/* Color layer for acrylic theme - higher opacity for picker visibility */}
+                    {template.themeFamily === 'acrylic' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundColor: `${color}ad`, // ad hex = ~68% opacity
+                          borderRadius: 'inherit',
+                        }}
+                      />
+                    )}
+                    {/* Grain texture overlay for acrylic theme */}
+                    {template.themeFamily === 'acrylic' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundImage: `url('${acrylicTextureUrl}')`,
+                          backgroundRepeat: 'repeat',
+                          backgroundSize: '64px 64px',
+                          opacity: 0.1,
+                          pointerEvents: 'none',
+                          borderRadius: 'inherit',
+                        }}
+                      />
+                    )}
+                    {/* White overlay for acrylic theme */}
+                    {template.themeFamily === 'acrylic' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: 'inherit',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    )}
+                  </button>
                 ))}
               </div>
+
+              {/* Color Opacity Slider - Only for acrylic and glass themes */}
+              {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                <div className="pt-2 border-t border-gray-700/50">
+                  <div className="px-1 py-1.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-300 font-medium">Color Opacity</span>
+                      <span className="text-xs text-gray-500">{Math.round(template.eventOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={template.eventOpacity}
+                      onChange={(e) => onUpdateTemplate({ ...template, eventOpacity: parseFloat(e.target.value) })}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Different Lab/Tutorial Colors Toggle */}
               <div className="pt-2 border-t border-gray-700/50">
@@ -378,6 +527,20 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.differentiateTypes ? 'left-6' : 'left-1'}`} />
                   </div>
                 </div>
+              </div>
+
+              {/* Edit Fonts Button */}
+              <div className="pt-2 border-t border-gray-700/50">
+                <button
+                  onClick={() => {
+                    setShowFontSelector(true);
+                    setColorPickerPosition(null);
+                    // Keep selectedEventId so font panel can show the preview
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <TypeIcon size={14} /> Edit Fonts
+                </button>
               </div>
             </div>
           </div>
@@ -394,6 +557,424 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </button>
         )}
       </div>
+
+      {/* TEXT FONT/COLORS PANEL - Shows between canvas and sidebar when editing fonts */}
+      {showFontSelector && selectedEvent && (
+        <div
+          data-component="FontSelectorPanel"
+          className="w-80 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50"
+          style={{ pointerEvents: 'auto' }}
+        >
+          {/* Panel Header */}
+          <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+            <h3 className="font-semibold text-white text-sm">Text Font/Colors</h3>
+            <button
+              onClick={() => setShowFontSelector(false)}
+              className="text-gray-500 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Sample Block Preview */}
+          <div className="p-4 border-b border-gray-800">
+            <div
+              className="p-3 rounded-lg"
+              style={{
+                backgroundColor: selectedEvent.color || '#60a5fa',
+                opacity: template.eventOpacity,
+              }}
+            >
+              <div
+                className="font-bold uppercase tracking-wide mb-1"
+                style={{
+                  fontFamily: template.titleFont,
+                  fontSize: `${template.fontScale * 0.75}rem`,
+                  color: template.titleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? '#fff' : '#1f2937'),
+                }}
+              >
+                {selectedEvent.displayTitle}
+              </div>
+              {template.showClassType && (
+                <div
+                  className="font-semibold opacity-90 mb-1"
+                  style={{
+                    fontFamily: template.subtitleFont,
+                    fontSize: `${template.fontScale * 0.6}rem`,
+                    color: template.subtitleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937'),
+                  }}
+                >
+                  {selectedEvent.classType === 'Custom' ? selectedEvent.customClassType : selectedEvent.classType}
+                </div>
+              )}
+              {template.showTime && (
+                <div
+                  className="opacity-80"
+                  style={{
+                    fontFamily: template.detailsFont,
+                    fontSize: `${template.fontScale * 0.6}rem`,
+                    color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151'),
+                  }}
+                >
+                  {selectedEvent.startTime} - {selectedEvent.endTime}
+                </div>
+              )}
+              {template.showLocation && selectedEvent.location && (
+                <div
+                  className="flex items-center gap-1 opacity-75 mt-0.5"
+                  style={{
+                    fontFamily: template.detailsFont,
+                    fontSize: `${template.fontScale * 0.6}rem`,
+                    color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.75)' : '#374151'),
+                  }}
+                >
+                  <MapPin size={10} className="shrink-0" />
+                  <span>{selectedEvent.location}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Font & Color Selectors */}
+          <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">
+            {/* Title Font & Color */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">Title</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <button
+                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'title' ? null : 'title'); setOpenTextColorPicker(null); }}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                  >
+                    <span style={{ fontFamily: template.titleFont, fontWeight: 700 }}>{template.titleFont}</span>
+                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'title' ? 'rotate-180' : ''}`} />
+                  </button>
+                  {openFontDropdown === 'title' && (
+                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {availableFonts.map((font) => (
+                        <button
+                          key={font}
+                          onClick={() => {
+                            onUpdateTemplate({ ...template, titleFont: font });
+                            setOpenFontDropdown(null);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.titleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                          style={{ fontFamily: font, fontWeight: 700 }}
+                        >
+                          {font}
+                          {template.titleFont === font && <span className="text-blue-400">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => { setOpenTextColorPicker(openTextColorPicker === 'title' ? null : 'title'); setOpenFontDropdown(null); }}
+                    className="w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors flex items-center justify-center"
+                    style={{ backgroundColor: template.titleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? '#fff' : '#1f2937') }}
+                  />
+                  {openTextColorPicker === 'title' && (
+                    <div className="absolute z-50 mt-1 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2">
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {['#ffffff', '#f3f4f6', '#d1d5db', '#9ca3af', '#1f2937', '#111827', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => { onUpdateTemplate({ ...template, titleTextColor: color }); setOpenTextColorPicker(null); }}
+                            className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${template.titleTextColor === color ? 'border-blue-400 scale-110' : 'border-transparent'}`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => { onUpdateTemplate({ ...template, titleTextColor: undefined }); setOpenTextColorPicker(null); }}
+                        className="w-full text-xs text-gray-400 hover:text-white py-1"
+                      >
+                        Reset to default
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Subtitle Font & Color */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">Class Type</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <button
+                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'subtitle' ? null : 'subtitle'); setOpenTextColorPicker(null); }}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                  >
+                    <span style={{ fontFamily: template.subtitleFont, fontWeight: 600 }}>{template.subtitleFont}</span>
+                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'subtitle' ? 'rotate-180' : ''}`} />
+                  </button>
+                  {openFontDropdown === 'subtitle' && (
+                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {availableFonts.map((font) => (
+                        <button
+                          key={font}
+                          onClick={() => {
+                            onUpdateTemplate({ ...template, subtitleFont: font });
+                            setOpenFontDropdown(null);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.subtitleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                          style={{ fontFamily: font, fontWeight: 600 }}
+                        >
+                          {font}
+                          {template.subtitleFont === font && <span className="text-blue-400">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => { setOpenTextColorPicker(openTextColorPicker === 'subtitle' ? null : 'subtitle'); setOpenFontDropdown(null); }}
+                    className="w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors flex items-center justify-center"
+                    style={{ backgroundColor: template.subtitleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937') }}
+                  />
+                  {openTextColorPicker === 'subtitle' && (
+                    <div className="absolute z-50 mt-1 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2">
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {['#ffffff', '#f3f4f6', '#d1d5db', '#9ca3af', '#1f2937', '#111827', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => { onUpdateTemplate({ ...template, subtitleTextColor: color }); setOpenTextColorPicker(null); }}
+                            className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${template.subtitleTextColor === color ? 'border-blue-400 scale-110' : 'border-transparent'}`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => { onUpdateTemplate({ ...template, subtitleTextColor: undefined }); setOpenTextColorPicker(null); }}
+                        className="w-full text-xs text-gray-400 hover:text-white py-1"
+                      >
+                        Reset to default
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Details Font & Color */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">Details (Time, Location)</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <button
+                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'details' ? null : 'details'); setOpenTextColorPicker(null); }}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                  >
+                    <span style={{ fontFamily: template.detailsFont, fontWeight: 400 }}>{template.detailsFont}</span>
+                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'details' ? 'rotate-180' : ''}`} />
+                  </button>
+                  {openFontDropdown === 'details' && (
+                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {availableFonts.map((font) => (
+                        <button
+                          key={font}
+                          onClick={() => {
+                            onUpdateTemplate({ ...template, detailsFont: font });
+                            setOpenFontDropdown(null);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.detailsFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                          style={{ fontFamily: font, fontWeight: 400 }}
+                        >
+                          {font}
+                          {template.detailsFont === font && <span className="text-blue-400">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => { setOpenTextColorPicker(openTextColorPicker === 'details' ? null : 'details'); setOpenFontDropdown(null); }}
+                    className="w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors flex items-center justify-center"
+                    style={{ backgroundColor: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151') }}
+                  />
+                  {openTextColorPicker === 'details' && (
+                    <div className="absolute z-50 mt-1 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2">
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {['#ffffff', '#f3f4f6', '#d1d5db', '#9ca3af', '#1f2937', '#111827', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => { onUpdateTemplate({ ...template, detailsTextColor: color }); setOpenTextColorPicker(null); }}
+                            className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${template.detailsTextColor === color ? 'border-blue-400 scale-110' : 'border-transparent'}`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => { onUpdateTemplate({ ...template, detailsTextColor: undefined }); setOpenTextColorPicker(null); }}
+                        className="w-full text-xs text-gray-400 hover:text-white py-1"
+                      >
+                        Reset to default
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Done Button */}
+            <button
+              onClick={() => setShowFontSelector(false)}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER TEXT EDITOR PANEL - Shows when day titles are clicked */}
+      {headerTextEditorOpen && (
+        <div
+          data-component="HeaderTextEditorPanel"
+          className="w-72 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50"
+          style={{ pointerEvents: 'auto' }}
+        >
+          {/* Panel Header */}
+          <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+            <h3 className="font-semibold text-white text-sm">Day Header Style</h3>
+            <button
+              onClick={() => setHeaderTextEditorOpen(false)}
+              className="text-gray-500 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex justify-center gap-2">
+              {['Mon', 'Tue', 'Wed'].map((day) => (
+                <div
+                  key={day}
+                  className="text-center font-semibold tracking-wider uppercase text-sm opacity-80 px-2 py-1"
+                  style={{ color: template.headerTextColor || (template.themeVariant === 'light' ? '#111827' : '#f3f4f6') }}
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Color Picker */}
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">Text Color</label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
+                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                      template.headerTextColor === color
+                        ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                        : 'border-transparent hover:border-gray-500'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <button
+              onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined })}
+              className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+            >
+              Reset to Theme Default
+            </button>
+
+            {/* Done Button */}
+            <button
+              onClick={() => setHeaderTextEditorOpen(false)}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TIME COLUMN EDITOR PANEL - Shows when time column is clicked */}
+      {timeColumnEditorOpen && (
+        <div
+          data-component="TimeColumnEditorPanel"
+          className="w-72 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50"
+          style={{ pointerEvents: 'auto' }}
+        >
+          {/* Panel Header */}
+          <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+            <h3 className="font-semibold text-white text-sm">Time Column Style</h3>
+            <button
+              onClick={() => setTimeColumnEditorOpen(false)}
+              className="text-gray-500 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex flex-col items-end gap-1 font-mono text-xs">
+              {[9, 10, 11].map((hour) => (
+                <div
+                  key={hour}
+                  style={{ color: template.timeColumnTextColor || (template.themeVariant === 'light' ? '#9ca3af' : '#6b7280') }}
+                >
+                  {hour}:00
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Color Picker */}
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">Text Color</label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
+                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                      template.timeColumnTextColor === color
+                        ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                        : 'border-transparent hover:border-gray-500'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <button
+              onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: undefined })}
+              className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+            >
+              Reset to Theme Default
+            </button>
+
+            {/* Done Button */}
+            <button
+              onClick={() => setTimeColumnEditorOpen(false)}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* SETTINGS SIDEBAR - Right panel with all style controls */}
       <div 
@@ -457,6 +1038,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     themeVariant: newVariant,
                     theme: `${template.themeFamily}-${newVariant}` as any
                   });
+                  // Apply theme colors when switching variants
+                  applyThemeColors(template.themeFamily, newVariant);
                 }}
                 className="px-4 py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border border-gray-600 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group"
               >
@@ -476,71 +1059,83 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
           </div>
 
-          {/* Typography */}
-          <div className="space-y-3">
-             <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
-              <Type size={16} /> Text Scale
-            </div>
-            <div className="flex items-center gap-3">
-               <span className="text-xs text-gray-500">A</span>
-               <input 
-                  type="range" 
-                  min="0.8" 
-                  max="1.5" 
-                  step="0.1" 
-                  value={template.fontScale}
-                  onChange={(e) => onUpdateTemplate({ ...template, fontScale: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-               <span className="text-sm text-gray-500">A</span>
-            </div>
-          </div>
+          {/* Scale/Ratio Section - Collapsible */}
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isScaleRatioExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+            <button
+              onClick={() => setIsScaleRatioExpanded(!isScaleRatioExpanded)}
+              className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Maximize2 size={16} /> Scale / Ratio
+              </div>
+              {isScaleRatioExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${isScaleRatioExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="space-y-4 pt-2">
+                {/* Text Scale */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Text Scale</span>
+                    <span className="text-xs text-gray-500">{Math.round(template.fontScale * 100)}%</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">A</span>
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="1.5"
+                      step="0.1"
+                      value={template.fontScale}
+                      onChange={(e) => onUpdateTemplate({ ...template, fontScale: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-gray-500">A</span>
+                  </div>
+                </div>
 
-          {/* Aspect Ratio Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300 font-medium flex items-center gap-2">
-                <Maximize2 size={16} /> Aspect Ratio
-              </span>
-              <span className="text-xs text-gray-500">
-                {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
-              </span>
-            </div>
-            
-            {/* Aspect Ratio Slider */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">16:9</span>
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.05" 
-                value={template.aspectRatio}
-                onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <span className="text-xs text-gray-500">9:16</span>
-            </div>
-
-            {/* Quick Presets */}
-            <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-              <button
-                onClick={() => onUpdateTemplate({ ...template, aspectRatio: 0 })}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-              >
-                <Monitor size={14} /> Desktop
-              </button>
-              <button
-                onClick={() => onUpdateTemplate({ ...template, aspectRatio: 1 })}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-              >
-                <Smartphone size={14} /> Mobile
-              </button>
+                {/* Aspect Ratio */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Aspect Ratio</span>
+                    <span className="text-xs text-gray-500">
+                      {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">16:9</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={template.aspectRatio}
+                      onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
+                      className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-xs text-gray-500">9:16</span>
+                  </div>
+                  {/* Quick Presets */}
+                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, aspectRatio: 0 })}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      <Monitor size={14} /> Desktop
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, aspectRatio: 1 })}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      <Smartphone size={14} /> Mobile
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Layout Options - Collapsible */}
-          <div className="space-y-3">
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isContentExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
             <button
               onClick={() => setIsContentExpanded(!isContentExpanded)}
               className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
@@ -550,8 +1145,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
               {isContentExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
-            {isContentExpanded && (
-              <div className="space-y-1">
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${isContentExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="space-y-1 pt-2">
                 {/* Compact View at top - toggles off other options when enabled */}
                 <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-gray-600 transition-colors">
                   <ToggleSwitch
@@ -631,30 +1226,50 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Grid & Download */}
-          <div className="space-y-3">
-             <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
-              <Grid size={16} /> Grid
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors">
-                <ToggleSwitch
-                  enabled={template.showGrid}
-                  onToggle={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
-                  label={<span className="text-sm text-gray-300">Show Grid Lines</span>}
-                />
+          {/* Grid Section */}
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${template.showGrid ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
+                <Grid size={16} /> Grid
               </div>
-              <button
-                onClick={handleDownload}
-                disabled={isExporting}
-                className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+              <div
+                onClick={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
+                className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.showGrid ? 'bg-blue-600' : 'bg-gray-700'}`}
               >
-                {isExporting ? '...' : <><Download size={18} /></>}
-              </button>
+                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.showGrid ? 'left-6' : 'left-1'}`} />
+              </div>
             </div>
+            {/* Grid Line Style Toggle - only shown when grid is visible */}
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${template.showGrid ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                <button
+                  onClick={() => onUpdateTemplate({ ...template, gridLineStyle: 'bright' })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.gridLineStyle === 'bright' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  <Sun size={14} /> Bright
+                </button>
+                <button
+                  onClick={() => onUpdateTemplate({ ...template, gridLineStyle: 'dark' })}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.gridLineStyle === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  <Moon size={14} /> Dark
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Download Button - Standalone */}
+          <div className="pt-2">
+            <button
+              onClick={handleDownload}
+              disabled={isExporting}
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              {isExporting ? 'Exporting...' : <><Download size={18} /> Download</>}
+            </button>
           </div>
 
         </div>

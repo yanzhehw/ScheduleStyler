@@ -83,8 +83,8 @@ const MATT_COLORS = [
   '#c9c4a6', // Khaki
 ];
 
-/** Acrylic theme colors - Frosted, diffused through glass */
-const ACRYLIC_COLORS = [
+/** Acrylic theme colors for LIGHT variant - Brighter, vibrant frosted colors */
+const ACRYLIC_COLORS_LIGHT = [
   '#94a3b8', // Frosted Slate
   '#a78bfa', // Frosted Violet
   '#7dd3fc', // Frosted Sky
@@ -98,6 +98,25 @@ const ACRYLIC_COLORS = [
   '#a5f3fc', // Frosted Aqua
   '#d8b4fe', // Frosted Purple
 ];
+
+/** Acrylic theme colors for DARK variant - Deep, muted frosted colors */
+const ACRYLIC_COLORS_DARK = [
+  '#0e1526', // Deep Navy
+  '#1e1b4b', // Deep Indigo
+  '#134e4a', // Deep Teal
+  '#3f3f46', // Deep Zinc
+  '#1c1917', // Deep Stone
+  '#422006', // Deep Amber
+  '#4a044e', // Deep Fuchsia
+  '#083344', // Deep Cyan
+  '#365314', // Deep Lime
+  '#7f1d1d', // Deep Red
+  '#312e81', // Deep Violet
+  '#1e3a5f', // Deep Slate Blue
+];
+
+/** Legacy: Default acrylic colors (light variant) */
+const ACRYLIC_COLORS = ACRYLIC_COLORS_LIGHT;
 
 // =============================================================================
 // DEFAULT THEME FAMILY
@@ -866,11 +885,15 @@ export const getCanvasTheme = (themeId: string): CalendarCanvasTheme => {
   return CANVAS_THEMES[themeId] ?? DEFAULT_DARK;
 };
 
-/** Get colors for a theme family */
-export const getThemeColors = (familyId: string): string[] => {
+/** Get colors for a theme family, with variant support for acrylic */
+export const getThemeColors = (familyId: string, variant?: ThemeVariant): string[] => {
+  // Special handling for acrylic theme - different colors for light/dark
+  if (familyId === 'acrylic') {
+    return variant === 'dark' ? ACRYLIC_COLORS_DARK : ACRYLIC_COLORS_LIGHT;
+  }
   const family = THEME_FAMILIES[familyId];
   return family?.colors ?? DEFAULT_COLORS;
 };
 
 /** Export color palettes for external use */
-export { DEFAULT_COLORS, GLASS_COLORS, MATT_COLORS, ACRYLIC_COLORS };
+export { DEFAULT_COLORS, GLASS_COLORS, MATT_COLORS, ACRYLIC_COLORS, ACRYLIC_COLORS_LIGHT, ACRYLIC_COLORS_DARK };
