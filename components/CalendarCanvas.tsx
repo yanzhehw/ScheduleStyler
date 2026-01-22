@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { CalendarEvent, TemplateConfig } from '../types';
-import { MapPin, AlignLeft } from 'lucide-react';
+import { MapPin, AlignLeft, Plus } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
@@ -20,6 +20,16 @@ interface CalendarCanvasProps {
   onTimeColumnClick?: () => void;
   /** Export mode - renders fallback backgrounds instead of backdrop-filter (for image export) */
   exportMode?: boolean;
+  /** Selected event for highlighting and drag */
+  selectedEventId?: string | null;
+  /** Callback for drag updates */
+  onEventTimeChange?: (eventId: string, updates: { startTime: string; endTime: string; dayIndex: number }) => void;
+  /** Callback when clicking an empty hour slot */
+  onEmptyBlockClick?: (slot: { dayIndex: number; startTime: string; endTime: string }) => void;
+  /** Visual scale factor applied by the parent (used to keep blur consistent) */
+  visualScale?: number;
+  /** Hide borders for unselected events (used in edit view) */
+  hideUnselectedBorders?: boolean;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -180,6 +190,18 @@ const roundToNearestHalfHour = (timeInHours: number): number => {
   return Math.round(timeInHours * 2) / 2;
 };
 
+const parseTimeToHours = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours + (minutes || 0) / 60;
+};
+
+const formatTimeFromHours = (timeInHours: number): string => {
+  const clamped = Math.max(0, Math.min(24, timeInHours));
+  const hours = Math.floor(clamped);
+  const minutes = clamped - hours >= 0.5 ? 30 : 0;
+  return `${hours.toString().padStart(2, '0')}:${minutes === 0 ? '00' : '30'}`;
+};
+
 // Calculate minimum height needed for an event's content in pixels
 const calculateMinEventHeight = (
   event: CalendarEvent,
@@ -233,9 +255,22 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   onDimensionsComputed,
   onHeaderClick,
   onTimeColumnClick,
-  exportMode = false
+  exportMode = false,
+  selectedEventId,
+  onEventTimeChange,
+  onEmptyBlockClick,
+  visualScale,
+  hideUnselectedBorders = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const dayColumnsRef = useRef<HTMLDivElement>(null);
+  const [hoveredSlot, setHoveredSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
+  const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
+  const dragInfoRef = useRef<{
+    eventId: string;
+    durationHours: number;
+    offsetY: number;
+  } | null>(null);
 
   const visibleDays = useMemo(() => {
     const hasWeekendEvents = events.some(e => e.dayIndex >= 5);
@@ -416,6 +451,138 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       : '#f3f4f6';
   }, [template.theme, template.themeVariant, template.headerTextColor]);
 
+  const effectiveScale = Math.max(0.25, visualScale ?? 1);
+  const blurScale = 1 / effectiveScale;
+
+  const isLightTheme = useMemo(() => {
+    const variant = template.themeVariant;
+    const themeId = template.theme;
+    return variant === 'light' || themeId === 'light' || themeId?.includes('light');
+  }, [template.theme, template.themeVariant]);
+
+  const addSlotStyle = useMemo(() => {
+    return {
+      background: isLightTheme ? 'rgba(255,255,255,0.78)' : 'rgba(15,23,42,0.4)',
+      borderColor: isLightTheme ? 'rgba(148,163,184,0.65)' : 'rgba(148,163,184,0.25)',
+      boxShadow: isLightTheme
+        ? 'inset 3px 3px 8px rgba(0,0,0,0.12), inset -3px -3px 8px rgba(255,255,255,0.85), 0 8px 18px rgba(15,23,42,0.12)'
+        : 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+      transform: 'translateY(1px)',
+    } as React.CSSProperties;
+  }, [isLightTheme]);
+
+  const addSlotTextColor = isLightTheme ? '#0f172a' : '#e2e8f0';
+  const selectedBorderColor = isLightTheme ? 'rgba(37, 99, 235, 0.9)' : 'rgba(191, 219, 254, 0.95)';
+
+  const isSlotEmpty = (dayIndex: number, slotStart: number): boolean => {
+    const slotEnd = slotStart + 1;
+    return !events.some((event) => {
+      if (event.dayIndex !== dayIndex) return false;
+      const startVal = parseTimeToHours(event.startTime);
+      const endVal = parseTimeToHours(event.endTime);
+      const alignedStart = roundToNearestHalfHour(startVal);
+      const alignedEnd = roundToNearestHalfHour(endVal);
+      const alignedDuration = Math.max(0.5, alignedEnd - alignedStart);
+      const eventEnd = alignedStart + alignedDuration;
+      return alignedStart < slotEnd && eventEnd > slotStart;
+    });
+  };
+
+  useEffect(() => {
+    if (!draggingEventId || !onEventTimeChange) return;
+
+    const handleMove = (e: MouseEvent) => {
+      const dragInfo = dragInfoRef.current;
+      if (!dragInfo || !dayColumnsRef.current) return;
+
+      const rect = dayColumnsRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top - dragInfo.offsetY;
+      const dayWidth = rect.width / visibleDays.length;
+      const rawDayIndex = Math.floor(x / dayWidth);
+      const nextDayIndex = Math.min(visibleDays.length - 1, Math.max(0, rawDayIndex));
+
+      const hourHeightPx = rect.height / hourRange;
+      const rawStart = startHour + y / hourHeightPx;
+      const snappedStart = roundToNearestHalfHour(rawStart);
+      const maxStart = startHour + hourRange - dragInfo.durationHours;
+      const clampedStart = Math.min(maxStart, Math.max(startHour, snappedStart));
+      const clampedEnd = clampedStart + dragInfo.durationHours;
+
+      onEventTimeChange(dragInfo.eventId, {
+        startTime: formatTimeFromHours(clampedStart),
+        endTime: formatTimeFromHours(clampedEnd),
+        dayIndex: nextDayIndex,
+      });
+    };
+
+    const handleUp = () => {
+      setDraggingEventId(null);
+      dragInfoRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [draggingEventId, onEventTimeChange, hourRange, startHour, visibleDays.length]);
+
+  const handleGridMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!interactive || !onEmptyBlockClick || draggingEventId) return;
+    if (!dayColumnsRef.current) return;
+
+    const rect = dayColumnsRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+      if (hoveredSlot) setHoveredSlot(null);
+      return;
+    }
+
+    const dayWidth = rect.width / visibleDays.length;
+    const dayIndex = Math.min(visibleDays.length - 1, Math.max(0, Math.floor(x / dayWidth)));
+    const hourHeightPx = rect.height / hourRange;
+    const rawHour = startHour + y / hourHeightPx;
+    const slotStart = Math.min(startHour + hourRange - 1, Math.max(startHour, Math.floor(rawHour)));
+
+    if (!isSlotEmpty(dayIndex, slotStart)) {
+      if (hoveredSlot) setHoveredSlot(null);
+      return;
+    }
+
+    if (!hoveredSlot || hoveredSlot.dayIndex !== dayIndex || hoveredSlot.startHour !== slotStart) {
+      setHoveredSlot({ dayIndex, startHour: slotStart });
+    }
+  };
+
+  const handleEventMouseDown = (event: CalendarEvent, e: React.MouseEvent<HTMLDivElement>) => {
+    if (!interactive || !onEventTimeChange || selectedEventId !== event.id) return;
+    if (!dayColumnsRef.current) return;
+
+    const startVal = parseTimeToHours(event.startTime);
+    const endVal = parseTimeToHours(event.endTime);
+    const alignedStart = roundToNearestHalfHour(startVal);
+    const alignedEnd = roundToNearestHalfHour(endVal);
+    const durationHours = Math.max(0.5, alignedEnd - alignedStart);
+
+    const rect = dayColumnsRef.current.getBoundingClientRect();
+    const eventTop = ((alignedStart - startHour) / hourRange) * rect.height;
+    const offsetY = e.clientY - (rect.top + eventTop);
+
+    dragInfoRef.current = {
+      eventId: event.id,
+      durationHours,
+      offsetY,
+    };
+    setDraggingEventId(event.id);
+    setHoveredSlot(null);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     // CALENDAR CARD - The main calendar container with theme styling
     <div
@@ -449,8 +616,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
                     : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
                 } : {
-                  backdropFilter: `blur(${template.headerBlurAmount}px)`,
-                  WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                  backdropFilter: `blur(${template.headerBlurAmount * blurScale}px)`,
+                  WebkitBackdropFilter: `blur(${template.headerBlurAmount * blurScale}px)`,
                   backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
                 }),
                 borderRadius: '8px',
@@ -473,8 +640,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
                         : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
                     } : {
-                      backdropFilter: `blur(${template.headerBlurAmount}px)`,
-                      WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                      backdropFilter: `blur(${template.headerBlurAmount * blurScale}px)`,
+                      WebkitBackdropFilter: `blur(${template.headerBlurAmount * blurScale}px)`,
                       backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
                     }),
                     borderRadius: '6px',
@@ -505,8 +672,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
                   : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
               } : {
-                backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
-                WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                backdropFilter: `blur(${template.timeColumnBlurAmount * blurScale}px)`,
+                WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount * blurScale}px)`,
                 backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
               }),
               borderRadius: '8px',
@@ -546,8 +713,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                           ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
                           : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
                       } : {
-                        backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
-                        WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                        backdropFilter: `blur(${template.timeColumnBlurAmount * blurScale}px)`,
+                        WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount * blurScale}px)`,
                         backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
                       }),
                     }}
@@ -567,6 +734,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           data-component="DayColumnsContainer"
           className="flex-1 grid relative"
           style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+          ref={dayColumnsRef}
+          onMouseMove={handleGridMouseMove}
+          onMouseLeave={() => setHoveredSlot(null)}
         >
           {/* GRID LINES - Horizontal hour separator lines */}
           <div data-component="GridLines" className="absolute inset-0 z-0 flex flex-col pointer-events-none">
@@ -576,72 +746,119 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           </div>
 
           {/* DAY COLUMN - Individual day column containing events */}
-          {visibleDays.map((_, dayIndex) => (
-            <div
-              data-component="DayColumn"
-              key={dayIndex}
-              className={`col-span-1 relative ${dayIndex < visibleDays.length - 1 && template.showGrid ? `border-r ${gridBorderColor}` : ''}`}
-              style={{ height: `${canvasDimensions.gridHeight}px` }}
-            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-              if (interactive && onBlankClick && e.target === e.currentTarget) {
-                onBlankClick();
-              }
-            }}
-          >
-            {events.filter(e => e.dayIndex === dayIndex).map(event => {
-              
-              // Original time values
-              const startVal = parseInt(event.startTime.split(':')[0]) + parseInt(event.startTime.split(':')[1])/60;
-              const endVal = parseInt(event.endTime.split(':')[0]) + parseInt(event.endTime.split(':')[1])/60;
-              
-              // Round to nearest half hour for grid alignment
-              const alignedStart = roundToNearestHalfHour(startVal);
-              const alignedEnd = roundToNearestHalfHour(endVal);
-              
-              // Ensure minimum height of 0.5 hours even after rounding
-              const alignedDuration = Math.max(0.5, alignedEnd - alignedStart);
+          {visibleDays.map((_, dayIndex) => {
+            const hoveredSlotForDay = hoveredSlot?.dayIndex === dayIndex ? hoveredSlot : null;
+            const slotTopPercent = hoveredSlotForDay
+              ? ((hoveredSlotForDay.startHour - startHour) / hourRange) * 100
+              : 0;
+            const slotHeightPercent = (1 / hourRange) * 100;
 
-              const topPercent = ((alignedStart - startHour) / hourRange) * 100;
-              const heightPercent = (alignedDuration / hourRange) * 100;
+            return (
+              <div
+                data-component="DayColumn"
+                key={dayIndex}
+                className={`col-span-1 relative ${dayIndex < visibleDays.length - 1 && template.showGrid ? `border-r ${gridBorderColor}` : ''}`}
+                style={{ height: `${canvasDimensions.gridHeight}px` }}
+                onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (interactive && onBlankClick && e.target === e.currentTarget) {
+                    onBlankClick();
+                  }
+                }}
+              >
+                {hoveredSlotForDay && onEmptyBlockClick && (
+                  <div
+                    data-component="EmptySlot"
+                    className="absolute left-1 right-1 rounded-md border flex items-center justify-center text-sm font-semibold tracking-wide transition-all duration-150"
+                    style={{
+                      top: `${slotTopPercent}%`,
+                      height: `${slotHeightPercent}%`,
+                      zIndex: 5,
+                      color: addSlotTextColor,
+                      ...addSlotStyle,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const startTime = formatTimeFromHours(hoveredSlotForDay.startHour);
+                      const endTime = formatTimeFromHours(hoveredSlotForDay.startHour + 1);
+                      onEmptyBlockClick({
+                        dayIndex,
+                        startTime,
+                        endTime,
+                      });
+                    }}
+                  >
+                    <Plus size={18} strokeWidth={2.5} />
+                  </div>
+                )}
+                {events.filter(e => e.dayIndex === dayIndex).map(event => {
+                  const isSelected = selectedEventId === event.id;
+                  const isDragging = draggingEventId === event.id;
+                  const canDrag = interactive && onEventTimeChange && isSelected;
+                  const shouldHideBorder = hideUnselectedBorders && !isSelected;
 
-              return (
-                // EVENT BLOCK - Individual class/event card
-                <div
-                  data-component="EventBlock"
-                  data-event-id={event.id}
-                  key={event.id}
-                  onClick={() => interactive && onEventClick && onEventClick(event)}
-                  className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border
-                    flex flex-col
-                    ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
-                    ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
-                  `}
-                  style={{
-                    top: `${topPercent}%`,
-                    height: `${heightPercent}%`,
-                    // Apply acrylic effect for acrylic theme
-                    ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
-                      ? {
-                          // Use event color with opacity based on eventOpacity setting
-                          background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
-                          boxShadow: currentTheme.eventBlock.shadow,
-                          border: currentTheme.eventBlock.border,
-                          overflow: 'hidden',
-                        }
-                      : template.themeFamily === 'glass'
-                      ? {
-                          backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
-                          borderColor: 'rgba(255,255,255,0.2)',
-                          overflow: 'hidden',
-                        }
-                      : {
-                          backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
-                          borderColor: 'rgba(0,0,0,0.1)',
-                        }),
-                    color: '#fff',
-                    zIndex: 10,
-                  }}
-                >
+                  // Original time values
+                  const startVal = parseInt(event.startTime.split(':')[0]) + parseInt(event.startTime.split(':')[1]) / 60;
+                  const endVal = parseInt(event.endTime.split(':')[0]) + parseInt(event.endTime.split(':')[1]) / 60;
+
+                  // Round to nearest half hour for grid alignment
+                  const alignedStart = roundToNearestHalfHour(startVal);
+                  const alignedEnd = roundToNearestHalfHour(endVal);
+
+                  // Ensure minimum height of 0.5 hours even after rounding
+                  const alignedDuration = Math.max(0.5, alignedEnd - alignedStart);
+
+                  const topPercent = ((alignedStart - startHour) / hourRange) * 100;
+                  const heightPercent = (alignedDuration / hourRange) * 100;
+
+                  return (
+                  // EVENT BLOCK - Individual class/event card
+                  <div
+                    data-component="EventBlock"
+                    data-event-id={event.id}
+                    key={event.id}
+                    onClick={() => interactive && onEventClick && onEventClick(event)}
+                    onMouseDown={(e) => handleEventMouseDown(event, e)}
+                    className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
+                      ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
+                      ${canDrag ? 'cursor-grab' : ''}
+                      ${isDragging ? 'cursor-grabbing' : ''}
+                      ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
+                    `}
+                    style={{
+                      top: `${topPercent}%`,
+                      height: `${heightPercent}%`,
+                      // Apply acrylic effect for acrylic theme
+                      ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
+                        ? {
+                            // Use event color with opacity based on eventOpacity setting
+                            background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
+                            boxShadow: currentTheme.eventBlock.shadow,
+                            border: currentTheme.eventBlock.border,
+                            overflow: 'hidden',
+                          }
+                        : template.themeFamily === 'glass'
+                        ? {
+                            backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
+                            borderColor: 'rgba(255,255,255,0.2)',
+                            overflow: 'hidden',
+                          }
+                        : {
+                            backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
+                            borderColor: 'rgba(0,0,0,0.1)',
+                          }),
+                      ...(isSelected
+                        ? {
+                            borderColor: selectedBorderColor,
+                            borderWidth: '3px',
+                            boxShadow: '0 10px 24px rgba(37, 99, 235, 0.25)',
+                          }
+                        : {}),
+                      ...(shouldHideBorder ? { borderColor: 'transparent' } : {}),
+                      color: '#fff',
+                      zIndex: isDragging ? 30 : isSelected ? 20 : 10,
+                      userSelect: isDragging ? 'none' : 'auto',
+                    }}
+                  >
                   {/* Backdrop blur layer for acrylic/glass themes */}
                   {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
                     <div
@@ -655,8 +872,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
                             : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
                         } : {
-                          backdropFilter: 'blur(12px)',
-                          WebkitBackdropFilter: 'blur(12px)',
+                          backdropFilter: `blur(${12 * blurScale}px)`,
+                          WebkitBackdropFilter: `blur(${12 * blurScale}px)`,
                         }),
                         pointerEvents: 'none',
                         borderRadius: 'inherit',
@@ -747,9 +964,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   )}
                 </div>
               );
-            })}
-          </div>
-        ))}
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 

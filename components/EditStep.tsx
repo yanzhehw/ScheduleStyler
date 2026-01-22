@@ -5,7 +5,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
 import { TimeInput } from './TimeInput';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2 } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X } from 'lucide-react';
 import { getThemeColors } from '../themes';
 
 interface EditStepProps {
@@ -19,6 +19,7 @@ interface EditStepProps {
 }
 
 const CLASS_TYPES: ClassType[] = ['Lecture', 'Tutorial', 'Lab', 'Seminar', 'Unknown', 'Custom'];
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const EditStep: React.FC<EditStepProps> = ({
   events,
@@ -33,6 +34,17 @@ export const EditStep: React.FC<EditStepProps> = ({
   const [showFullTitle, setShowFullTitle] = useState(false);
   const [isContentDisplayExpanded, setIsContentDisplayExpanded] = useState(true);
   const [showGuidanceNote, setShowGuidanceNote] = useState(true);
+  const [newEventSlot, setNewEventSlot] = useState<{
+    dayIndex: number;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+  const [newEventDraft, setNewEventDraft] = useState<{
+    title: string;
+    classType: ClassType;
+    customClassType: string;
+    location: string;
+  } | null>(null);
 
   // Cache for toggle states before compact mode
   const [cachedToggles, setCachedToggles] = useState<{
@@ -95,6 +107,63 @@ export const EditStep: React.FC<EditStepProps> = ({
     setSelectedEventId(null);
   };
 
+  const handleEventTimeChange = (eventId: string, updates: { startTime: string; endTime: string; dayIndex: number }) => {
+    const updated = events.map((event) =>
+      event.id === eventId ? { ...event, ...updates } : event
+    );
+    onUpdateEvents(updated);
+  };
+
+  const openNewEventModal = (slot: { dayIndex: number; startTime: string; endTime: string }) => {
+    setSelectedEventId(null);
+    setNewEventSlot(slot);
+    setNewEventDraft({
+      title: '',
+      classType: 'Lecture',
+      customClassType: '',
+      location: '',
+    });
+  };
+
+  const closeNewEventModal = () => {
+    setNewEventSlot(null);
+    setNewEventDraft(null);
+  };
+
+  const handleCreateNewEvent = () => {
+    if (!newEventSlot || !newEventDraft) return;
+
+    const rawTitle = newEventDraft.title.trim();
+    const title = rawTitle || 'Untitled Course';
+    const displayTitle = title.split(' - ')[0].trim();
+    const existingColor = events.find(e => e.displayTitle === displayTitle)?.color;
+    const uniqueTitles = Array.from(new Set(events.map(e => e.displayTitle)));
+    const color = existingColor || themeColors[uniqueTitles.length % themeColors.length];
+
+    const newEvent: CalendarEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      title,
+      displayTitle,
+      classSection: null as unknown as number,
+      classType: newEventDraft.classType,
+      customClassType: newEventDraft.classType === 'Custom'
+        ? (newEventDraft.customClassType.trim() || 'Class')
+        : undefined,
+      startTime: newEventSlot.startTime,
+      endTime: newEventSlot.endTime,
+      dayIndex: newEventSlot.dayIndex,
+      location: newEventDraft.location.trim(),
+      metadata: [],
+      notes: '',
+      category: title,
+      color,
+      isConfidenceLow: false,
+    };
+
+    onUpdateEvents([...events, newEvent]);
+    closeNewEventModal();
+  };
+
   return (
     <div className="flex h-full gap-6">
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
@@ -106,6 +175,10 @@ export const EditStep: React.FC<EditStepProps> = ({
           onEventClick={handleEventClick}
           onBlankClick={handleBlankClick}
           showFullTitle={showFullTitle}
+          selectedEventId={selectedEventId}
+          onEventTimeChange={handleEventTimeChange}
+          onEmptyBlockClick={openNewEventModal}
+          hideUnselectedBorders={true}
         />
       </div>
 
@@ -460,6 +533,109 @@ export const EditStep: React.FC<EditStepProps> = ({
           ) : null}
         </div>
       </div>
+
+      {newEventSlot && newEventDraft && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeNewEventModal();
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-white font-semibold">Add Class</h4>
+                <p className="text-xs text-gray-400 mt-1">
+                  {DAY_LABELS[newEventSlot.dayIndex]} • {newEventSlot.startTime} - {newEventSlot.endTime}
+                </p>
+              </div>
+              <button
+                onClick={closeNewEventModal}
+                className="text-gray-500 hover:text-white transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateNewEvent();
+              }}
+            >
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Course Title</label>
+                <input
+                  type="text"
+                  value={newEventDraft.title}
+                  onChange={(e) => setNewEventDraft({ ...newEventDraft, title: e.target.value })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  placeholder="e.g. CS 101"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Class Type</label>
+                <select
+                  value={newEventDraft.classType}
+                  onChange={(e) => setNewEventDraft({ ...newEventDraft, classType: e.target.value as ClassType })}
+                  className="w-full text-sm font-bold text-white bg-gray-900 border border-gray-700 px-4 py-2.5 rounded-lg shadow-md uppercase tracking-wide cursor-pointer hover:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                >
+                  {CLASS_TYPES.map((type) => (
+                    <option key={type} value={type} className="bg-gray-900 text-white">
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {newEventDraft.classType === 'Custom' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Custom Class Type</label>
+                  <input
+                    type="text"
+                    value={newEventDraft.customClassType}
+                    onChange={(e) => setNewEventDraft({ ...newEventDraft, customClassType: e.target.value })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    placeholder="e.g. Workshop"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Location</label>
+                <input
+                  type="text"
+                  value={newEventDraft.location}
+                  onChange={(e) => setNewEventDraft({ ...newEventDraft, location: e.target.value })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  placeholder="Building/Room"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeNewEventModal}
+                  className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
