@@ -26,6 +26,16 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   showClassType: true,
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
+  differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
+  gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
+  eventOpacity: 1, // Event block color layer opacity (0-1, default 100%)
+  titleFont: 'Inter', // Font for event block title
+  subtitleFont: 'Inter', // Font for event block subtitle
+  detailsFont: 'Inter', // Font for event block details
+  headerBlurAmount: 0, // Day header backdrop blur (0-20px)
+  headerBlurMode: 'bar', // 'bar' for entire row, 'cells' for individual cells
+  timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)
+  timeColumnBlurMode: 'bar', // 'bar' for entire column, 'cells' for individual cells
 };
 
 const App: React.FC = () => {
@@ -146,6 +156,7 @@ const App: React.FC = () => {
             events={events}
             template={template}
             onUpdateTemplate={setTemplate}
+            onUpdateEvents={setEvents}
             onBack={() => setStep(AppStep.EDIT)}
           />
         )}

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { CalendarEvent, TemplateConfig, Category, CATEGORY_COLORS, ClassType } from '../types';
+import React, { useState, useMemo } from 'react';
+import { CalendarEvent, TemplateConfig, Category, ClassType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
-import { ColorPicker } from './ColorPicker';
 import { GuidanceNote } from './GuidanceNote';
 import { TimeInput } from './TimeInput';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Wand2, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2 } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2 } from 'lucide-react';
+import { getThemeColors } from '../themes';
 
 interface EditStepProps {
   events: CalendarEvent[];
@@ -30,7 +30,6 @@ export const EditStep: React.FC<EditStepProps> = ({
   onReupload
 }) => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [differentiateTypes, setDifferentiateTypes] = useState(false);
   const [showFullTitle, setShowFullTitle] = useState(false);
   const [isContentDisplayExpanded, setIsContentDisplayExpanded] = useState(true);
   const [showGuidanceNote, setShowGuidanceNote] = useState(true);
@@ -50,56 +49,10 @@ export const EditStep: React.FC<EditStepProps> = ({
     return events.some(e => !isNaN(e.classSection) && e.classSection !== null && e.classSection !== undefined);
   }, [events]);
 
-  // Group events by displayTitle for the overall view
-  const groupedByDisplayTitle = useMemo(() => {
-    const groups: Record<string, { displayTitle: string; sections: { classSection: number; classType: ClassType; eventIds: string[] }[] }> = {};
-
-    events.forEach(event => {
-      const key = event.displayTitle;
-      if (!groups[key]) {
-        groups[key] = { displayTitle: key, sections: [] };
-      }
-
-      const existingSection = groups[key].sections.find(s => s.classSection === event.classSection);
-      if (existingSection) {
-        existingSection.eventIds.push(event.id);
-      } else {
-        groups[key].sections.push({
-          classSection: event.classSection,
-          classType: event.classType,
-          eventIds: [event.id]
-        });
-      }
-    });
-
-    const result = Object.values(groups);
-    console.log('Grouped by displayTitle:', result);
-    return result;
-  }, [events]);
-
-  const triggerColorUpdate = (diff: boolean) => {
-     setDifferentiateTypes(diff);
-     const updatedEvents = events.map(event => {
-       // Find base color from category (Course Name)
-       let baseColor = CATEGORY_COLORS[0];
-       const catIndex = categories.findIndex(c => c.name === event.title);
-       if (catIndex >= 0) baseColor = CATEGORY_COLORS[catIndex % CATEGORY_COLORS.length];
-
-       let newColor = baseColor;
-       if (diff) {
-          // Only differentiate Lab and Tutorial, keep Lecture at base color
-          if (event.classType === 'Lab') {
-            newColor = adjustColor(baseColor, 40);
-          } else if (event.classType === 'Tutorial') {
-            newColor = adjustColor(baseColor, 90);
-          }
-          // Lecture, Seminar, and other types stay at baseColor
-       }
-       // When diff is false, all types use baseColor
-       return { ...event, color: newColor };
-    });
-    onUpdateEvents(updatedEvents);
-  };
+  // Get theme-specific colors based on current theme family and variant
+  const themeColors = useMemo(() => {
+    return getThemeColors(template.themeFamily, template.themeVariant);
+  }, [template.themeFamily, template.themeVariant]);
 
   const handleEventClick = (event: CalendarEvent) => {
     setSelectedEventId(event.id);
@@ -107,17 +60,6 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   const handleBlankClick = () => {
     setSelectedEventId(null);
-  };
-
-  // Update classType for all events with the same displayTitle and classSection
-  const handleUpdateSectionClassType = (eventIds: string[], newClassType: ClassType) => {
-    const updated = events.map(e => {
-      if (eventIds.includes(e.id)) {
-        return { ...e, classType: newClassType };
-      }
-      return e;
-    });
-    onUpdateEvents(updated);
   };
 
   const handleUpdateEvent = (key: keyof CalendarEvent, value: any) => {
@@ -136,7 +78,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
            const existingCatIndex = categories.findIndex(c => c.name === value);
            if (existingCatIndex >= 0) {
-             newEvent.color = CATEGORY_COLORS[existingCatIndex % CATEGORY_COLORS.length];
+             newEvent.color = themeColors[existingCatIndex % themeColors.length];
            }
         }
 
@@ -151,45 +93,6 @@ export const EditStep: React.FC<EditStepProps> = ({
     if (!selectedEventId) return;
     onUpdateEvents(events.filter(e => e.id !== selectedEventId));
     setSelectedEventId(null);
-  };
-
-  // Get colors used by other courses (not the selected event's group)
-  const getAvailableColors = () => {
-    if (!selectedEvent) return CATEGORY_COLORS;
-    const selectedDisplayTitle = selectedEvent.displayTitle;
-    const usedColors = new Set(
-      events
-        .filter(e => e.displayTitle !== selectedDisplayTitle)
-        .map(e => e.color)
-    );
-    const available = CATEGORY_COLORS.filter(c => !usedColors.has(c));
-    // Always include the current color
-    if (selectedEvent.color && !available.includes(selectedEvent.color)) {
-      available.unshift(selectedEvent.color);
-    }
-    return available.length > 0 ? available : CATEGORY_COLORS;
-  };
-
-  // Update color for all events in the same group (displayTitle)
-  const handleUpdateGroupColor = (newColor: string) => {
-    if (!selectedEvent) return;
-    const updated = events.map(e => {
-      if (e.displayTitle === selectedEvent.displayTitle) {
-        return { ...e, color: newColor };
-      }
-      return e;
-    });
-    onUpdateEvents(updated);
-  };
-
-  // Helper to adjust hue of hex color
-  const adjustColor = (hex: string, degree: number) => {
-    // Very dummy implementation, ideally use a library or proper HSL conversion
-    // Returning the same hex for now if complex, but let's try a simple mapping for MVP
-    // Or just map to a different palette color
-    const idx = CATEGORY_COLORS.indexOf(hex);
-    if (idx === -1) return hex;
-    return CATEGORY_COLORS[(idx + 2) % CATEGORY_COLORS.length]; 
   };
 
   return (
@@ -243,37 +146,11 @@ export const EditStep: React.FC<EditStepProps> = ({
               {/* User guidance note */}
               {showGuidanceNote && (
                 <GuidanceNote
-                  message="Click on any event block in the calendar to customize its details, color, and fine-tune the extracted data."
+                  message="Click on any event block in the calendar to edit its details and fine-tune the extracted data."
                   onClose={() => setShowGuidanceNote(false)}
                   type="info"
                 />
               )}
-
-              <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700 space-y-4">
-                <h4 className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                  <Wand2 size={14} /> Schedule Options
-                </h4>
-
-                <div className="space-y-3">
-                  <ToggleSwitch
-                    enabled={differentiateTypes}
-                    onToggle={() => triggerColorUpdate(!differentiateTypes)}
-                    label="Differentiate Labs/Tutorials"
-                  />
-
-                  {hasValidCourseSections && (
-                    <ToggleSwitch
-                      enabled={showFullTitle}
-                      onToggle={() => setShowFullTitle(!showFullTitle)}
-                      label="Include Course Section"
-                    />
-                  )}
-                </div>
-
-                <p className="text-[10px] text-gray-500 border-t border-gray-700 pt-2">
-                  Automatically assigns distinct colors to Labs/Tutorials. 
-                </p>
-              </div>
 
               {/* Content Display Options - Collapsible */}
               <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700">
@@ -289,6 +166,17 @@ export const EditStep: React.FC<EditStepProps> = ({
 
                 {isContentDisplayExpanded && (
                   <div className="space-y-2 mt-4">
+                    {/* Include Course Section toggle */}
+                    {hasValidCourseSections && (
+                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                        <ToggleSwitch
+                          enabled={showFullTitle}
+                          onToggle={() => setShowFullTitle(!showFullTitle)}
+                          label={<span className="flex items-center gap-2"><Tag size={12} /> Include Course Section</span>}
+                        />
+                      </div>
+                    )}
+
                     {/* Compact View at top - toggles off other options when enabled */}
                     <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors border border-gray-700">
                       <ToggleSwitch
@@ -557,25 +445,6 @@ export const EditStep: React.FC<EditStepProps> = ({
                     </div>
                   </>
                 )}
-              </div>
-
-              {/* Color & Differentiate Section */}
-              <div className="space-y-3">
-                <ColorPicker
-                  availableColors={getAvailableColors()}
-                  selectedColor={selectedEvent.color}
-                  onColorSelect={handleUpdateGroupColor}
-                  label={`Color (applies to all ${selectedEvent.displayTitle})`}
-                />
-
-                {/* Differentiate Labs/Tutorials Toggle */}
-                <div className="p-2 bg-gray-800/50 rounded-lg">
-                  <ToggleSwitch
-                    enabled={differentiateTypes}
-                    onToggle={() => triggerColorUpdate(!differentiateTypes)}
-                    label="Differentiate Labs/Tutorials"
-                  />
-                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-800">

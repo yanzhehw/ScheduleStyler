@@ -24,6 +24,10 @@ type CSSBorder = string;
  */
 export interface CanvasTheme {
   background: CSSColor;
+  /** Optional background size (e.g., "cover", "contain") */
+  backgroundSize?: string;
+  /** Optional background position (e.g., "center", "top left") */
+  backgroundPosition?: string;
   border: CSSBorder;
   borderRadius: CSSBorderRadius;
   shadow: CSSBoxShadow;
@@ -86,6 +90,10 @@ export interface EventBlockTheme {
   gradient?: string;
   /** Optional backdrop filter for glass effect */
   backdropFilter?: string;
+  /** Optional acrylic-style layered background with texture */
+  acrylicBackground?: string;
+  /** Optional background blend mode for acrylic effect */
+  backgroundBlendMode?: string;
 }
 
 /**
@@ -317,13 +325,19 @@ export enum AppStep {
 }
 
 /** Theme family type */
-export type ThemeFamilyId = 'default' | 'glass' | 'matt';
+export type ThemeFamilyId = 'default' | 'glass' | 'midnight-slate' | 'matt' | 'acrylic';
 
 /** Theme variant type */
 export type ThemeVariantId = 'light' | 'dark';
 
 /** Combined theme ID (family-variant) */
 export type ThemeId = `${ThemeFamilyId}-${ThemeVariantId}` | 'light' | 'dark' | 'glass';
+
+/** Grid line style type */
+export type GridLineStyle = 'bright' | 'dark';
+
+/** Blur mode type - bar blurs entire row/column, cells blur each cell individually */
+export type BlurMode = 'bar' | 'cells';
 
 export interface TemplateConfig {
   id: string;
@@ -356,6 +370,51 @@ export interface TemplateConfig {
 
   // Aspect ratio slider (0 = 16:9 landscape, 1 = 9:16 portrait, ~0.6 = natural content)
   aspectRatio: number;
+
+  /** Differentiate Labs/Tutorials with different colors */
+  differentiateTypes: boolean;
+
+  /** Grid line style - bright or dark (independent of theme variant) */
+  gridLineStyle: GridLineStyle;
+
+  /** Custom day header text color (optional, uses theme default if not set) */
+  headerTextColor?: string;
+
+  /** Custom time column text color (optional, uses theme default if not set) */
+  timeColumnTextColor?: string;
+
+  /** Event block color layer opacity (0-1, default 0.5) */
+  eventOpacity: number;
+
+  /** Font for event block title */
+  titleFont: string;
+
+  /** Font for event block subtitle (class type) */
+  subtitleFont: string;
+
+  /** Font for event block details (time, location, notes) */
+  detailsFont: string;
+
+  /** Custom text color for event block title (optional) */
+  titleTextColor?: string;
+
+  /** Custom text color for event block subtitle/class type (optional) */
+  subtitleTextColor?: string;
+
+  /** Custom text color for event block details (optional) */
+  detailsTextColor?: string;
+
+  /** Day header backdrop blur amount in pixels (0-20) */
+  headerBlurAmount: number;
+
+  /** Day header blur mode - 'bar' for entire row, 'cells' for individual day cells */
+  headerBlurMode: BlurMode;
+
+  /** Time column backdrop blur amount in pixels (0-20) */
+  timeColumnBlurAmount: number;
+
+  /** Time column blur mode - 'bar' for entire column, 'cells' for individual time cells */
+  timeColumnBlurMode: BlurMode;
 }
 
 export interface ProcessedData {

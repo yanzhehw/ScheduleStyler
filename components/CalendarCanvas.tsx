@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { CalendarEvent, TemplateConfig } from '../types';
 import { MapPin, AlignLeft } from 'lucide-react';
+import { getTheme } from '../themes';
+import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -12,6 +14,12 @@ interface CalendarCanvasProps {
   showFullTitle?: boolean;
   /** Callback to report computed dimensions to parent */
   onDimensionsComputed?: (dimensions: { width: number; height: number }) => void;
+  /** Callback when day header is clicked */
+  onHeaderClick?: () => void;
+  /** Callback when time column is clicked */
+  onTimeColumnClick?: () => void;
+  /** Export mode - renders fallback backgrounds instead of backdrop-filter (for image export) */
+  exportMode?: boolean;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -222,7 +230,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   interactive = false,
   id,
   showFullTitle = false,
-  onDimensionsComputed
+  onDimensionsComputed,
+  onHeaderClick,
+  onTimeColumnClick,
+  exportMode = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -320,42 +331,90 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     }
   }, [canvasDimensions.width, canvasDimensions.height, onDimensionsComputed]);
 
+  // Get the current theme object
+  const currentTheme = useMemo(() => {
+    return getTheme(template.themeFamily, template.themeVariant);
+  }, [template.themeFamily, template.themeVariant]);
+
   // Theme styles
   const themeClasses = useMemo(() => {
     // Handle both legacy single theme strings and new structured theme format
     const themeId = template.theme;
     const variant = template.themeVariant;
     const family = template.themeFamily;
-    
+
+    // For acrylic, we'll handle background via inline styles
+    if (family === 'acrylic') {
+      return variant === 'light'
+        ? 'text-gray-900 border-gray-200'
+        : 'text-gray-100 border-gray-700';
+    }
+
     // Check if it's glass family
     if (themeId?.includes('glass') || family === 'glass') {
       return 'bg-white/10 backdrop-blur-xl text-white border-white/20';
     }
-    
+
     // Check variant for light/dark
     if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
       return 'bg-white text-gray-900 border-gray-200';
     }
-    
+
     // Default to dark
     return 'bg-gray-900 text-gray-100 border-gray-700';
   }, [template.theme, template.themeVariant, template.themeFamily]);
 
-  const gridBorderColor = useMemo(() => {
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light')) 
-      ? 'border-gray-100' 
-      : 'border-gray-800';
-  }, [template.theme, template.themeVariant]);
+  // Canvas inline styles for acrylic theme
+  const canvasStyles = useMemo(() => {
+    const baseStyles: React.CSSProperties = {
+      borderRadius: template.borderRadius,
+      width: `${canvasDimensions.width}px`,
+      height: `${canvasDimensions.height}px`,
+    };
 
+    // Apply acrylic canvas background
+    if (template.themeFamily === 'acrylic') {
+      return {
+        ...baseStyles,
+        background: currentTheme.canvas.background,
+        backgroundSize: currentTheme.canvas.backgroundSize || 'cover',
+        backgroundPosition: currentTheme.canvas.backgroundPosition || 'center',
+      };
+    }
+
+    return baseStyles;
+  }, [template.borderRadius, template.themeFamily, canvasDimensions, currentTheme]);
+
+  // Grid line color based on gridLineStyle setting (independent of theme variant)
+  const gridBorderColor = useMemo(() => {
+    return template.gridLineStyle === 'bright'
+      ? 'border-gray-300'
+      : 'border-gray-700';
+  }, [template.gridLineStyle]);
+
+  // Time column text color - use custom color or fall back to theme-based default
   const hourTextColor = useMemo(() => {
+    if (template.timeColumnTextColor) {
+      return ''; // Will use inline style instead
+    }
     const variant = template.themeVariant;
     const themeId = template.theme;
     return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
       ? 'text-gray-400'
       : 'text-gray-500';
-  }, [template.theme, template.themeVariant]);
+  }, [template.theme, template.themeVariant, template.timeColumnTextColor]);
+
+  // Header text color - use custom color or fall back to theme-based default
+  const headerTextColor = useMemo(() => {
+    if (template.headerTextColor) {
+      return template.headerTextColor;
+    }
+    const variant = template.themeVariant;
+    const themeId = template.theme;
+    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
+      ? '#111827'
+      : '#f3f4f6';
+  }, [template.theme, template.themeVariant, template.headerTextColor]);
 
   return (
     // CALENDAR CARD - The main calendar container with theme styling
@@ -364,11 +423,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       ref={containerRef}
       id={id}
       className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl shadow-2xl relative`}
-      style={{
-        borderRadius: template.borderRadius,
-        width: `${canvasDimensions.width}px`,
-        height: `${canvasDimensions.height}px`,
-      }}
+      style={canvasStyles}
     >
 
       {/* CALENDAR CONTENT - Wrapper for header + grid */}
@@ -379,11 +434,54 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         <div data-component="DayHeader" className="flex mb-4">
           <div className="w-12 shrink-0"></div>
           <div
-            className="flex-1 grid"
-            style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+            onClick={() => interactive && onHeaderClick && onHeaderClick()}
+            className={`flex-1 grid relative ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+            style={{
+              gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))`,
+              // Apply blur to entire bar when mode is 'bar'
+              ...(template.headerBlurAmount > 0 && template.headerBlurMode === 'bar' ? {
+                position: 'relative' as const,
+                zIndex: 1,
+                // In export mode, use solid background instead of backdrop-filter
+                ...(exportMode ? {
+                  // Export fallback: more opaque solid background
+                  backgroundColor: template.themeVariant === 'light'
+                    ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
+                    : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
+                } : {
+                  backdropFilter: `blur(${template.headerBlurAmount}px)`,
+                  WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                  backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                }),
+                borderRadius: '8px',
+              } : {})
+            }}
           >
             {visibleDays.map((day) => (
-              <div key={day} className="text-center font-semibold tracking-wider uppercase text-sm opacity-80">
+              <div
+                key={day}
+                className="text-center font-semibold tracking-wider uppercase text-sm opacity-80 py-1"
+                style={{
+                  color: headerTextColor,
+                  // Apply blur to individual cells when mode is 'cells'
+                  ...(template.headerBlurAmount > 0 && template.headerBlurMode === 'cells' ? {
+                    position: 'relative' as const,
+                    zIndex: 1,
+                    // In export mode, use solid background instead of backdrop-filter
+                    ...(exportMode ? {
+                      backgroundColor: template.themeVariant === 'light'
+                        ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
+                        : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
+                    } : {
+                      backdropFilter: `blur(${template.headerBlurAmount}px)`,
+                      WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                      backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                    }),
+                    borderRadius: '6px',
+                    margin: '0 2px',
+                  } : {})
+                }}
+              >
                 {day}
               </div>
             ))}
@@ -393,12 +491,75 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       {/* SCHEDULE GRID - The main time grid with events */}
       <div data-component="ScheduleGrid" className="flex relative isolate" style={{ height: `${canvasDimensions.gridHeight}px` }}>
         {/* TIME COLUMN - Shows 8:00, 9:00, etc. */}
-        <div data-component="TimeColumn" className="w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0">
-          {hours.map((hour) => (
-            <div key={hour} style={{ height: `${canvasDimensions.gridHeight / hourRange}px` }} className={`-mt-2.5 ${hourTextColor}`}>
-              {hour}:00
-            </div>
-          ))}
+        <div
+          data-component="TimeColumn"
+          onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
+          className={`w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0 ${interactive && onTimeColumnClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+          style={{
+            // Apply blur to entire column when mode is 'bar'
+            ...(template.timeColumnBlurAmount > 0 && template.timeColumnBlurMode === 'bar' ? {
+              position: 'relative' as const,
+              // In export mode, use solid background instead of backdrop-filter
+              ...(exportMode ? {
+                backgroundColor: template.themeVariant === 'light'
+                  ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
+                  : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
+              } : {
+                backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+              }),
+              borderRadius: '8px',
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            } : {})
+          }}
+        >
+          {hours.map((hour) => {
+            const isCellBlur = template.timeColumnBlurAmount > 0 && template.timeColumnBlurMode === 'cells';
+            const labelBaseStyle: React.CSSProperties = {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              transform: 'translateY(-50%)',
+              lineHeight: 1,
+            };
+
+            return (
+              <div
+                key={hour}
+                style={{
+                  height: `${canvasDimensions.gridHeight / hourRange}px`,
+                  ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {}),
+                }}
+                className={hourTextColor}
+              >
+                {isCellBlur ? (
+                  <span
+                    style={{
+                      ...labelBaseStyle,
+                      padding: '2px 6px',
+                      borderRadius: '6px',
+                      // In export mode, use solid background instead of backdrop-filter
+                      ...(exportMode ? {
+                        backgroundColor: template.themeVariant === 'light'
+                          ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
+                          : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
+                      } : {
+                        backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                        WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                        backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                      }),
+                    }}
+                  >
+                    {hour}:00
+                  </span>
+                ) : (
+                  <span style={labelBaseStyle}>{hour}:00</span>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* DAY COLUMNS CONTAINER - Contains grid lines and event blocks */}
@@ -447,6 +608,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 // EVENT BLOCK - Individual class/event card
                 <div
                   data-component="EventBlock"
+                  data-event-id={event.id}
                   key={event.id}
                   onClick={() => interactive && onEventClick && onEventClick(event)}
                   className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border
@@ -457,16 +619,76 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   style={{
                     top: `${topPercent}%`,
                     height: `${heightPercent}%`,
-                    backgroundColor: event.color + ((template.themeFamily === 'glass' || template.theme?.includes('glass')) ? '90' : ''),
-                    borderColor: 'rgba(0,0,0,0.1)',
+                    // Apply acrylic effect for acrylic theme
+                    ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
+                      ? {
+                          // Use event color with opacity based on eventOpacity setting
+                          background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
+                          boxShadow: currentTheme.eventBlock.shadow,
+                          border: currentTheme.eventBlock.border,
+                          overflow: 'hidden',
+                        }
+                      : template.themeFamily === 'glass'
+                      ? {
+                          backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
+                          borderColor: 'rgba(255,255,255,0.2)',
+                          overflow: 'hidden',
+                        }
+                      : {
+                          backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
+                          borderColor: 'rgba(0,0,0,0.1)',
+                        }),
                     color: '#fff',
                     zIndex: 10,
                   }}
                 >
-                  <div className="flex flex-col min-w-0 overflow-hidden gap-0">
+                  {/* Backdrop blur layer for acrylic/glass themes */}
+                  {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        // In export mode, use semi-transparent background instead of backdrop blur
+                        ...(exportMode ? {
+                          // Export fallback: gradient overlay to simulate frosted glass
+                          background: template.themeVariant === 'light'
+                            ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
+                            : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
+                        } : {
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                        }),
+                        pointerEvents: 'none',
+                        borderRadius: 'inherit',
+                        zIndex: -1,
+                      }}
+                    />
+                  )}
+                  {/* Grain texture overlay for acrylic theme */}
+                  {template.themeFamily === 'acrylic' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url('${acrylicTextureUrl}')`,
+                        backgroundRepeat: 'repeat',
+                        backgroundSize: '128px 128px',
+                        opacity: 0.1,
+                        pointerEvents: 'none',
+                        borderRadius: 'inherit',
+                      }}
+                    />
+                  )}
+                  <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
-                      style={{ fontSize: `${template.fontScale * 0.75}rem`, color: '#1f2937' }}
+                      style={{
+                        fontSize: `${template.fontScale * 0.75}rem`,
+                        fontFamily: template.titleFont,
+                        color: template.titleTextColor || (template.themeFamily === 'acrylic'
+                          ? currentTheme.eventBlock.titleColor
+                          : '#1f2937')
+                      }}
                       title={showFullTitle ? event.title : event.displayTitle}
                     >
                       {showFullTitle ? event.title : event.displayTitle}
@@ -476,7 +698,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     {template.showClassType && (
                       <div
                         className="font-semibold opacity-90"
-                        style={{ fontSize: `${template.fontScale * 0.6}rem`, color: '#1f2937', marginTop: '2px' }}
+                        style={{
+                          fontSize: `${template.fontScale * 0.6}rem`,
+                          fontFamily: template.subtitleFont,
+                          color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
+                            ? currentTheme.eventBlock.subtitleColor
+                            : '#1f2937'),
+                          marginTop: '2px'
+                        }}
                       >
                         {event.classType === 'Custom' ? event.customClassType : event.classType}
                       </div>
@@ -486,7 +715,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   {!template.compact && (
                     <div
                       className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
-                      style={{ fontSize: `${template.fontScale * 0.6}rem`, color: '#374151', marginTop: '2px' }}
+                      style={{
+                        fontSize: `${template.fontScale * 0.6}rem`,
+                        fontFamily: template.detailsFont,
+                        color: template.detailsTextColor || (template.themeFamily === 'acrylic'
+                          ? currentTheme.eventBlock.detailsColor
+                          : '#374151'),
+                        marginTop: '2px'
+                      }}
                     >
                       {template.showTime && (
                         <div className="flex items-center gap-1 font-mono opacity-80">
