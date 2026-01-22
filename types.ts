@@ -325,7 +325,7 @@ export enum AppStep {
 }
 
 /** Theme family type */
-export type ThemeFamilyId = 'default' | 'glass' | 'matt' | 'acrylic';
+export type ThemeFamilyId = 'default' | 'glass' | 'midnight-slate' | 'matt' | 'acrylic';
 
 /** Theme variant type */
 export type ThemeVariantId = 'light' | 'dark';
@@ -335,6 +335,9 @@ export type ThemeId = `${ThemeFamilyId}-${ThemeVariantId}` | 'light' | 'dark' | 
 
 /** Grid line style type */
 export type GridLineStyle = 'bright' | 'dark';
+
+/** Blur mode type - bar blurs entire row/column, cells blur each cell individually */
+export type BlurMode = 'bar' | 'cells';
 
 export interface TemplateConfig {
   id: string;
@@ -400,6 +403,18 @@ export interface TemplateConfig {
 
   /** Custom text color for event block details (optional) */
   detailsTextColor?: string;
+
+  /** Day header backdrop blur amount in pixels (0-20) */
+  headerBlurAmount: number;
+
+  /** Day header blur mode - 'bar' for entire row, 'cells' for individual day cells */
+  headerBlurMode: BlurMode;
+
+  /** Time column backdrop blur amount in pixels (0-20) */
+  timeColumnBlurAmount: number;
+
+  /** Time column blur mode - 'bar' for entire column, 'cells' for individual time cells */
+  timeColumnBlurMode: BlurMode;
 }
 
 export interface ProcessedData {

@@ -349,6 +349,89 @@ export const THEME_GLASS: ThemeFamily = {
 };
 
 // =============================================================================
+// MIDNIGHT SLATE THEME - Dark Only (based on Glass Light styling)
+// =============================================================================
+
+/** Midnight Slate colors - Deep, moody slate tones */
+const MIDNIGHT_SLATE_COLORS = [
+  '#64748b', // Slate
+  '#6366f1', // Indigo
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#f59e0b', // Amber
+  '#3b82f6', // Blue
+  '#10b981', // Emerald
+  '#f43f5e', // Rose
+  '#06b6d4', // Cyan
+  '#a855f7', // Purple
+  '#84cc16', // Lime
+];
+
+const MIDNIGHT_SLATE_DARK: CalendarCanvasTheme = {
+  id: 'midnight-slate-dark',
+  name: 'Midnight Slate',
+  variant: 'dark',
+  canvas: {
+    background: 'rgba(15, 23, 42, 0.85)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+    borderRadius: '20px',
+    shadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    padding: '32px',
+    backdropFilter: 'blur(16px)',
+  },
+  header: {
+    textColor: '#e2e8f0',
+    fontWeight: '600',
+    fontSize: '0.875rem',
+    letterSpacing: '0.05em',
+    opacity: 0.9,
+  },
+  timeColumn: {
+    textColor: 'rgba(148, 163, 184, 0.6)',
+    fontSize: '0.75rem',
+    width: '48px',
+  },
+  grid: {
+    lineColor: 'rgba(148, 163, 184, 0.1)',
+    dividerColor: 'rgba(148, 163, 184, 0.1)',
+    lineWidth: '1px',
+  },
+  eventBlock: {
+    borderRadius: '12px',
+    border: '1px solid rgba(148, 163, 184, 0.15)',
+    shadow: '0 4px 16px rgba(0,0,0,0.2)',
+    padding: '8px',
+    marginX: '4px',
+    backgroundOpacity: 0.8,
+    titleColor: '#f1f5f9',
+    subtitleColor: 'rgba(226, 232, 240, 0.9)',
+    detailsColor: 'rgba(203, 213, 225, 0.8)',
+    titleFontWeight: '700',
+    hoverBrightness: 1.08,
+    hoverShadow: '0 8px 24px rgba(0,0,0,0.3)',
+    backdropFilter: 'blur(8px)',
+  },
+  footer: {
+    textColor: 'rgba(148, 163, 184, 0.6)',
+    fontSize: '0.75rem',
+    opacity: 0.6,
+  },
+};
+
+export const THEME_MIDNIGHT_SLATE: ThemeFamily = {
+  id: 'midnight-slate',
+  name: 'Midnight Slate',
+  description: 'Deep slate glassmorphism (dark only)',
+  variants: {
+    // Both variants point to dark - this theme is dark only
+    light: MIDNIGHT_SLATE_DARK,
+    dark: MIDNIGHT_SLATE_DARK,
+  },
+  colors: MIDNIGHT_SLATE_COLORS,
+};
+
+// =============================================================================
 // MATT (MATTE) THEME FAMILY
 // =============================================================================
 
@@ -633,9 +716,9 @@ const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
     padding: '10px',
     marginX: '4px',
     backgroundOpacity: 1, // Not used when acrylicBackground is set
-    titleColor: 'rgba(31, 41, 55, 0.95)',
-    subtitleColor: 'rgba(55, 65, 81, 0.85)',
-    detailsColor: 'rgba(75, 85, 99, 0.7)',
+    titleColor: '#111827',
+    subtitleColor: '#1f2937',
+    detailsColor: '#374151',
     titleFontWeight: '600',
     hoverBrightness: 1.02,
     hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
@@ -687,9 +770,9 @@ const ACRYLIC_LIGHT_SILK: CalendarCanvasTheme = {
     padding: '10px',
     marginX: '4px',
     backgroundOpacity: 0.75,
-    titleColor: 'rgba(41, 37, 36, 0.95)',
-    subtitleColor: 'rgba(68, 64, 60, 0.85)',
-    detailsColor: 'rgba(87, 83, 78, 0.7)',
+    titleColor: '#111827',
+    subtitleColor: '#1f2937',
+    detailsColor: '#374151',
     titleFontWeight: '600',
     hoverBrightness: 1.02,
     hoverShadow: '0 8px 24px rgba(120, 100, 80, 0.08)',
@@ -827,6 +910,7 @@ export const THEME_ACRYLIC: ThemeFamily = {
 export const THEME_FAMILIES: Record<string, ThemeFamily> = {
   default: THEME_DEFAULT,
   glass: THEME_GLASS,
+  'midnight-slate': THEME_MIDNIGHT_SLATE,
   matt: THEME_MATT,
   acrylic: THEME_ACRYLIC,
 };
@@ -835,6 +919,7 @@ export const THEME_FAMILIES: Record<string, ThemeFamily> = {
 export const THEME_FAMILY_LIST: ThemeFamily[] = [
   THEME_DEFAULT,
   THEME_GLASS,
+  THEME_MIDNIGHT_SLATE,
   THEME_MATT,
   THEME_ACRYLIC,
 ];
@@ -866,6 +951,8 @@ export const CANVAS_THEMES: Record<string, CalendarCanvasTheme> = {
   'default-dark': DEFAULT_DARK,
   'glass-light': GLASS_LIGHT,
   'glass-dark': GLASS_DARK,
+  'midnight-slate-light': MIDNIGHT_SLATE_DARK, // Dark only theme
+  'midnight-slate-dark': MIDNIGHT_SLATE_DARK,
   'matt-light': MATT_LIGHT,
   'matt-dark': MATT_DARK,
   // Acrylic themes (primary light/dark)
@@ -896,4 +983,4 @@ export const getThemeColors = (familyId: string, variant?: ThemeVariant): string
 };
 
 /** Export color palettes for external use */
-export { DEFAULT_COLORS, GLASS_COLORS, MATT_COLORS, ACRYLIC_COLORS, ACRYLIC_COLORS_LIGHT, ACRYLIC_COLORS_DARK };
+export { DEFAULT_COLORS, GLASS_COLORS, MIDNIGHT_SLATE_COLORS, MATT_COLORS, ACRYLIC_COLORS, ACRYLIC_COLORS_LIGHT, ACRYLIC_COLORS_DARK };

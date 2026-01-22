@@ -18,6 +18,8 @@ interface CalendarCanvasProps {
   onHeaderClick?: () => void;
   /** Callback when time column is clicked */
   onTimeColumnClick?: () => void;
+  /** Export mode - renders fallback backgrounds instead of backdrop-filter (for image export) */
+  exportMode?: boolean;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -230,7 +232,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   showFullTitle = false,
   onDimensionsComputed,
   onHeaderClick,
-  onTimeColumnClick
+  onTimeColumnClick,
+  exportMode = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -432,14 +435,52 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           <div className="w-12 shrink-0"></div>
           <div
             onClick={() => interactive && onHeaderClick && onHeaderClick()}
-            className={`flex-1 grid ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
-            style={{ gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+            className={`flex-1 grid relative ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+            style={{
+              gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))`,
+              // Apply blur to entire bar when mode is 'bar'
+              ...(template.headerBlurAmount > 0 && template.headerBlurMode === 'bar' ? {
+                position: 'relative' as const,
+                zIndex: 1,
+                // In export mode, use solid background instead of backdrop-filter
+                ...(exportMode ? {
+                  // Export fallback: more opaque solid background
+                  backgroundColor: template.themeVariant === 'light'
+                    ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
+                    : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
+                } : {
+                  backdropFilter: `blur(${template.headerBlurAmount}px)`,
+                  WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                  backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                }),
+                borderRadius: '8px',
+              } : {})
+            }}
           >
             {visibleDays.map((day) => (
               <div
                 key={day}
                 className="text-center font-semibold tracking-wider uppercase text-sm opacity-80 py-1"
-                style={{ color: headerTextColor }}
+                style={{
+                  color: headerTextColor,
+                  // Apply blur to individual cells when mode is 'cells'
+                  ...(template.headerBlurAmount > 0 && template.headerBlurMode === 'cells' ? {
+                    position: 'relative' as const,
+                    zIndex: 1,
+                    // In export mode, use solid background instead of backdrop-filter
+                    ...(exportMode ? {
+                      backgroundColor: template.themeVariant === 'light'
+                        ? `rgba(255,255,255,${0.3 + template.headerBlurAmount * 0.03})`
+                        : `rgba(0,0,0,${0.2 + template.headerBlurAmount * 0.025})`,
+                    } : {
+                      backdropFilter: `blur(${template.headerBlurAmount}px)`,
+                      WebkitBackdropFilter: `blur(${template.headerBlurAmount}px)`,
+                      backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                    }),
+                    borderRadius: '6px',
+                    margin: '0 2px',
+                  } : {})
+                }}
               >
                 {day}
               </div>
@@ -454,19 +495,71 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           data-component="TimeColumn"
           onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
           className={`w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0 ${interactive && onTimeColumnClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+          style={{
+            // Apply blur to entire column when mode is 'bar'
+            ...(template.timeColumnBlurAmount > 0 && template.timeColumnBlurMode === 'bar' ? {
+              position: 'relative' as const,
+              // In export mode, use solid background instead of backdrop-filter
+              ...(exportMode ? {
+                backgroundColor: template.themeVariant === 'light'
+                  ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
+                  : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
+              } : {
+                backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+              }),
+              borderRadius: '8px',
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            } : {})
+          }}
         >
-          {hours.map((hour) => (
-            <div
-              key={hour}
-              style={{
-                height: `${canvasDimensions.gridHeight / hourRange}px`,
-                ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {})
-              }}
-              className={`-mt-2.5 ${hourTextColor}`}
-            >
-              {hour}:00
-            </div>
-          ))}
+          {hours.map((hour) => {
+            const isCellBlur = template.timeColumnBlurAmount > 0 && template.timeColumnBlurMode === 'cells';
+            const labelBaseStyle: React.CSSProperties = {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              transform: 'translateY(-50%)',
+              lineHeight: 1,
+            };
+
+            return (
+              <div
+                key={hour}
+                style={{
+                  height: `${canvasDimensions.gridHeight / hourRange}px`,
+                  ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {}),
+                }}
+                className={hourTextColor}
+              >
+                {isCellBlur ? (
+                  <span
+                    style={{
+                      ...labelBaseStyle,
+                      padding: '2px 6px',
+                      borderRadius: '6px',
+                      // In export mode, use solid background instead of backdrop-filter
+                      ...(exportMode ? {
+                        backgroundColor: template.themeVariant === 'light'
+                          ? `rgba(255,255,255,${0.3 + template.timeColumnBlurAmount * 0.03})`
+                          : `rgba(0,0,0,${0.2 + template.timeColumnBlurAmount * 0.025})`,
+                      } : {
+                        backdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                        WebkitBackdropFilter: `blur(${template.timeColumnBlurAmount}px)`,
+                        backgroundColor: template.themeVariant === 'light' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                      }),
+                    }}
+                  >
+                    {hour}:00
+                  </span>
+                ) : (
+                  <span style={labelBaseStyle}>{hour}:00</span>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* DAY COLUMNS CONTAINER - Contains grid lines and event blocks */}
@@ -555,8 +648,16 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       style={{
                         position: 'absolute',
                         inset: 0,
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
+                        // In export mode, use semi-transparent background instead of backdrop blur
+                        ...(exportMode ? {
+                          // Export fallback: gradient overlay to simulate frosted glass
+                          background: template.themeVariant === 'light'
+                            ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
+                            : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
+                        } : {
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
+                        }),
                         pointerEvents: 'none',
                         borderRadius: 'inherit',
                         zIndex: -1,
