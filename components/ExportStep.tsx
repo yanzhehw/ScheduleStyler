@@ -3,7 +3,7 @@ import { CalendarEvent, TemplateConfig, ThemeFamilyId } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { downloadComponentAsImage } from '../services/imageUtils';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick } from 'lucide-react';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick } from 'lucide-react';
 import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
@@ -16,6 +16,9 @@ interface ExportStepProps {
 }
 
 export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onUpdateEvents, onBack }) => {
+  const supportsZoom = typeof window !== 'undefined'
+    && typeof window.CSS?.supports === 'function'
+    && window.CSS.supports('zoom', '1');
   const [isExporting, setIsExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -27,6 +30,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [headerTextEditorOpen, setHeaderTextEditorOpen] = useState(false);
   const [timeColumnEditorOpen, setTimeColumnEditorOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [isZoomToolbarOpen, setIsZoomToolbarOpen] = useState(true);
   
   // Selected event for color picking
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -376,31 +380,43 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       <div data-component="PreviewPanel" ref={previewPanelRef} className="flex-1 overflow-auto relative">
         
         {/* ZOOM TOOLBAR - Absolute positioned, overlays on calendar */}
-        <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50 flex items-center gap-2">
-          <button
-            onClick={handleZoomOut}
-            className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
-            title="Zoom Out"
-          >
-            <ZoomOut size={16} className="text-gray-200 group-hover:text-white" />
-          </button>
-          <button
-            onClick={handleZoomReset}
-            className="px-3 py-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group min-w-[60px] text-center"
-            title="Reset to 100%"
-          >
-            <span className="text-xs font-mono text-gray-200 group-hover:text-white">
-              {Math.round(zoom * 100)}%
-            </span>
-          </button>
-          <button
-            onClick={handleZoomIn}
-            className="p-2 bg-gray-800/90 hover:bg-gray-700 border border-gray-600 rounded-lg shadow-lg transition-all hover:scale-105 active:scale-95 backdrop-blur-sm group"
-            title="Zoom In"
-          >
-            <ZoomIn size={16} className="text-gray-200 group-hover:text-white" />
-          </button>
-        </div>
+        {isZoomToolbarOpen && (
+          <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50">
+            <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
+              <button
+                onClick={handleZoomOut}
+                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Zoom Out"
+              >
+                <ZoomOut size={16} className="mx-auto text-gray-200" />
+              </button>
+              <button
+                onClick={handleZoomReset}
+                className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Reset to 100%"
+              >
+                <span className="text-xs font-mono text-gray-100">
+                  {Math.round(zoom * 100)}%
+                </span>
+              </button>
+              <button
+                onClick={handleZoomIn}
+                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Zoom In"
+              >
+                <ZoomIn size={16} className="mx-auto text-gray-200" />
+              </button>
+              <button
+                onClick={() => setIsZoomToolbarOpen(false)}
+                className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
+                title="Hide zoom controls"
+                aria-label="Hide zoom controls"
+              >
+                <Minimize2 size={12} className="text-gray-200" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* PREVIEW VIEWPORT - Centers the calendar */}
         <div 
@@ -408,12 +424,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           className="min-h-full p-6 flex items-start justify-center"
         >
           {/* ZOOM WRAPPER - Applies zoom transform */}
-          <div 
+          <div
             data-component="ZoomWrapper"
-            className="transition-transform duration-200 origin-top" 
-            style={{ 
-              transform: `scale(${zoom})`,
-            }}
+            className="transition-all duration-200 origin-top"
+            style={
+              (supportsZoom
+                ? { zoom }
+                : { transform: `scale(${zoom})` }) as React.CSSProperties
+            }
           >
             {/* EXPORT NODE - Visible interactive canvas */}
             <div data-component="ExportNode" id="calendar-export-node">
@@ -423,6 +441,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 interactive={true}
                 onEventClick={handleEventClick}
                 onBlankClick={handleBlankClick}
+                visualScale={supportsZoom ? 1 : zoom}
                 onHeaderClick={() => {
                   setHeaderTextEditorOpen(true);
                   setTimeColumnEditorOpen(false);
@@ -658,6 +677,19 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </button>
         )}
       </div>
+
+      {!isZoomToolbarOpen && (
+        <div data-component="ZoomToolbarExpand" className="flex items-start pt-4">
+          <button
+            onClick={() => setIsZoomToolbarOpen(true)}
+            className="h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-[0_10px_20px_rgba(2,6,23,0.35)] backdrop-blur-md transition-all hover:bg-slate-800/80 active:scale-95"
+            title="Show zoom controls"
+            aria-label="Show zoom controls"
+          >
+            <ZoomIn size={16} className="mx-auto text-gray-200" />
+          </button>
+        </div>
+      )}
 
       {/* TEXT FONT/COLORS PANEL - Shows between canvas and sidebar when editing fonts */}
       {showFontSelector && selectedEvent && (
