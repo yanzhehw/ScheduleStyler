@@ -30,6 +30,14 @@ interface CalendarCanvasProps {
   visualScale?: number;
   /** Hide borders for unselected events (used in edit view) */
   hideUnselectedBorders?: boolean;
+  /** Callback when a drag ends */
+  onEventDragEnd?: (
+    eventId: string,
+    original: { startTime: string; endTime: string; dayIndex: number },
+    updated: { startTime: string; endTime: string; dayIndex: number }
+  ) => void;
+  /** Highlight overlapping events */
+  overlappingEventIds?: string[];
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -260,7 +268,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   onEventTimeChange,
   onEmptyBlockClick,
   visualScale,
-  hideUnselectedBorders = false
+  hideUnselectedBorders = false,
+  onEventDragEnd,
+  overlappingEventIds
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dayColumnsRef = useRef<HTMLDivElement>(null);
@@ -270,7 +280,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     eventId: string;
     durationHours: number;
     offsetY: number;
+    original: { startTime: string; endTime: string; dayIndex: number };
+    latest?: { startTime: string; endTime: string; dayIndex: number };
   } | null>(null);
+  const overlappingSet = useMemo(() => new Set(overlappingEventIds ?? []), [overlappingEventIds]);
 
   const visibleDays = useMemo(() => {
     const hasWeekendEvents = events.some(e => e.dayIndex >= 5);
@@ -509,14 +522,20 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       const clampedStart = Math.min(maxStart, Math.max(startHour, snappedStart));
       const clampedEnd = clampedStart + dragInfo.durationHours;
 
-      onEventTimeChange(dragInfo.eventId, {
+      dragInfo.latest = {
         startTime: formatTimeFromHours(clampedStart),
         endTime: formatTimeFromHours(clampedEnd),
         dayIndex: nextDayIndex,
-      });
+      };
+      onEventTimeChange(dragInfo.eventId, dragInfo.latest);
     };
 
     const handleUp = () => {
+      const dragInfo = dragInfoRef.current;
+      if (dragInfo && onEventDragEnd) {
+        const updated = dragInfo.latest ?? dragInfo.original;
+        onEventDragEnd(dragInfo.eventId, dragInfo.original, updated);
+      }
       setDraggingEventId(null);
       dragInfoRef.current = null;
     };
@@ -527,7 +546,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
     };
-  }, [draggingEventId, onEventTimeChange, hourRange, startHour, visibleDays.length]);
+  }, [draggingEventId, onEventDragEnd, onEventTimeChange, hourRange, startHour, visibleDays.length]);
 
   const handleGridMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!interactive || !onEmptyBlockClick || draggingEventId) return;
@@ -576,6 +595,16 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       eventId: event.id,
       durationHours,
       offsetY,
+      original: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
+      latest: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
     };
     setDraggingEventId(event.id);
     setHoveredSlot(null);
@@ -794,7 +823,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   const isSelected = selectedEventId === event.id;
                   const isDragging = draggingEventId === event.id;
                   const canDrag = interactive && onEventTimeChange && isSelected;
-                  const shouldHideBorder = hideUnselectedBorders && !isSelected;
+                  const isOverlapping = overlappingSet.has(event.id);
+                  const shouldHideBorder = hideUnselectedBorders && !isSelected && !isOverlapping;
 
                   // Original time values
                   const startVal = parseInt(event.startTime.split(':')[0]) + parseInt(event.startTime.split(':')[1]) / 60;
@@ -846,7 +876,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
                             borderColor: 'rgba(0,0,0,0.1)',
                           }),
-                      ...(isSelected
+                      ...(isOverlapping
+                        ? {
+                            borderColor: 'rgba(239, 68, 68, 0.95)',
+                            borderWidth: '3px',
+                            boxShadow: '0 12px 26px rgba(239, 68, 68, 0.35)',
+                          }
+                        : isSelected
                         ? {
                             borderColor: selectedBorderColor,
                             borderWidth: '3px',

@@ -21,6 +21,68 @@ interface EditStepProps {
 const CLASS_TYPES: ClassType[] = ['Lecture', 'Tutorial', 'Lab', 'Seminar', 'Unknown', 'Custom'];
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const roundToNearestHalfHour = (timeInHours: number): number => {
+  return Math.round(timeInHours * 2) / 2;
+};
+
+const parseTimeToHours = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours + (minutes || 0) / 60;
+};
+
+const getAlignedRange = (startTime: string, endTime: string) => {
+  const startVal = parseTimeToHours(startTime);
+  const endVal = parseTimeToHours(endTime);
+  const alignedStart = roundToNearestHalfHour(startVal);
+  const alignedEnd = roundToNearestHalfHour(endVal);
+  const duration = Math.max(0.5, alignedEnd - alignedStart);
+  return { start: alignedStart, end: alignedStart + duration };
+};
+
+const getOverlappingEventIds = (events: CalendarEvent[]): Set<string> => {
+  const overlaps = new Set<string>();
+  const byDay = new Map<number, Array<{ id: string; start: number; end: number }>>();
+
+  events.forEach((event) => {
+    const range = getAlignedRange(event.startTime, event.endTime);
+    const list = byDay.get(event.dayIndex) ?? [];
+    list.push({ id: event.id, start: range.start, end: range.end });
+    byDay.set(event.dayIndex, list);
+  });
+
+  byDay.forEach((ranges) => {
+    ranges.sort((a, b) => (a.start - b.start) || (a.end - b.end));
+    const active: Array<{ id: string; start: number; end: number }> = [];
+    ranges.forEach((range) => {
+      for (let i = active.length - 1; i >= 0; i -= 1) {
+        if (active[i].end <= range.start) {
+          active.splice(i, 1);
+        }
+      }
+      if (active.length > 0) {
+        overlaps.add(range.id);
+        active.forEach((existing) => overlaps.add(existing.id));
+      }
+      active.push(range);
+    });
+  });
+
+  return overlaps;
+};
+
+const doesEventOverlap = (
+  eventId: string,
+  candidate: { startTime: string; endTime: string; dayIndex: number },
+  events: CalendarEvent[]
+): boolean => {
+  const candidateRange = getAlignedRange(candidate.startTime, candidate.endTime);
+  return events.some((event) => {
+    if (event.id === eventId || event.dayIndex !== candidate.dayIndex) return false;
+    const range = getAlignedRange(event.startTime, event.endTime);
+    return candidateRange.start < range.end && candidateRange.end > range.start;
+  });
+};
+
 export const EditStep: React.FC<EditStepProps> = ({
   events,
   categories,
@@ -34,6 +96,7 @@ export const EditStep: React.FC<EditStepProps> = ({
   const [showFullTitle, setShowFullTitle] = useState(false);
   const [isContentDisplayExpanded, setIsContentDisplayExpanded] = useState(true);
   const [showGuidanceNote, setShowGuidanceNote] = useState(true);
+  const [showOverlapWarning, setShowOverlapWarning] = useState(false);
   const [newEventSlot, setNewEventSlot] = useState<{
     dayIndex: number;
     startTime: string;
@@ -65,6 +128,12 @@ export const EditStep: React.FC<EditStepProps> = ({
   const themeColors = useMemo(() => {
     return getThemeColors(template.themeFamily, template.themeVariant);
   }, [template.themeFamily, template.themeVariant]);
+
+  const overlappingEventIds = useMemo(() => {
+    return getOverlappingEventIds(events);
+  }, [events]);
+  const hasOverlaps = overlappingEventIds.size > 0;
+  const isSelectedEventOverlapping = selectedEvent ? overlappingEventIds.has(selectedEvent.id) : false;
 
   const handleEventClick = (event: CalendarEvent) => {
     setSelectedEventId(event.id);
@@ -112,6 +181,18 @@ export const EditStep: React.FC<EditStepProps> = ({
       event.id === eventId ? { ...event, ...updates } : event
     );
     onUpdateEvents(updated);
+  };
+
+  const handleEventDragEnd = (
+    eventId: string,
+    original: { startTime: string; endTime: string; dayIndex: number },
+    updated: { startTime: string; endTime: string; dayIndex: number }
+  ) => {
+    if (!doesEventOverlap(eventId, updated, events)) return;
+    const reverted = events.map((event) =>
+      event.id === eventId ? { ...event, ...original } : event
+    );
+    onUpdateEvents(reverted);
   };
 
   const openNewEventModal = (slot: { dayIndex: number; startTime: string; endTime: string }) => {
@@ -177,8 +258,10 @@ export const EditStep: React.FC<EditStepProps> = ({
           showFullTitle={showFullTitle}
           selectedEventId={selectedEventId}
           onEventTimeChange={handleEventTimeChange}
+          onEventDragEnd={handleEventDragEnd}
           onEmptyBlockClick={openNewEventModal}
           hideUnselectedBorders={true}
+          overlappingEventIds={Array.from(overlappingEventIds)}
         />
       </div>
 
@@ -202,7 +285,13 @@ export const EditStep: React.FC<EditStepProps> = ({
               </button>
             ) : (
               <button
-                onClick={onNext}
+                onClick={() => {
+                  if (hasOverlaps) {
+                    setShowOverlapWarning(true);
+                    return;
+                  }
+                  onNext();
+                }}
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 Next
@@ -391,6 +480,11 @@ export const EditStep: React.FC<EditStepProps> = ({
                   type="warning"
                 />
               )}
+              {isSelectedEventOverlapping && (
+                <div className="rounded-xl border border-red-500/60 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 shadow-[0_12px_30px_rgba(239,68,68,0.25)]">
+                  This course has overlaps. Please drag or edit the block to fix issue.
+                </div>
+              )}
 
               {/* Course Info - Course Code with Class Type dropdown */}
               <div>
@@ -533,6 +627,38 @@ export const EditStep: React.FC<EditStepProps> = ({
           ) : null}
         </div>
       </div>
+
+      {showOverlapWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-white font-semibold">Overlaps detected</h4>
+                <p className="text-xs text-gray-400 mt-1">
+                  Some blocks overlap. Please fix if not intended.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-5">
+              <button
+                onClick={() => setShowOverlapWarning(false)}
+                className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+              >
+                Back to Edit
+              </button>
+              <button
+                onClick={() => {
+                  setShowOverlapWarning(false);
+                  onNext();
+                }}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+              >
+                Proceed with Overlap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {newEventSlot && newEventDraft && (
         <div
