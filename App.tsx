@@ -7,7 +7,8 @@ import { processRawEvents } from './services/geminiService';
 import { UploadStep } from './components/UploadStep';
 import { EditStep } from './components/EditStep';
 import { ExportStep } from './components/ExportStep';
-import { Wand2 } from 'lucide-react';
+import faviconDark from './assets/Favicon_BlackLine.png';
+import faviconLight from './assets/FavIcon_WhiteLine.png';
 
 const DEFAULT_TEMPLATE: TemplateConfig = {
   id: 'default',
@@ -91,9 +92,10 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Wand2 size={18} className="text-white" />
-          </div>
+          <picture className="w-8 h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
+            <source srcSet={faviconLight} media="(prefers-color-scheme: dark)" />
+            <img src={faviconDark} alt="ScheduleStyler" className="w-6 h-6 object-contain" />
+          </picture>
           <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             ScheduleStyler
           </span>

@@ -666,28 +666,31 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
         )}
 
-        {/* SIDEBAR TOGGLE - Shows when sidebar is collapsed */}
-        {!isSidebarOpen && (
-          <button 
-            data-component="SidebarToggle"
-            onClick={() => setIsSidebarOpen(true)}
-            className="absolute top-4 left-4 z-50 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg"
-          >
-            <SlidersHorizontal size={20} />
-          </button>
-        )}
       </div>
 
-      {!isZoomToolbarOpen && (
-        <div data-component="ZoomToolbarExpand" className="flex items-start pt-4">
-          <button
-            onClick={() => setIsZoomToolbarOpen(true)}
-            className="h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-[0_10px_20px_rgba(2,6,23,0.35)] backdrop-blur-md transition-all hover:bg-slate-800/80 active:scale-95"
-            title="Show zoom controls"
-            aria-label="Show zoom controls"
-          >
-            <ZoomIn size={16} className="mx-auto text-gray-200" />
-          </button>
+      {(!isZoomToolbarOpen || !isSidebarOpen) && (
+        <div data-component="CanvasControls" className="flex flex-col items-center gap-3 pt-4">
+          {!isZoomToolbarOpen && (
+            <button
+              onClick={() => setIsZoomToolbarOpen(true)}
+              className="h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-[0_10px_20px_rgba(2,6,23,0.35)] backdrop-blur-md transition-all hover:bg-slate-800/80 active:scale-95"
+              title="Show zoom controls"
+              aria-label="Show zoom controls"
+            >
+              <ZoomIn size={16} className="mx-auto text-gray-200" />
+            </button>
+          )}
+          {!isSidebarOpen && (
+            <button
+              data-component="SidebarToggle"
+              onClick={() => setIsSidebarOpen(true)}
+              className="h-10 w-10 rounded-xl border border-slate-600/70 bg-transparent text-gray-200 shadow-[0_10px_20px_rgba(2,6,23,0.2)] transition-all hover:bg-slate-800/40 active:scale-95"
+              title="Show sidebar"
+              aria-label="Show sidebar"
+            >
+              <SlidersHorizontal size={18} className="mx-auto" />
+            </button>
+          )}
         </div>
       )}
 
