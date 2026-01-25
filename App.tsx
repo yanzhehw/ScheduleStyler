@@ -37,6 +37,12 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   headerBlurMode: 'bar', // 'bar' for entire row, 'cells' for individual cells
   timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)
   timeColumnBlurMode: 'bar', // 'bar' for entire column, 'cells' for individual cells
+  backgroundType: 'image', // Background type: 'none', 'image', or 'color'
+  backgroundImage: 'l1', // First landscape background as default
+  backgroundBlur: 0, // Background blur amount (0-20px)
+  backgroundOverlay: 0, // Background overlay/highlight opacity (0-100)
+  backgroundIndependent: false, // Whether background has independent aspect ratio
+  backgroundAspectRatio: 0.6, // Background aspect ratio when independent
 };
 
 const App: React.FC = () => {

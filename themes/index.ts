@@ -10,8 +10,6 @@ import { CalendarCanvasTheme } from '../types';
 
 // Import texture for Vite to handle properly
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
-// Import background image for acrylic theme
-import acrylicBackgroundUrl from '../assets/backgrounds/3.png';
 
 // =============================================================================
 // Theme Variant Type
@@ -568,8 +566,6 @@ export const THEME_MATT: ThemeFamily = {
 
 // Texture path for acrylic noise effect (imported for Vite bundling)
 const ACRYLIC_TEXTURE = acrylicTextureUrl;
-// Background image for acrylic theme canvas
-const ACRYLIC_BACKGROUND = acrylicBackgroundUrl;
 
 // Dark 1 - Deep Charcoal Slate
 const ACRYLIC_DARK_SLATE: CalendarCanvasTheme = {
@@ -577,9 +573,7 @@ const ACRYLIC_DARK_SLATE: CalendarCanvasTheme = {
   name: 'Acrylic Dark Slate',
   variant: 'dark',
   canvas: {
-    background: `url('${ACRYLIC_BACKGROUND}')`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
+    background: 'transparent',
     border: '1px solid rgba(255, 255, 255, 0.08)',
     borderRadius: '24px',
     shadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
@@ -684,9 +678,7 @@ const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
   name: 'Acrylic Light Frost',
   variant: 'light',
   canvas: {
-    background: `url('${ACRYLIC_BACKGROUND}')`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
+    background: 'transparent',
     border: '1px solid rgba(255, 255, 255, 0.6)',
     borderRadius: '24px',
     shadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
