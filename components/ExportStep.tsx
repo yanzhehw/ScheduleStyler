@@ -6,45 +6,10 @@ import { downloadComponentAsImage } from '../services/imageUtils';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
 import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
-
-// Import landscape background images
-import bgL1 from '../assets/backgrounds/landscape/1.jpg';
-import bgL2 from '../assets/backgrounds/landscape/2.png';
-import bgL3 from '../assets/backgrounds/landscape/3.png';
-import bgL4 from '../assets/backgrounds/landscape/4.png';
-import bgL5 from '../assets/backgrounds/landscape/5.jpg';
-import bgL6 from '../assets/backgrounds/landscape/6.jpg';
-import bgL7 from '../assets/backgrounds/landscape/7.jpg';
-
-// Import portrait background images
-import bgP1 from '../assets/backgrounds/portrait/p1.jpg';
-import bgP2 from '../assets/backgrounds/portrait/p2.jpg';
-import bgP3 from '../assets/backgrounds/portrait/p3.jpg';
-import bgP4 from '../assets/backgrounds/portrait/p4.png';
-import bgP5 from '../assets/backgrounds/portrait/p5.jpg';
+import { LANDSCAPE_BACKGROUNDS, PORTRAIT_BACKGROUNDS } from '../assets/backgrounds';
 
 // Import lockscreen mockup overlay
 import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
-
-// Background image options - landscape
-const LANDSCAPE_BACKGROUNDS = [
-  { id: 'l1', url: bgL1, name: 'Landscape 1' },
-  { id: 'l2', url: bgL2, name: 'Landscape 2' },
-  { id: 'l3', url: bgL3, name: 'Landscape 3' },
-  { id: 'l4', url: bgL4, name: 'Landscape 4' },
-  { id: 'l5', url: bgL5, name: 'Landscape 5' },
-  { id: 'l6', url: bgL6, name: 'Landscape 6' },
-  { id: 'l7', url: bgL7, name: 'Landscape 7' },
-];
-
-// Background image options - portrait
-const PORTRAIT_BACKGROUNDS = [
-  { id: 'p1', url: bgP1, name: 'Portrait 1' },
-  { id: 'p2', url: bgP2, name: 'Portrait 2' },
-  { id: 'p3', url: bgP3, name: 'Portrait 3' },
-  { id: 'p4', url: bgP4, name: 'Portrait 4' },
-  { id: 'p5', url: bgP5, name: 'Portrait 5' },
-];
 
 interface ExportStepProps {
   events: CalendarEvent[];

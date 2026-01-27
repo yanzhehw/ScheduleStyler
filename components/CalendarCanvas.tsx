@@ -3,38 +3,7 @@ import { CalendarEvent, TemplateConfig } from '../types';
 import { MapPin, AlignLeft, Plus } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
-
-// Import landscape background images
-import bgL1 from '../assets/backgrounds/landscape/1.jpg';
-import bgL2 from '../assets/backgrounds/landscape/2.png';
-import bgL3 from '../assets/backgrounds/landscape/3.png';
-import bgL4 from '../assets/backgrounds/landscape/4.png';
-import bgL5 from '../assets/backgrounds/landscape/5.jpg';
-import bgL6 from '../assets/backgrounds/landscape/6.jpg';
-import bgL7 from '../assets/backgrounds/landscape/7.jpg';
-
-// Import portrait background images
-import bgP1 from '../assets/backgrounds/portrait/p1.jpg';
-import bgP2 from '../assets/backgrounds/portrait/p2.jpg';
-import bgP3 from '../assets/backgrounds/portrait/p3.jpg';
-import bgP4 from '../assets/backgrounds/portrait/p4.png';
-import bgP5 from '../assets/backgrounds/portrait/p5.jpg';
-
-// Background image map
-const BACKGROUND_IMAGE_MAP: Record<string, string> = {
-  'l1': bgL1,
-  'l2': bgL2,
-  'l3': bgL3,
-  'l4': bgL4,
-  'l5': bgL5,
-  'l6': bgL6,
-  'l7': bgL7,
-  'p1': bgP1,
-  'p2': bgP2,
-  'p3': bgP3,
-  'p4': bgP4,
-  'p5': bgP5,
-};
+import { BACKGROUND_IMAGE_MAP } from '../assets/backgrounds';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
