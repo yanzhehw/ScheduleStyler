@@ -33,6 +33,9 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   titleFont: 'Inter', // Font for event block title
   subtitleFont: 'Inter', // Font for event block subtitle
   detailsFont: 'Inter', // Font for event block details
+  titleFontSize: 12, // Title font size in pixels
+  subtitleFontSize: 10, // Subtitle font size in pixels
+  detailsFontSize: 10, // Details font size in pixels
   headerBlurAmount: 0, // Day header backdrop blur (0-20px)
   headerBlurMode: 'bar', // 'bar' for entire row, 'cells' for individual cells
   timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)
@@ -43,6 +46,8 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   backgroundOverlay: 0, // Background overlay/highlight opacity (0-100)
   backgroundIndependent: false, // Whether background has independent aspect ratio
   backgroundAspectRatio: 0.6, // Background aspect ratio when independent
+  lockscreenMockup: false, // Show iPhone lockscreen mockup overlay
+  lockscreenOffset: 15, // Vertical offset for calendar within lockscreen (0-100%)
 };
 
 const App: React.FC = () => {
@@ -51,6 +56,7 @@ const App: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [template, setTemplate] = useState<TemplateConfig>(DEFAULT_TEMPLATE);
+  const [hasVisitedExport, setHasVisitedExport] = useState(false);
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
@@ -151,10 +157,22 @@ const App: React.FC = () => {
           <EditStep
             events={events}
             categories={categories}
-            template={template}
+            template={hasVisitedExport ? template : { ...template, backgroundType: 'none', backgroundIndependent: false }}
             onUpdateEvents={setEvents}
             onUpdateTemplate={setTemplate}
-            onNext={() => setStep(AppStep.EXPORT)}
+            onNext={() => {
+              // Set appropriate background type based on theme when entering Export view for the first time
+              if (!hasVisitedExport) {
+                const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
+                setTemplate(prev => ({
+                  ...prev,
+                  backgroundType: isGlassOrAcrylic ? 'image' : 'none',
+                  backgroundImage: isGlassOrAcrylic && !prev.backgroundImage ? 'l1' : prev.backgroundImage
+                }));
+              }
+              setHasVisitedExport(true);
+              setStep(AppStep.EXPORT);
+            }}
             onReupload={() => setStep(AppStep.UPLOAD)}
           />
         )}

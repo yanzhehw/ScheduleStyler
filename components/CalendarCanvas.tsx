@@ -70,6 +70,8 @@ interface CalendarCanvasProps {
   ) => void;
   /** Highlight overlapping events */
   overlappingEventIds?: string[];
+  /** Vertical offset for calendar content (percentage, for lockscreen positioning) */
+  contentVerticalOffset?: number;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -107,9 +109,9 @@ const calculateMinBlockWidth = (
 ): number => {
   if (events.length === 0) return ABSOLUTE_MIN_BLOCK_WIDTH;
   
-  // Average character widths at different font sizes (approximate)
-  const titleFontSize = template.fontScale * 12; // 0.75rem = 12px base
-  const detailFontSize = template.fontScale * 9.6; // 0.6rem = 9.6px base
+  // Use individual font sizes for character width calculations
+  const titleFontSize = template.titleFontSize;
+  const detailFontSize = template.detailsFontSize;
   
   // Average char width is roughly 0.55x font size for proportional fonts
   const titleCharWidth = titleFontSize * 0.55;
@@ -266,8 +268,8 @@ const calculateMinEventHeight = (
   template: TemplateConfig,
   showFullTitle: boolean
 ): number => {
-  const baseFontSize = template.fontScale * 12; // 0.75rem = 12px base
-  const smallFontSize = template.fontScale * 9.6; // 0.6rem = 9.6px base
+  const baseFontSize = template.titleFontSize;
+  const smallFontSize = template.detailsFontSize;
   const lineHeight = 1.4;
   
   let totalHeight = 16; // Base padding (p-2 = 8px top + 8px bottom)
@@ -320,7 +322,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   visualScale,
   hideUnselectedBorders = false,
   onEventDragEnd,
-  overlappingEventIds
+  overlappingEventIds,
+  contentVerticalOffset = 0
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dayColumnsRef = useRef<HTMLDivElement>(null);
@@ -358,13 +361,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       if (effectiveEnd > maxH) maxH = effectiveEnd;
     });
 
-    maxH = Math.min(24, maxH + 1);
-    
+    // Don't add extra hour - grid ends exactly at latest event end time
+    maxH = Math.min(24, maxH);
+
     if (maxH - minH < 4) {
       maxH = Math.min(24, minH + 4);
       if (maxH - minH < 4) minH = Math.max(0, maxH - 4);
     }
-    
+
     const range = maxH - minH;
     const h = Array.from({ length: range }, (_, i) => i + minH);
     
@@ -809,12 +813,26 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       >
         {/* Background fills the outer container (only when there's an image or color background) */}
         {template.backgroundType !== 'none' && renderBackgroundLayer()}
-        {/* Calendar positioned within */}
+        {/* Calendar positioned within - applies vertical offset for lockscreen positioning */}
         <div
           style={{
             position: 'absolute',
             left: `${outerDimensions.paddingX}px`,
-            top: `${outerDimensions.paddingY}px`,
+            top: (() => {
+              // Calculate offset from the centered position
+              // The slider moves the card DOWN from center, offset is a percentage of available space
+              const availableSpace = outerDimensions.height - canvasDimensions.height;
+              // Minimum bottom margin is 5% of container height
+              const minBottomMargin = outerDimensions.height * 0.05;
+              // Maximum top position (offset from top edge)
+              const maxTopOffset = availableSpace - minBottomMargin;
+              // Calculate raw offset: 0% = centered, 50% = max down
+              const centeredTop = outerDimensions.paddingY;
+              const rawOffset = (contentVerticalOffset / 50) * (maxTopOffset - centeredTop);
+              // Final position: centered + offset, clamped to valid range
+              const finalTop = Math.max(0, Math.min(centeredTop + rawOffset, maxTopOffset));
+              return `${finalTop}px`;
+            })(),
           }}
         >
           {children}
@@ -1151,7 +1169,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
                       style={{
-                        fontSize: `${template.fontScale * 0.75}rem`,
+                        fontSize: `${template.titleFontSize}px`,
                         fontFamily: template.titleFont,
                         color: template.titleTextColor || (template.themeFamily === 'acrylic'
                           ? currentTheme.eventBlock.titleColor
@@ -1167,7 +1185,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       <div
                         className="font-semibold opacity-90"
                         style={{
-                          fontSize: `${template.fontScale * 0.6}rem`,
+                          fontSize: `${template.subtitleFontSize}px`,
                           fontFamily: template.subtitleFont,
                           color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
                             ? currentTheme.eventBlock.subtitleColor
@@ -1184,7 +1202,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     <div
                       className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
                       style={{
-                        fontSize: `${template.fontScale * 0.6}rem`,
+                        fontSize: `${template.detailsFontSize}px`,
                         fontFamily: template.detailsFont,
                         color: template.detailsTextColor || (template.themeFamily === 'acrylic'
                           ? currentTheme.eventBlock.detailsColor

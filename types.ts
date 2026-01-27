@@ -398,6 +398,15 @@ export interface TemplateConfig {
   /** Font for event block details (time, location, notes) */
   detailsFont: string;
 
+  /** Font size for event block title in pixels (default 12) */
+  titleFontSize: number;
+
+  /** Font size for event block subtitle in pixels (default 10) */
+  subtitleFontSize: number;
+
+  /** Font size for event block details in pixels (default 10) */
+  detailsFontSize: number;
+
   /** Custom text color for event block title (optional) */
   titleTextColor?: string;
 
@@ -442,6 +451,12 @@ export interface TemplateConfig {
 
   /** Background aspect ratio when independent (0 = 16:9 landscape, 1 = 9:16 portrait) */
   backgroundAspectRatio: number;
+
+  /** Whether to show iPhone lockscreen mockup overlay */
+  lockscreenMockup: boolean;
+
+  /** Vertical offset for calendar position within lockscreen (0-100, percentage from top) */
+  lockscreenOffset: number;
 }
 
 export interface ProcessedData {
