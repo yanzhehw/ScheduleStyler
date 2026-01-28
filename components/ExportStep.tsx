@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { CalendarEvent, TemplateConfig, ThemeFamilyId } from '../types';
+import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
-import { downloadComponentAsImage } from '../services/imageUtils';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick } from 'lucide-react';
+import { downloadCalendarExport } from '../services/exportPipeline';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
 import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
+import { LANDSCAPE_BACKGROUNDS, PORTRAIT_BACKGROUNDS } from '../assets/backgrounds';
+
+// Import lockscreen mockup overlay
+import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
 
 interface ExportStepProps {
   events: CalendarEvent[];
@@ -23,8 +27,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isScaleRatioExpanded, setIsScaleRatioExpanded] = useState(true);
+  const [isBackgroundExpanded, setIsBackgroundExpanded] = useState(false);
   const [showExportAdvice, setShowExportAdvice] = useState(true);
   const [showBlockAdvice, setShowBlockAdvice] = useState(true);
+  const [showBackgroundColorPicker, setShowBackgroundColorPicker] = useState(false);
+  const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
   // Header/Time column text editing
   const [headerTextEditorOpen, setHeaderTextEditorOpen] = useState(false);
@@ -34,8 +41,25 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   
   // Selected event for color picking
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [applyColorToAll, setApplyColorToAll] = useState(false);
+  const [applyColorToAll, setApplyColorToAll] = useState(
+    template.themeFamily === 'acrylic' || template.themeFamily === 'glass'
+  );
   const [showFontSelector, setShowFontSelector] = useState(false);
+
+  // When theme changes to Acrylic or Glass, turn on "apply to all" and unify colors with random selection
+  useEffect(() => {
+    const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
+    if (isGlassOrAcrylic) {
+      setApplyColorToAll(true);
+      // Apply uniform random color to all blocks
+      if (events.length > 0) {
+        const themeColorPalette = getThemeColors(template.themeFamily, template.themeVariant);
+        const randomColor = themeColorPalette[Math.floor(Math.random() * themeColorPalette.length)];
+        const updatedEvents = events.map(e => ({ ...e, color: randomColor }));
+        onUpdateEvents(updatedEvents);
+      }
+    }
+  }, [template.themeFamily]);
   const [openFontDropdown, setOpenFontDropdown] = useState<'title' | 'subtitle' | 'details' | null>(null);
   const [openTextColorPicker, setOpenTextColorPicker] = useState<'title' | 'subtitle' | 'details' | null>(null);
   const [fontPairDropdownOpen, setFontPairDropdownOpen] = useState(false);
@@ -340,6 +364,18 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     const variant = newVariant ?? template.themeVariant;
     const newThemeColors = getThemeColors(newThemeFamily, variant);
 
+    // For Acrylic and Glass themes with applyColorToAll, use a single random color
+    const isGlassOrAcrylic = newThemeFamily === 'acrylic' || newThemeFamily === 'glass';
+    if (isGlassOrAcrylic && applyColorToAll) {
+      const randomColor = newThemeColors[Math.floor(Math.random() * newThemeColors.length)];
+      const updatedEvents = events.map(event => ({
+        ...event,
+        color: randomColor
+      }));
+      onUpdateEvents(updatedEvents);
+      return;
+    }
+
     // Get unique display titles and assign colors
     const displayTitlesSet = new Set<string>();
     events.forEach(e => displayTitlesSet.add(e.displayTitle));
@@ -369,7 +405,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     // Longer timeout to ensure fonts are loaded
     await new Promise(r => setTimeout(r, 300));
     // Use the hidden export canvas which has exportMode=true for proper rendering
-    await downloadComponentAsImage('calendar-export-hidden', 'my-beautiful-calendar');
+    await downloadCalendarExport('calendar-export-hidden', 'my-beautiful-calendar');
     setIsExporting(false);
   };
 
@@ -418,48 +454,141 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
         )}
 
+        {/* ADVICE BANNERS - Positioned at top-right under zoom controls */}
+        <div className="absolute top-20 right-4 z-40 flex flex-col gap-2 max-w-xs">
+          {showBlockAdvice && (
+            <div className="relative group bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5 text-xs text-blue-200/80 backdrop-blur-md">
+              <button
+                onClick={() => setShowBlockAdvice(false)}
+                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
+                title="Dismiss"
+              >
+                <X size={12} />
+              </button>
+              <p><MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-blue-400" />Click on a block to adjust its color and text fonts</p>
+            </div>
+          )}
+          {showExportAdvice && (
+            <div className="relative group bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md">
+              <button
+                onClick={() => setShowExportAdvice(false)}
+                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
+                title="Dismiss"
+              >
+                <X size={12} />
+              </button>
+              <p><Camera size={14} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />Blur effects may differ in exported images. For best results, take a screenshot.</p>
+            </div>
+          )}
+        </div>
+
         {/* PREVIEW VIEWPORT - Centers the calendar */}
-        <div 
-          data-component="PreviewViewport" 
+        <div
+          data-component="PreviewViewport"
           className="min-h-full p-6 flex items-start justify-center"
         >
           {/* ZOOM WRAPPER - Applies zoom transform */}
           <div
             data-component="ZoomWrapper"
-            className="transition-all duration-200 origin-top"
+            className="transition-all duration-200 origin-top flex items-start"
             style={
               (supportsZoom
                 ? { zoom }
                 : { transform: `scale(${zoom})` }) as React.CSSProperties
             }
           >
-            {/* EXPORT NODE - Visible interactive canvas */}
-            <div data-component="ExportNode" id="calendar-export-node">
-              <CalendarCanvas
-                events={events}
-                template={template}
-                interactive={true}
-                onEventClick={handleEventClick}
-                onBlankClick={handleBlankClick}
-                visualScale={supportsZoom ? 1 : zoom}
-                onHeaderClick={() => {
-                  setHeaderTextEditorOpen(true);
-                  setTimeColumnEditorOpen(false);
-                  setSelectedEventId(null);
-                  setColorPickerPosition(null);
-                }}
-                onTimeColumnClick={() => {
-                  setTimeColumnEditorOpen(true);
-                  setHeaderTextEditorOpen(false);
-                  setSelectedEventId(null);
-                  setColorPickerPosition(null);
-                }}
-              />
-            </div>
+            {/* LOCKSCREEN MOCKUP WRAPPER - When enabled, shows iPhone frame border around canvas */}
+            {template.lockscreenMockup ? (
+              <>
+                <div data-component="LockscreenMockup" className="relative">
+                  {/* iPhone frame border - wraps around the canvas */}
+                  <div
+                    className="absolute pointer-events-none z-10"
+                    style={{
+                      // Frame extends outside the canvas by ~3% on each side
+                      inset: '-3%',
+                      width: '106%',
+                      height: '106%',
+                    }}
+                  >
+                    <img
+                      src={lockscreenMockupImg}
+                      alt="iPhone Lockscreen Frame"
+                      className="w-full h-full object-fill"
+                    />
+                  </div>
+                  {/* EXPORT NODE - Canvas stays static, only card content moves via prop */}
+                  <div data-component="ExportNode" id="calendar-export-node">
+                    <CalendarCanvas
+                      events={events}
+                      template={template}
+                      interactive={true}
+                      onEventClick={handleEventClick}
+                      onBlankClick={handleBlankClick}
+                      visualScale={supportsZoom ? 1 : zoom}
+                      contentVerticalOffset={template.lockscreenOffset}
+                      onHeaderClick={() => {
+                        setHeaderTextEditorOpen(true);
+                        setTimeColumnEditorOpen(false);
+                        setSelectedEventId(null);
+                        setColorPickerPosition(null);
+                      }}
+                      onTimeColumnClick={() => {
+                        setTimeColumnEditorOpen(true);
+                        setHeaderTextEditorOpen(false);
+                        setSelectedEventId(null);
+                        setColorPickerPosition(null);
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Lockscreen position slider - on the right, inside zoom wrapper for adjacency */}
+                <div className="flex flex-col items-center ml-8 self-stretch justify-center">
+                  <span className="text-[10px] text-gray-500 mb-2 whitespace-nowrap">Top</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                    value={template.lockscreenOffset}
+                    onChange={(e) => onUpdateTemplate({ ...template, lockscreenOffset: parseInt(e.target.value) })}
+                    className="flex-1 max-h-[400px] w-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    style={{ writingMode: 'vertical-lr' }}
+                    title={`Offset: ${template.lockscreenOffset}%`}
+                  />
+                  <span className="text-[10px] text-gray-500 mt-2">{template.lockscreenOffset}%</span>
+                </div>
+              </>
+            ) : (
+              /* EXPORT NODE - Visible interactive canvas (normal mode) */
+              <div data-component="ExportNode" id="calendar-export-node">
+                <CalendarCanvas
+                  events={events}
+                  template={template}
+                  interactive={true}
+                  onEventClick={handleEventClick}
+                  onBlankClick={handleBlankClick}
+                  visualScale={supportsZoom ? 1 : zoom}
+                  contentVerticalOffset={template.lockscreenOffset}
+                  onHeaderClick={() => {
+                    setHeaderTextEditorOpen(true);
+                    setTimeColumnEditorOpen(false);
+                    setSelectedEventId(null);
+                    setColorPickerPosition(null);
+                  }}
+                  onTimeColumnClick={() => {
+                    setTimeColumnEditorOpen(true);
+                    setHeaderTextEditorOpen(false);
+                    setSelectedEventId(null);
+                    setColorPickerPosition(null);
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* HIDDEN EXPORT CANVAS - Used for actual image export with exportMode=true */}
+        {/* HIDDEN EXPORT CANVAS - Used for actual image export */}
         <div
           style={{
             position: 'fixed',
@@ -475,7 +604,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               events={events}
               template={template}
               interactive={false}
-              exportMode={true}
+              contentVerticalOffset={template.lockscreenOffset}
             />
           </div>
         </div>
@@ -555,6 +684,61 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-6' : 'left-1'}`} />
                 </div>
               </div>
+
+              {/* Shuffle Colors Button - Only when Apply to All is OFF */}
+              {!applyColorToAll && (
+                <button
+                  onClick={() => {
+                    // Get unique display titles
+                    const displayTitlesSet = new Set<string>();
+                    events.forEach(e => displayTitlesSet.add(e.displayTitle));
+                    const displayTitles = Array.from(displayTitlesSet);
+
+                    // Get current colors to avoid
+                    const currentColors = new Map<string, string>();
+                    events.forEach(e => {
+                      if (!currentColors.has(e.displayTitle)) {
+                        currentColors.set(e.displayTitle, e.color || '');
+                      }
+                    });
+
+                    // Shuffle themeColors array randomly
+                    const shuffledColors = [...themeColors].sort(() => Math.random() - 0.5);
+
+                    // Assign colors, trying to pick different ones from current
+                    const colorMap = new Map<string, string>();
+                    displayTitles.forEach((title, index) => {
+                      const currentColor = currentColors.get(title);
+                      // Find a color different from current if possible
+                      let newColor = shuffledColors[index % shuffledColors.length];
+                      if (newColor === currentColor && shuffledColors.length > 1) {
+                        // Try next color in shuffled array
+                        newColor = shuffledColors[(index + 1) % shuffledColors.length];
+                      }
+                      colorMap.set(title, newColor);
+                    });
+
+                    // Apply colors to events, with Lab/Tutorial differentiation if enabled
+                    const updatedEvents = events.map(event => {
+                      const baseColor = colorMap.get(event.displayTitle) || shuffledColors[0];
+
+                      if (template.differentiateTypes && (event.classType === 'Lab' || event.classType === 'Tutorial')) {
+                        // Shift to a different color for Lab/Tutorial
+                        const baseIdx = shuffledColors.indexOf(baseColor);
+                        const shiftedColor = shuffledColors[(baseIdx + 2) % shuffledColors.length];
+                        return { ...event, color: shiftedColor };
+                      }
+
+                      return { ...event, color: baseColor };
+                    });
+
+                    onUpdateEvents(updatedEvents);
+                  }}
+                  className="w-full mb-2 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors border border-gray-600/50 hover:border-gray-500/50"
+                >
+                  🎲 Shuffle Colors
+                </button>
+              )}
 
               {/* Color swatches - 2 rows grid */}
               <div className="grid grid-cols-6 gap-1.5 mb-2">
@@ -845,104 +1029,204 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
             {/* Individual Font Selectors - Always visible, auto-switches to Custom when changed */}
             <div className="space-y-3 pt-2 border-t border-gray-700/50" data-dropdown>
-              <label className="text-xs text-gray-400 font-medium">Fonts</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-gray-400 font-medium">Fonts</label>
+                <button
+                  onClick={() => {
+                    onUpdateTemplate({
+                      ...template,
+                      titleFont: 'Inter',
+                      subtitleFont: 'Inter',
+                      detailsFont: 'Inter',
+                      titleFontSize: 12,
+                      subtitleFontSize: 10,
+                      detailsFontSize: 10,
+                    });
+                    setSelectedFontPairId('none');
+                  }}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  Reset to default
+                </button>
+              </div>
 
               {/* Title Font */}
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Class Title</span>
-                <div className="relative">
-                  <button
-                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'title' ? null : 'title'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                  >
-                    <span style={{ fontFamily: template.titleFont, fontWeight: 700 }}>{template.titleFont}</span>
-                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'title' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {openFontDropdown === 'title' && (
-                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                      {availableFonts.map((font) => (
-                        <button
-                          key={font}
-                          onClick={() => {
-                            onUpdateTemplate({ ...template, titleFont: font });
-                            setSelectedFontPairId('none');
-                            setOpenFontDropdown(null);
-                          }}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.titleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                          style={{ fontFamily: font, fontWeight: 700 }}
-                        >
-                          {font}
-                          {template.titleFont === font && <span className="text-blue-400">✓</span>}
-                        </button>
-                      ))}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <button
+                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'title' ? null : 'title'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                    >
+                      <span style={{ fontFamily: template.titleFont, fontWeight: 700 }}>{template.titleFont}</span>
+                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'title' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openFontDropdown === 'title' && (
+                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                        {availableFonts.map((font) => (
+                          <button
+                            key={font}
+                            onClick={() => {
+                              onUpdateTemplate({ ...template, titleFont: font });
+                              setSelectedFontPairId('none');
+                              setOpenFontDropdown(null);
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.titleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                            style={{ fontFamily: font, fontWeight: 700 }}
+                          >
+                            {font}
+                            {template.titleFont === font && <span className="text-blue-400">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Font size input with arrows */}
+                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <input
+                      type="number"
+                      value={template.titleFontSize}
+                      onChange={(e) => onUpdateTemplate({ ...template, titleFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 12)) })}
+                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min={6}
+                      max={24}
+                    />
+                    <div className="flex flex-col border-l border-gray-700">
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.min(24, template.titleFontSize + 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronUp size={10} className="text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.max(6, template.titleFontSize - 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                      >
+                        <ChevronDown size={10} className="text-gray-400" />
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
               {/* Subtitle Font */}
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Class Type</span>
-                <div className="relative">
-                  <button
-                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'subtitle' ? null : 'subtitle'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                  >
-                    <span style={{ fontFamily: template.subtitleFont, fontWeight: 600 }}>{template.subtitleFont}</span>
-                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'subtitle' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {openFontDropdown === 'subtitle' && (
-                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                      {availableFonts.map((font) => (
-                        <button
-                          key={font}
-                          onClick={() => {
-                            onUpdateTemplate({ ...template, subtitleFont: font });
-                            setSelectedFontPairId('none');
-                            setOpenFontDropdown(null);
-                          }}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.subtitleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                          style={{ fontFamily: font, fontWeight: 600 }}
-                        >
-                          {font}
-                          {template.subtitleFont === font && <span className="text-blue-400">✓</span>}
-                        </button>
-                      ))}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <button
+                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'subtitle' ? null : 'subtitle'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                    >
+                      <span style={{ fontFamily: template.subtitleFont, fontWeight: 600 }}>{template.subtitleFont}</span>
+                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'subtitle' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openFontDropdown === 'subtitle' && (
+                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                        {availableFonts.map((font) => (
+                          <button
+                            key={font}
+                            onClick={() => {
+                              onUpdateTemplate({ ...template, subtitleFont: font });
+                              setSelectedFontPairId('none');
+                              setOpenFontDropdown(null);
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.subtitleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                            style={{ fontFamily: font, fontWeight: 600 }}
+                          >
+                            {font}
+                            {template.subtitleFont === font && <span className="text-blue-400">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Font size input with arrows */}
+                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <input
+                      type="number"
+                      value={template.subtitleFontSize}
+                      onChange={(e) => onUpdateTemplate({ ...template, subtitleFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 10)) })}
+                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min={6}
+                      max={24}
+                    />
+                    <div className="flex flex-col border-l border-gray-700">
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.min(24, template.subtitleFontSize + 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronUp size={10} className="text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.max(6, template.subtitleFontSize - 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                      >
+                        <ChevronDown size={10} className="text-gray-400" />
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
               {/* Details Font */}
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Location/Details</span>
-                <div className="relative">
-                  <button
-                    onClick={() => { setOpenFontDropdown(openFontDropdown === 'details' ? null : 'details'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                  >
-                    <span style={{ fontFamily: template.detailsFont, fontWeight: 400 }}>{template.detailsFont}</span>
-                    <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'details' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {openFontDropdown === 'details' && (
-                    <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                      {availableFonts.map((font) => (
-                        <button
-                          key={font}
-                          onClick={() => {
-                            onUpdateTemplate({ ...template, detailsFont: font });
-                            setSelectedFontPairId('none');
-                            setOpenFontDropdown(null);
-                          }}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.detailsFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                          style={{ fontFamily: font, fontWeight: 400 }}
-                        >
-                          {font}
-                          {template.detailsFont === font && <span className="text-blue-400">✓</span>}
-                        </button>
-                      ))}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <button
+                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'details' ? null : 'details'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
+                    >
+                      <span style={{ fontFamily: template.detailsFont, fontWeight: 400 }}>{template.detailsFont}</span>
+                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'details' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openFontDropdown === 'details' && (
+                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                        {availableFonts.map((font) => (
+                          <button
+                            key={font}
+                            onClick={() => {
+                              onUpdateTemplate({ ...template, detailsFont: font });
+                              setSelectedFontPairId('none');
+                              setOpenFontDropdown(null);
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.detailsFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
+                            style={{ fontFamily: font, fontWeight: 400 }}
+                          >
+                            {font}
+                            {template.detailsFont === font && <span className="text-blue-400">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Font size input with arrows */}
+                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <input
+                      type="number"
+                      value={template.detailsFontSize}
+                      onChange={(e) => onUpdateTemplate({ ...template, detailsFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 10)) })}
+                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min={6}
+                      max={24}
+                    />
+                    <div className="flex flex-col border-l border-gray-700">
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.min(24, template.detailsFontSize + 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronUp size={10} className="text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.max(6, template.detailsFontSize - 1) })}
+                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                      >
+                        <ChevronDown size={10} className="text-gray-400" />
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1017,7 +1301,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3">
                     {/* Arrow pointing up */}
                     <div
-                      className="absolute -top-2 w-4 h-4 bg-gray-800 border-l border-t border-gray-700 rotate-45"
+                      className="absolute -top-2 w-4 h-4 bg-gray-800 border-r border-b border-gray-700 rotate-45"
                       style={{
                         left: openTextColorPicker === 'title' ? '16%' : openTextColorPicker === 'subtitle' ? '50%' : '84%',
                         transform: 'translateX(-50%) rotate(45deg)'
@@ -1386,10 +1670,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 value={template.themeFamily}
                 onChange={(e) => {
                   const newFamily = e.target.value as ThemeFamilyId;
-                  onUpdateTemplate({ 
-                    ...template, 
+                  const isGlassOrAcrylicNew = newFamily === 'acrylic' || newFamily === 'glass';
+                  onUpdateTemplate({
+                    ...template,
                     themeFamily: newFamily,
-                    theme: `${newFamily}-${template.themeVariant}` as any
+                    theme: `${newFamily}-${template.themeVariant}` as any,
+                    // Set image background for Acrylic/Glass, none for others
+                    backgroundType: isGlassOrAcrylicNew ? 'image' : 'none',
+                    // Set a default image if switching to Acrylic/Glass and no image selected
+                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? 'l1' : template.backgroundImage
                   });
                   // Apply theme colors when switching themes (except default)
                   if (newFamily !== prevThemeFamilyRef.current) {
@@ -1436,19 +1725,254 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
           </div>
 
-          {/* Block Click Advice */}
-          {showBlockAdvice && (
-            <div className="relative group bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5 text-xs text-blue-200/80">
-              <button
-                onClick={() => setShowBlockAdvice(false)}
-                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
-                title="Dismiss"
-              >
-                <X size={12} />
-              </button>
-              <p><MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-blue-400" />Click on a block to adjust its color and text fonts</p>
+          {/* Background Section - Collapsible */}
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isBackgroundExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+            <button
+              onClick={() => setIsBackgroundExpanded(!isBackgroundExpanded)}
+              className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Image size={16} /> Background
+              </div>
+              {isBackgroundExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${isBackgroundExpanded ? 'max-h-[900px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="space-y-4 pt-2">
+                {/* Background Type Toggle */}
+                <div className="space-y-2">
+                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, backgroundType: 'none' })}
+                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'none' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      None
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, backgroundType: 'image' })}
+                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'image' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      Image
+                    </button>
+                    <button
+                      onClick={() => {
+                        onUpdateTemplate({ ...template, backgroundType: 'color' });
+                        setShowBackgroundColorPicker(true);
+                      }}
+                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'color' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      Color
+                    </button>
+                  </div>
+                </div>
+
+                {/* Image Gallery - only shown when type is 'image' */}
+                {template.backgroundType === 'image' && (
+                  <div className="space-y-2">
+                    {/* Side-by-side: 1 column landscape, 2 columns portrait */}
+                    <div className="flex gap-3 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                      {/* Landscape column - single column, wider */}
+                      <div className="w-[45%] flex-shrink-0 space-y-1.5">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">Landscape</span>
+                        <div className="space-y-1.5">
+                          {LANDSCAPE_BACKGROUNDS.map((bg) => (
+                            <button
+                              key={bg.id}
+                              onClick={() => onUpdateTemplate({
+                                ...template,
+                                backgroundImage: bg.id,
+                                customBackgroundImage: undefined
+                              })}
+                              className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
+                                template.backgroundImage === bg.id && !template.customBackgroundImage
+                                  ? 'border-blue-500 ring-2 ring-blue-400/50'
+                                  : 'border-gray-600 hover:border-gray-500'
+                              }`}
+                            >
+                              <img
+                                src={bg.url}
+                                alt={bg.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Portrait columns - 2-column grid, narrower section */}
+                      <div className="w-[46%] flex-shrink-0 space-y-1.5">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">Portrait</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {PORTRAIT_BACKGROUNDS.map((bg) => (
+                            <button
+                              key={bg.id}
+                              onClick={() => onUpdateTemplate({
+                                ...template,
+                                backgroundImage: bg.id,
+                                customBackgroundImage: undefined
+                              })}
+                              className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
+                                template.backgroundImage === bg.id && !template.customBackgroundImage
+                                  ? 'border-blue-500 ring-2 ring-blue-400/50'
+                                  : 'border-gray-600 hover:border-gray-500'
+                              }`}
+                            >
+                              <img
+                                src={bg.url}
+                                alt={bg.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Custom uploaded image thumbnail */}
+                    {template.customBackgroundImage && (
+                      <div className="pt-2 border-t border-gray-700/50">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5 block">Custom Upload</span>
+                        <button
+                          onClick={() => onUpdateTemplate({
+                            ...template,
+                            backgroundImage: 'custom'
+                          })}
+                          className={`relative w-20 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                            template.backgroundImage === 'custom'
+                              ? 'border-blue-500 ring-2 ring-blue-400/50'
+                              : 'border-gray-600 hover:border-gray-500'
+                          }`}
+                        >
+                          <img
+                            src={template.customBackgroundImage}
+                            alt="Custom"
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Upload Button */}
+                    <input
+                      ref={backgroundFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const dataUrl = event.target?.result as string;
+                            onUpdateTemplate({
+                              ...template,
+                              customBackgroundImage: dataUrl,
+                              backgroundImage: 'custom'
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => backgroundFileInputRef.current?.click()}
+                      className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Upload size={14} /> Upload Custom Image
+                    </button>
+                  </div>
+                )}
+
+                {/* Color Picker - only shown when type is 'color' */}
+                {template.backgroundType === 'color' && (
+                  <div className="space-y-2">
+                    <span className="text-xs text-gray-400">Background Color</span>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-10 h-10 rounded-lg border-2 border-gray-600 cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: template.backgroundColor || '#1f2937' }}
+                        onClick={() => setShowBackgroundColorPicker(!showBackgroundColorPicker)}
+                      />
+                      <input
+                        type="text"
+                        value={template.backgroundColor || '#1f2937'}
+                        onChange={(e) => onUpdateTemplate({ ...template, backgroundColor: e.target.value })}
+                        className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 font-mono"
+                        placeholder="#1f2937"
+                      />
+                    </div>
+                    {showBackgroundColorPicker && (
+                      <div className="grid grid-cols-8 gap-1.5 p-2 bg-gray-800/50 rounded-lg">
+                        {[
+                          '#1f2937', '#111827', '#0f172a', '#000000',
+                          '#374151', '#4b5563', '#6b7280', '#9ca3af',
+                          '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db',
+                          '#ef4444', '#f97316', '#eab308', '#22c55e',
+                          '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
+                          '#14b8a6', '#06b6d4', '#0ea5e9', '#f43f5e',
+                        ].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => {
+                              onUpdateTemplate({ ...template, backgroundColor: color });
+                              setShowBackgroundColorPicker(false);
+                            }}
+                            className={`w-6 h-6 rounded border-2 transition-all hover:scale-110 ${
+                              template.backgroundColor === color
+                                ? 'border-white scale-110'
+                                : 'border-transparent hover:border-gray-500'
+                            }`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Blur & Reduce Highlights Sliders - only shown when image is selected */}
+                {template.backgroundType === 'image' && (template.backgroundImage || template.customBackgroundImage) && (
+                  <div className="space-y-3 pt-2 border-t border-gray-700/50">
+                    {/* Blur Slider */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                          <Droplet size={12} /> Blur
+                        </span>
+                        <span className="text-xs text-gray-500">{template.backgroundBlur}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        step="1"
+                        value={template.backgroundBlur}
+                        onChange={(e) => onUpdateTemplate({ ...template, backgroundBlur: parseInt(e.target.value) })}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                    </div>
+
+                    {/* Reduce Highlights Slider */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                          <Moon size={12} /> Reduce Highlights
+                        </span>
+                        <span className="text-xs text-gray-500">{template.backgroundOverlay}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="80"
+                        step="5"
+                        value={template.backgroundOverlay}
+                        onChange={(e) => onUpdateTemplate({ ...template, backgroundOverlay: parseInt(e.target.value) })}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+              </div>
             </div>
-          )}
+          </div>
 
           {/* Scale/Ratio Section - Collapsible */}
           <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isScaleRatioExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
@@ -1457,37 +1981,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
             >
               <div className="flex items-center gap-2">
-                <Maximize2 size={16} /> Scale / Ratio
+                <Maximize2 size={16} /> Content Scale / Ratio
               </div>
               {isScaleRatioExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
             <div className={`overflow-hidden transition-all duration-300 ease-out ${isScaleRatioExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="space-y-4 pt-2">
-                {/* Text Scale */}
+                {/* Calendar Aspect Ratio */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Text Scale</span>
-                    <span className="text-xs text-gray-500">{Math.round(template.fontScale * 100)}%</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">A</span>
-                    <input
-                      type="range"
-                      min="0.8"
-                      max="1.5"
-                      step="0.1"
-                      value={template.fontScale}
-                      onChange={(e) => onUpdateTemplate({ ...template, fontScale: parseFloat(e.target.value) })}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-gray-500">A</span>
-                  </div>
-                </div>
-
-                {/* Aspect Ratio */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Aspect Ratio</span>
+                    <span className="text-xs text-gray-400">Calendar Aspect Ratio</span>
                     <span className="text-xs text-gray-500">
                       {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
                     </span>
@@ -1498,7 +2001,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       type="range"
                       min="0"
                       max="1"
-                      step="0.05"
+                      step="0.01"
                       value={template.aspectRatio}
                       onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
                       className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
@@ -1520,6 +2023,87 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       <Smartphone size={14} /> Mobile
                     </button>
                   </div>
+                </div>
+
+                {/* Independent Background Aspect Ratio */}
+                <div className="space-y-2 pt-3 border-t border-gray-700/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Independent Background Ratio</span>
+                    <div
+                      onClick={() => onUpdateTemplate({ ...template, backgroundIndependent: !template.backgroundIndependent })}
+                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.backgroundIndependent ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.backgroundIndependent ? 'left-6' : 'left-1'}`} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-500">When enabled, background can have a different aspect ratio than the calendar content.</p>
+                </div>
+
+                {/* Background Aspect Ratio Slider - only shown when independent is enabled */}
+                {template.backgroundIndependent && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">Background Ratio</span>
+                      <span className="text-xs text-gray-500">
+                        {template.backgroundAspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500">16:9</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={template.backgroundAspectRatio}
+                        onChange={(e) => onUpdateTemplate({ ...template, backgroundAspectRatio: parseFloat(e.target.value) })}
+                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <span className="text-xs text-gray-500">9:19.5</span>
+                    </div>
+                    {/* Quick Presets */}
+                    <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, backgroundAspectRatio: 0 })}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] transition-colors ${template.backgroundAspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      >
+                        <Monitor size={12} /> Landscape
+                      </button>
+                      <button
+                        onClick={() => onUpdateTemplate({ ...template, backgroundAspectRatio: 1 })}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] transition-colors ${template.backgroundAspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      >
+                        <Smartphone size={12} /> Portrait
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lockscreen Mockup */}
+                <div className="space-y-2 pt-3 border-t border-gray-700/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                      <Smartphone size={12} /> Lockscreen Mockup
+                    </span>
+                    <div
+                      onClick={() => {
+                        const newMockupState = !template.lockscreenMockup;
+                        onUpdateTemplate({
+                          ...template,
+                          lockscreenMockup: newMockupState,
+                          // When enabling mockup, set portrait background ratio
+                          ...(newMockupState && {
+                            backgroundIndependent: true,
+                            backgroundAspectRatio: 1,
+                          })
+                        });
+                      }}
+                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-500">Preview with iPhone lock screen frame. Use the slider next to the preview to position calendar for clock space.</p>
                 </div>
               </div>
             </div>
@@ -1651,20 +2235,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
             </div>
           </div>
-
-          {/* Export Advice */}
-          {showExportAdvice && (
-            <div className="relative group bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-200/90">
-              <button
-                onClick={() => setShowExportAdvice(false)}
-                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
-                title="Dismiss"
-              >
-                <X size={12} />
-              </button>
-              <p><Camera size={14} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />Blur effects may differ in exported images. For best results, take a screenshot at your desired zoom and aspect ratio.</p>
-            </div>
-          )}
 
           {/* Download Button - Standalone */}
           <div className="pt-2">

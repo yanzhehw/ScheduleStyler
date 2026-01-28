@@ -3,6 +3,7 @@ import { CalendarEvent, TemplateConfig } from '../types';
 import { MapPin, AlignLeft, Plus } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
+import { BACKGROUND_IMAGE_MAP } from '../assets/backgrounds';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -38,6 +39,8 @@ interface CalendarCanvasProps {
   ) => void;
   /** Highlight overlapping events */
   overlappingEventIds?: string[];
+  /** Vertical offset for calendar content (percentage, for lockscreen positioning) */
+  contentVerticalOffset?: number;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -75,9 +78,9 @@ const calculateMinBlockWidth = (
 ): number => {
   if (events.length === 0) return ABSOLUTE_MIN_BLOCK_WIDTH;
   
-  // Average character widths at different font sizes (approximate)
-  const titleFontSize = template.fontScale * 12; // 0.75rem = 12px base
-  const detailFontSize = template.fontScale * 9.6; // 0.6rem = 9.6px base
+  // Use individual font sizes for character width calculations
+  const titleFontSize = template.titleFontSize;
+  const detailFontSize = template.detailsFontSize;
   
   // Average char width is roughly 0.55x font size for proportional fonts
   const titleCharWidth = titleFontSize * 0.55;
@@ -170,10 +173,28 @@ const calculateCanvasDimensions = (
   } else if (targetRatio < naturalRatio) {
     // Target is narrower than natural - try shrinking width first
     const targetWidth = naturalCanvasHeight * targetRatio;
-    
+
     if (targetWidth >= minCanvasWidth) {
       // Can achieve ratio by shrinking width
       finalWidth = targetWidth;
+
+      // When width shrinks, text wraps more and needs more height
+      // Calculate compression ratio and add proportional extra height
+      const widthCompressionRatio = naturalCanvasWidth / targetWidth;
+      if (widthCompressionRatio > 1) {
+        // Add extra height proportional to width compression (diminishing returns)
+        // sqrt gives a reasonable approximation of text reflow behavior
+        const extraHeightFactor = Math.sqrt(widthCompressionRatio) - 1;
+        const extraHeight = (minGridHeight * extraHeightFactor * 0.3); // 30% of grid height scaled by compression
+        finalHeight = naturalCanvasHeight + extraHeight;
+        // Recalculate width to maintain target ratio with new height
+        finalWidth = finalHeight * targetRatio;
+        // Ensure we don't go below minimum
+        if (finalWidth < minCanvasWidth) {
+          finalWidth = minCanvasWidth;
+          finalHeight = minCanvasWidth / targetRatio;
+        }
+      }
     } else {
       // Can't shrink width enough - expand height instead
       finalWidth = minCanvasWidth;
@@ -216,8 +237,8 @@ const calculateMinEventHeight = (
   template: TemplateConfig,
   showFullTitle: boolean
 ): number => {
-  const baseFontSize = template.fontScale * 12; // 0.75rem = 12px base
-  const smallFontSize = template.fontScale * 9.6; // 0.6rem = 9.6px base
+  const baseFontSize = template.titleFontSize;
+  const smallFontSize = template.detailsFontSize;
   const lineHeight = 1.4;
   
   let totalHeight = 16; // Base padding (p-2 = 8px top + 8px bottom)
@@ -270,7 +291,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   visualScale,
   hideUnselectedBorders = false,
   onEventDragEnd,
-  overlappingEventIds
+  overlappingEventIds,
+  contentVerticalOffset = 0
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dayColumnsRef = useRef<HTMLDivElement>(null);
@@ -308,13 +330,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       if (effectiveEnd > maxH) maxH = effectiveEnd;
     });
 
-    maxH = Math.min(24, maxH + 1);
-    
+    // Don't add extra hour - grid ends exactly at latest event end time
+    maxH = Math.min(24, maxH);
+
     if (maxH - minH < 4) {
       maxH = Math.min(24, minH + 4);
       if (maxH - minH < 4) minH = Math.max(0, maxH - 4);
     }
-    
+
     const range = maxH - minH;
     const h = Array.from({ length: range }, (_, i) => i + minH);
     
@@ -390,6 +413,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     const themeId = template.theme;
     const variant = template.themeVariant;
     const family = template.themeFamily;
+    const hasCustomBg = template.backgroundType !== 'none';
 
     // For acrylic, we'll handle background via inline styles
     if (family === 'acrylic') {
@@ -400,17 +424,23 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     // Check if it's glass family
     if (themeId?.includes('glass') || family === 'glass') {
-      return 'bg-white/10 backdrop-blur-xl text-white border-white/20';
+      return hasCustomBg
+        ? 'backdrop-blur-xl text-white border-white/20'
+        : 'bg-white/10 backdrop-blur-xl text-white border-white/20';
     }
 
     // Check variant for light/dark
     if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
-      return 'bg-white text-gray-900 border-gray-200';
+      return hasCustomBg
+        ? 'text-gray-900 border-gray-200'
+        : 'bg-white text-gray-900 border-gray-200';
     }
 
     // Default to dark
-    return 'bg-gray-900 text-gray-100 border-gray-700';
-  }, [template.theme, template.themeVariant, template.themeFamily]);
+    return hasCustomBg
+      ? 'text-gray-100 border-gray-700'
+      : 'bg-gray-900 text-gray-100 border-gray-700';
+  }, [template.theme, template.themeVariant, template.themeFamily, template.backgroundType]);
 
   // Canvas inline styles for acrylic theme
   const canvasStyles = useMemo(() => {
@@ -419,6 +449,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       width: `${canvasDimensions.width}px`,
       height: `${canvasDimensions.height}px`,
     };
+
+    // When custom background is set, make canvas transparent
+    if (template.backgroundType !== 'none') {
+      return {
+        ...baseStyles,
+        background: 'transparent',
+      };
+    }
 
     // Apply acrylic canvas background
     if (template.themeFamily === 'acrylic') {
@@ -431,7 +469,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     }
 
     return baseStyles;
-  }, [template.borderRadius, template.themeFamily, canvasDimensions, currentTheme]);
+  }, [template.borderRadius, template.themeFamily, template.backgroundType, canvasDimensions, currentTheme]);
 
   // Grid line color based on gridLineStyle setting (independent of theme variant)
   const gridBorderColor = useMemo(() => {
@@ -472,6 +510,54 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     const themeId = template.theme;
     return variant === 'light' || themeId === 'light' || themeId?.includes('light');
   }, [template.theme, template.themeVariant]);
+
+  // Get background image URL based on template settings
+  const backgroundImageUrl = useMemo(() => {
+    if (template.backgroundType !== 'image') return null;
+    if (template.backgroundImage === 'custom' && template.customBackgroundImage) {
+      return template.customBackgroundImage;
+    }
+    if (template.backgroundImage && BACKGROUND_IMAGE_MAP[template.backgroundImage]) {
+      return BACKGROUND_IMAGE_MAP[template.backgroundImage];
+    }
+    return null;
+  }, [template.backgroundType, template.backgroundImage, template.customBackgroundImage]);
+
+  // Calculate outer container dimensions when background is independent
+  const outerDimensions = useMemo(() => {
+    if (!template.backgroundIndependent) {
+      return null; // No outer container needed
+    }
+
+    const contentWidth = canvasDimensions.width;
+    const contentHeight = canvasDimensions.height;
+    const contentRatio = contentWidth / contentHeight;
+
+    // Calculate background target ratio from slider (interpolate between 16:9 and 9:19.5)
+    const LANDSCAPE_RATIO = 16 / 9;    // ~1.778 (slider = 0)
+    const PORTRAIT_RATIO = 9 / 19.5;   // ~0.462 (slider = 1)
+    const bgTargetRatio = LANDSCAPE_RATIO + (PORTRAIT_RATIO - LANDSCAPE_RATIO) * template.backgroundAspectRatio;
+
+    let outerWidth: number;
+    let outerHeight: number;
+
+    if (bgTargetRatio > contentRatio) {
+      // Background is more landscape than content - add padding on sides
+      outerWidth = contentHeight * bgTargetRatio;
+      outerHeight = contentHeight;
+    } else {
+      // Background is more portrait than content - add padding on top/bottom
+      outerWidth = contentWidth;
+      outerHeight = contentWidth / bgTargetRatio;
+    }
+
+    return {
+      width: outerWidth,
+      height: outerHeight,
+      paddingX: (outerWidth - contentWidth) / 2,
+      paddingY: (outerHeight - contentHeight) / 2,
+    };
+  }, [template.backgroundIndependent, template.backgroundAspectRatio, canvasDimensions]);
 
   const addSlotStyle = useMemo(() => {
     return {
@@ -612,19 +698,135 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     e.stopPropagation();
   };
 
+  // Render background layer component
+  const renderBackgroundLayer = () => (
+    <div
+      data-component="BackgroundLayer"
+      className="absolute inset-0 z-0"
+      style={{ borderRadius: 'inherit' }}
+    >
+      {/* Background Image */}
+      {template.backgroundType === 'image' && backgroundImageUrl && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${backgroundImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: template.backgroundBlur > 0 ? `blur(${template.backgroundBlur}px)` : undefined,
+            // Expand slightly to prevent blur edge artifacts
+            ...(template.backgroundBlur > 0 ? {
+              top: `-${template.backgroundBlur}px`,
+              left: `-${template.backgroundBlur}px`,
+              right: `-${template.backgroundBlur}px`,
+              bottom: `-${template.backgroundBlur}px`,
+            } : {}),
+          }}
+        />
+      )}
+      {/* Background Color */}
+      {template.backgroundType === 'color' && template.backgroundColor && (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: template.backgroundColor }}
+        />
+      )}
+      {/* Reduce Highlights Overlay - semi-transparent black layer to reduce highlights */}
+      {template.backgroundOverlay > 0 && template.backgroundType === 'image' && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${template.backgroundOverlay / 100})`,
+          }}
+        />
+      )}
+    </div>
+  );
+
+  // Check if we need the outer container for independent aspect ratio
+  const useOuterContainer = !!outerDimensions;
+
+  // Wrapper component for independent aspect ratio
+  const OuterWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    if (!useOuterContainer || !outerDimensions) {
+      return <>{children}</>;
+    }
+
+    // Determine outer container background
+    const outerBgStyle: React.CSSProperties = {};
+    if (template.backgroundType === 'none') {
+      // Use theme-appropriate solid background when no custom background
+      const variant = template.themeVariant;
+      const family = template.themeFamily;
+      if (family === 'glass') {
+        outerBgStyle.background = 'rgba(255,255,255,0.1)';
+        outerBgStyle.backdropFilter = 'blur(12px)';
+      } else if (variant === 'light') {
+        outerBgStyle.background = '#ffffff';
+      } else {
+        outerBgStyle.background = '#111827';
+      }
+    }
+
+    return (
+      <div
+        data-component="BackgroundContainer"
+        id={id}
+        className="relative overflow-hidden rounded-xl shadow-2xl"
+        style={{
+          width: `${outerDimensions.width}px`,
+          height: `${outerDimensions.height}px`,
+          borderRadius: template.borderRadius,
+          ...outerBgStyle,
+        }}
+      >
+        {/* Background fills the outer container (only when there's an image or color background) */}
+        {template.backgroundType !== 'none' && renderBackgroundLayer()}
+        {/* Calendar positioned within - applies vertical offset for lockscreen positioning */}
+        <div
+          style={{
+            position: 'absolute',
+            left: `${outerDimensions.paddingX}px`,
+            top: (() => {
+              // Calculate offset from the centered position
+              // The slider moves the card DOWN from center, offset is a percentage of available space
+              const availableSpace = outerDimensions.height - canvasDimensions.height;
+              // Minimum bottom margin is 5% of container height
+              const minBottomMargin = outerDimensions.height * 0.05;
+              // Maximum top position (offset from top edge)
+              const maxTopOffset = availableSpace - minBottomMargin;
+              // Calculate raw offset: 0% = centered, 50% = max down
+              const centeredTop = outerDimensions.paddingY;
+              const rawOffset = (contentVerticalOffset / 50) * (maxTopOffset - centeredTop);
+              // Final position: centered + offset, clamped to valid range
+              const finalTop = Math.max(0, Math.min(centeredTop + rawOffset, maxTopOffset));
+              return `${finalTop}px`;
+            })(),
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    // CALENDAR CARD - The main calendar container with theme styling
+    <OuterWrapper>
+    {/* CALENDAR CARD - The main calendar container with theme styling */}
     <div
       data-component="CalendarCard"
       ref={containerRef}
-      id={id}
-      className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl shadow-2xl relative`}
+      id={useOuterContainer ? undefined : id}
+      className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl ${useOuterContainer ? '' : 'shadow-2xl'} relative overflow-hidden`}
       style={canvasStyles}
     >
+      {/* BACKGROUND LAYER - Renders background image or color (only when not using outer container) */}
+      {template.backgroundType !== 'none' && !useOuterContainer && renderBackgroundLayer()}
 
       {/* CALENDAR CONTENT - Wrapper for header + grid */}
-      <div 
+      <div
         data-component="CalendarContent"
+        className="relative z-10"
       >
         {/* DAY HEADER - Shows MON TUE WED THU FRI (SAT SUN if needed) */}
         <div data-component="DayHeader" className="flex mb-4">
@@ -936,7 +1138,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
                       style={{
-                        fontSize: `${template.fontScale * 0.75}rem`,
+                        fontSize: `${template.titleFontSize}px`,
                         fontFamily: template.titleFont,
                         color: template.titleTextColor || (template.themeFamily === 'acrylic'
                           ? currentTheme.eventBlock.titleColor
@@ -952,7 +1154,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       <div
                         className="font-semibold opacity-90"
                         style={{
-                          fontSize: `${template.fontScale * 0.6}rem`,
+                          fontSize: `${template.subtitleFontSize}px`,
                           fontFamily: template.subtitleFont,
                           color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
                             ? currentTheme.eventBlock.subtitleColor
@@ -969,7 +1171,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     <div
                       className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
                       style={{
-                        fontSize: `${template.fontScale * 0.6}rem`,
+                        fontSize: `${template.detailsFontSize}px`,
                         fontFamily: template.detailsFont,
                         color: template.detailsTextColor || (template.themeFamily === 'acrylic'
                           ? currentTheme.eventBlock.detailsColor
@@ -1008,10 +1210,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       </div>
 
         {/* CALENDAR FOOTER - Branding watermark */}
-        <div data-component="CalendarFooter" className="mt-4 flex justify-center items-center opacity-50 text-xs">
+        {/* <div data-component="CalendarFooter" className="mt-4 flex justify-center items-center opacity-50 text-xs">
           <span>Generated by ScheduleStyler</span>
-        </div>
+        </div> */}
       </div>
     </div>
+    </OuterWrapper>
   );
 };

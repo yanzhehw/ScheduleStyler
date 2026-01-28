@@ -339,6 +339,9 @@ export type GridLineStyle = 'bright' | 'dark';
 /** Blur mode type - bar blurs entire row/column, cells blur each cell individually */
 export type BlurMode = 'bar' | 'cells';
 
+/** Background type - none, image, or solid color */
+export type BackgroundType = 'none' | 'image' | 'color';
+
 export interface TemplateConfig {
   id: string;
   name: string;
@@ -395,6 +398,15 @@ export interface TemplateConfig {
   /** Font for event block details (time, location, notes) */
   detailsFont: string;
 
+  /** Font size for event block title in pixels (default 12) */
+  titleFontSize: number;
+
+  /** Font size for event block subtitle in pixels (default 10) */
+  subtitleFontSize: number;
+
+  /** Font size for event block details in pixels (default 10) */
+  detailsFontSize: number;
+
   /** Custom text color for event block title (optional) */
   titleTextColor?: string;
 
@@ -415,6 +427,36 @@ export interface TemplateConfig {
 
   /** Time column blur mode - 'bar' for entire column, 'cells' for individual time cells */
   timeColumnBlurMode: BlurMode;
+
+  /** Background type - none (default), image, or solid color */
+  backgroundType: BackgroundType;
+
+  /** Selected background image filename (from assets/backgrounds/) */
+  backgroundImage?: string;
+
+  /** Custom uploaded background image (base64 data URL) */
+  customBackgroundImage?: string;
+
+  /** Background color (hex) when backgroundType is 'color' */
+  backgroundColor?: string;
+
+  /** Background blur amount in pixels (0-20) - only applies when backgroundType is 'image' */
+  backgroundBlur: number;
+
+  /** Background highlight/overlay opacity (0-100) to make content more visible */
+  backgroundOverlay: number;
+
+  /** Whether background has independent aspect ratio from calendar content */
+  backgroundIndependent: boolean;
+
+  /** Background aspect ratio when independent (0 = 16:9 landscape, 1 = 9:16 portrait) */
+  backgroundAspectRatio: number;
+
+  /** Whether to show iPhone lockscreen mockup overlay */
+  lockscreenMockup: boolean;
+
+  /** Vertical offset for calendar position within lockscreen (0-100, percentage from top) */
+  lockscreenOffset: number;
 }
 
 export interface ProcessedData {
