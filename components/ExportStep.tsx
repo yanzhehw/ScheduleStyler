@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
-import { downloadComponentAsImage } from '../services/imageUtils';
+import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
 import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
@@ -405,7 +405,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     // Longer timeout to ensure fonts are loaded
     await new Promise(r => setTimeout(r, 300));
     // Use the hidden export canvas which has exportMode=true for proper rendering
-    await downloadComponentAsImage('calendar-export-hidden', 'my-beautiful-calendar');
+    await downloadCalendarExport('calendar-export-hidden', 'my-beautiful-calendar');
     setIsExporting(false);
   };
 
@@ -588,7 +588,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
         </div>
 
-        {/* HIDDEN EXPORT CANVAS - Used for actual image export with exportMode=true */}
+        {/* HIDDEN EXPORT CANVAS - Used for actual image export */}
         <div
           style={{
             position: 'fixed',
@@ -604,7 +604,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               events={events}
               template={template}
               interactive={false}
-              exportMode={true}
               contentVerticalOffset={template.lockscreenOffset}
             />
           </div>
