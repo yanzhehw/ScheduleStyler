@@ -81,3 +81,9 @@ export const BACKGROUND_IMAGE_MAP: Record<string, string> = Object.fromEntries([
   ...LANDSCAPE_BACKGROUNDS.map((bg) => [bg.id, bg.url]),
   ...PORTRAIT_BACKGROUNDS.map((bg) => [bg.id, bg.url]),
 ]);
+
+/** Get the first available landscape background ID (for defaults) */
+export const getDefaultLandscapeId = (): string | undefined => LANDSCAPE_BACKGROUNDS[0]?.id;
+
+/** Get the first available portrait background ID (for defaults) */
+export const getDefaultPortraitId = (): string | undefined => PORTRAIT_BACKGROUNDS[0]?.id;

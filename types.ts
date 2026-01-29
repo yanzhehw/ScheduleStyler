@@ -380,6 +380,9 @@ export interface TemplateConfig {
   /** Differentiate Labs/Tutorials with different colors */
   differentiateTypes: boolean;
 
+  /** Show full course section in title (e.g., "CS 101 - 001" vs "CS 101") */
+  showCourseSection: boolean;
+
   /** Remove borders from event blocks (for Acrylic/Glass themes) */
   eventBlockNoBorders: boolean;
 

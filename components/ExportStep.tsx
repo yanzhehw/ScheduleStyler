@@ -6,7 +6,7 @@ import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
 import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
-import { LANDSCAPE_BACKGROUNDS, PORTRAIT_BACKGROUNDS } from '../assets/backgrounds';
+import { LANDSCAPE_BACKGROUNDS, PORTRAIT_BACKGROUNDS, getDefaultLandscapeId } from '../assets/backgrounds';
 
 // Import lockscreen mockup overlay
 import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
@@ -272,14 +272,35 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     setColorPickerPosition(null);
   };
 
-  // Update color for events - either all events or just the same group (displayTitle)
+  // Update color for events - handles apply to all, course groups, and type differentiation
   const handleColorSelect = (newColor: string) => {
     if (!selectedEvent) return;
+
     const updatedEvents = events.map(e => {
-      if (applyColorToAll || e.displayTitle === selectedEvent.displayTitle) {
+      // Apply to all blocks mode
+      if (applyColorToAll) {
         return { ...e, color: newColor };
       }
-      return e;
+
+      // Must match the same course
+      if (e.displayTitle !== selectedEvent.displayTitle) {
+        return e;
+      }
+
+      // When differentiateTypes is ON, separate lecture and lab/tutorial color groups
+      if (template.differentiateTypes) {
+        const isSelectedLabOrTutorial = selectedEvent.classType === 'Lab' || selectedEvent.classType === 'Tutorial';
+        const isEventLabOrTutorial = e.classType === 'Lab' || e.classType === 'Tutorial';
+
+        // Only update events in the same type group
+        if (isSelectedLabOrTutorial === isEventLabOrTutorial) {
+          return { ...e, color: newColor };
+        }
+        return e;
+      }
+
+      // When differentiateTypes is OFF, update all events of the same course
+      return { ...e, color: newColor };
     });
     onUpdateEvents(updatedEvents);
   };
@@ -291,37 +312,86 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     return themeColors[(idx + 2) % themeColors.length]; 
   };
 
+  // Shuffle colors for all events - assigns unique colors per course, avoiding duplicates
+  const shuffleColorsForEvents = (differentiateTypes: boolean) => {
+    // Get unique display titles (course codes)
+    const displayTitlesSet = new Set<string>();
+    events.forEach(e => displayTitlesSet.add(e.displayTitle));
+    const displayTitles = Array.from(displayTitlesSet);
+
+    // Create a shuffled copy of theme colors
+    const shuffledColors = [...themeColors].sort(() => Math.random() - 0.5);
+
+    // Assign unique colors to each course, avoiding duplicates where possible
+    const colorMap = new Map<string, string>();
+    const usedColors = new Set<string>();
+
+    displayTitles.forEach((title, index) => {
+      // Find an unused color if possible
+      let assignedColor: string | null = null;
+      for (const color of shuffledColors) {
+        if (!usedColors.has(color)) {
+          assignedColor = color;
+          usedColors.add(color);
+          break;
+        }
+      }
+      // If all colors used, start reusing from shuffled order
+      if (!assignedColor) {
+        assignedColor = shuffledColors[index % shuffledColors.length];
+      }
+      colorMap.set(title, assignedColor);
+    });
+
+    // Apply colors to events, with Lab/Tutorial differentiation if enabled
+    const updatedEvents = events.map(event => {
+      const baseColor = colorMap.get(event.displayTitle) || shuffledColors[0];
+
+      if (differentiateTypes && (event.classType === 'Lab' || event.classType === 'Tutorial')) {
+        // Assign a different color for Lab/Tutorial
+        const baseIdx = shuffledColors.indexOf(baseColor);
+        // Find a color that's not the base color
+        let shiftedColor = shuffledColors[(baseIdx + 2) % shuffledColors.length];
+        if (shiftedColor === baseColor && shuffledColors.length > 1) {
+          shiftedColor = shuffledColors[(baseIdx + 1) % shuffledColors.length];
+        }
+        return { ...event, color: shiftedColor };
+      }
+
+      return { ...event, color: baseColor };
+    });
+
+    onUpdateEvents(updatedEvents);
+  };
+
   // Trigger color differentiation for Labs/Tutorials
   const triggerColorUpdate = (diff: boolean) => {
     // Update template setting
     onUpdateTemplate({ ...template, differentiateTypes: diff });
-    
-    // Get unique display titles and their base colors
-    const displayTitlesSet = new Set<string>();
-    events.forEach(e => displayTitlesSet.add(e.displayTitle));
-    const displayTitles = Array.from(displayTitlesSet);
-    const baseColorMap = new Map<string, string>();
-    displayTitles.forEach((title, index) => {
-      // Use existing color if available, otherwise assign from theme
-      const existingEvent = events.find(e => e.displayTitle === title);
-      baseColorMap.set(title, existingEvent?.color || themeColors[index % themeColors.length]);
-    });
-    
-    const updatedEvents = events.map(event => {
-      const baseColor = baseColorMap.get(event.displayTitle) || themeColors[0];
-      
-      let newColor = baseColor;
-      if (diff) {
-        // Only differentiate Lab and Tutorial, keep Lecture at base color
-        if (event.classType === 'Lab') {
-          newColor = adjustColor(baseColor, 40);
-        } else if (event.classType === 'Tutorial') {
-          newColor = adjustColor(baseColor, 90);
-        }
-        // Lecture, Seminar, and other types stay at baseColor
+
+    // Get unique display titles and their lecture colors
+    const lectureColorMap = new Map<string, string>();
+    events.forEach(e => {
+      // Use lecture color as base, or first event's color if no lecture
+      if (e.classType === 'Lecture' || !lectureColorMap.has(e.displayTitle)) {
+        lectureColorMap.set(e.displayTitle, e.color || themeColors[0]);
       }
-      // When diff is false, all types use baseColor
-      return { ...event, color: newColor };
+    });
+
+    const updatedEvents = events.map(event => {
+      const lectureColor = lectureColorMap.get(event.displayTitle) || themeColors[0];
+
+      if (diff) {
+        // Differentiate: Labs/Tutorials get a different color
+        if (event.classType === 'Lab' || event.classType === 'Tutorial') {
+          return { ...event, color: adjustColor(lectureColor, 2) };
+        }
+        // Lectures keep their color
+        return { ...event, color: lectureColor };
+      } else {
+        // Not differentiating: All types of same course share the lecture color
+        return { ...event, color: lectureColor };
+      }
     });
     onUpdateEvents(updatedEvents);
   };
@@ -516,6 +586,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onBlankClick={handleBlankClick}
                       visualScale={supportsZoom ? 1 : zoom}
                       contentVerticalOffset={template.lockscreenOffset}
+                      showFullTitle={template.showCourseSection}
                       onHeaderClick={() => {
                         setHeaderTextEditorOpen(true);
                         setTimeColumnEditorOpen(false);
@@ -559,6 +630,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   onBlankClick={handleBlankClick}
                   visualScale={supportsZoom ? 1 : zoom}
                   contentVerticalOffset={template.lockscreenOffset}
+                  showFullTitle={template.showCourseSection}
                   onHeaderClick={() => {
                     setHeaderTextEditorOpen(true);
                     setTimeColumnEditorOpen(false);
@@ -594,6 +666,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               template={template}
               interactive={false}
               contentVerticalOffset={template.lockscreenOffset}
+              showFullTitle={template.showCourseSection}
             />
           </div>
         </div>
@@ -662,10 +735,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   onClick={() => {
                     const newValue = !applyColorToAll;
                     setApplyColorToAll(newValue);
-                    // When toggling ON, immediately apply current color to all blocks
                     if (newValue && selectedEvent?.color) {
+                      // When toggling ON, apply current color to all blocks
                       const updatedEvents = events.map(e => ({ ...e, color: selectedEvent.color }));
                       onUpdateEvents(updatedEvents);
+                    } else if (!newValue) {
+                      // When toggling OFF, shuffle colors so courses have different colors
+                      shuffleColorsForEvents(template.differentiateTypes);
                     }
                   }}
                   className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${applyColorToAll ? 'bg-blue-600' : 'bg-gray-700'}`}
@@ -677,52 +753,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               {/* Shuffle Colors Button - Only when Apply to All is OFF */}
               {!applyColorToAll && (
                 <button
-                  onClick={() => {
-                    // Get unique display titles
-                    const displayTitlesSet = new Set<string>();
-                    events.forEach(e => displayTitlesSet.add(e.displayTitle));
-                    const displayTitles = Array.from(displayTitlesSet);
-
-                    // Get current colors to avoid
-                    const currentColors = new Map<string, string>();
-                    events.forEach(e => {
-                      if (!currentColors.has(e.displayTitle)) {
-                        currentColors.set(e.displayTitle, e.color || '');
-                      }
-                    });
-
-                    // Shuffle themeColors array randomly
-                    const shuffledColors = [...themeColors].sort(() => Math.random() - 0.5);
-
-                    // Assign colors, trying to pick different ones from current
-                    const colorMap = new Map<string, string>();
-                    displayTitles.forEach((title, index) => {
-                      const currentColor = currentColors.get(title);
-                      // Find a color different from current if possible
-                      let newColor = shuffledColors[index % shuffledColors.length];
-                      if (newColor === currentColor && shuffledColors.length > 1) {
-                        // Try next color in shuffled array
-                        newColor = shuffledColors[(index + 1) % shuffledColors.length];
-                      }
-                      colorMap.set(title, newColor);
-                    });
-
-                    // Apply colors to events, with Lab/Tutorial differentiation if enabled
-                    const updatedEvents = events.map(event => {
-                      const baseColor = colorMap.get(event.displayTitle) || shuffledColors[0];
-
-                      if (template.differentiateTypes && (event.classType === 'Lab' || event.classType === 'Tutorial')) {
-                        // Shift to a different color for Lab/Tutorial
-                        const baseIdx = shuffledColors.indexOf(baseColor);
-                        const shiftedColor = shuffledColors[(baseIdx + 2) % shuffledColors.length];
-                        return { ...event, color: shiftedColor };
-                      }
-
-                      return { ...event, color: baseColor };
-                    });
-
-                    onUpdateEvents(updatedEvents);
-                  }}
+                  onClick={() => shuffleColorsForEvents(template.differentiateTypes)}
                   className="w-full mb-2 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors border border-gray-600/50 hover:border-gray-500/50"
                 >
                   🎲 Shuffle Colors
@@ -1688,7 +1719,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     // Set image background for Acrylic/Glass, none for others
                     backgroundType: isGlassOrAcrylicNew ? 'image' : 'none',
                     // Set a default image if switching to Acrylic/Glass and no image selected
-                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? 'l1' : template.backgroundImage
+                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage
                   });
                   // Apply theme colors when switching themes (except default)
                   if (newFamily !== prevThemeFamilyRef.current) {
