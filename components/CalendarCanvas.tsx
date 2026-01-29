@@ -43,6 +43,8 @@ interface CalendarCanvasProps {
   contentVerticalOffset?: number;
   /** Hide text content in event blocks (keep colored boxes only, for preview) */
   hideTextContent?: boolean;
+  /** Minimum time range to display (e.g., always show 8am-6pm even if events are within a smaller range) */
+  minTimeRange?: { start: number; end: number };
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -295,7 +297,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   onEventDragEnd,
   overlappingEventIds,
   contentVerticalOffset = 0,
-  hideTextContent = false
+  hideTextContent = false,
+  minTimeRange
 }) => {
   // Get background image map from context
   const { imageMap } = useBackgrounds();
@@ -313,31 +316,50 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   } | null>(null);
   const overlappingSet = useMemo(() => new Set(overlappingEventIds ?? []), [overlappingEventIds]);
 
-  const visibleDays = useMemo(() => {
+  // Calculate visible days and their actual day indices
+  const { visibleDays, visibleDayIndices } = useMemo(() => {
     const hasWeekendEvents = events.some(e => e.dayIndex >= 5);
-    return hasWeekendEvents ? ALL_DAYS : ALL_DAYS.slice(0, 5);
+    const baseDays = hasWeekendEvents ? ALL_DAYS : ALL_DAYS.slice(0, 5);
+    const baseIndices = hasWeekendEvents
+      ? [0, 1, 2, 3, 4, 5, 6]
+      : [0, 1, 2, 3, 4];
+
+    return { visibleDays: baseDays, visibleDayIndices: baseIndices };
   }, [events]);
 
   // Dynamic Time Range Calculation
   const { startHour, hourRange, hours } = useMemo(() => {
+    // Default range: 8am-6pm (10 hours)
+    const defaultStart = 8;
+    const defaultEnd = 18;
+
     if (events.length === 0) {
-      return { startHour: 8, hourRange: 10, hours: Array.from({ length: 10 }, (_, i) => i + 8) };
+      const start = minTimeRange?.start ?? defaultStart;
+      const end = minTimeRange?.end ?? defaultEnd;
+      const range = end - start;
+      return { startHour: start, hourRange: range, hours: Array.from({ length: range }, (_, i) => i + start) };
     }
 
     let minH = 24;
     let maxH = 0;
-    
+
     events.forEach(e => {
       const [sH] = e.startTime.split(':').map(Number);
       const [eH, eM] = e.endTime.split(':').map(Number);
       const effectiveEnd = eM > 0 ? eH + 1 : eH;
-      
+
       if (sH < minH) minH = sH;
       if (effectiveEnd > maxH) maxH = effectiveEnd;
     });
 
     // Don't add extra hour - grid ends exactly at latest event end time
     maxH = Math.min(24, maxH);
+
+    // Apply minimum time range if specified (expand to include it, never shrink)
+    if (minTimeRange) {
+      minH = Math.min(minH, minTimeRange.start);
+      maxH = Math.max(maxH, minTimeRange.end);
+    }
 
     if (maxH - minH < 4) {
       maxH = Math.min(24, minH + 4);
@@ -346,9 +368,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     const range = maxH - minH;
     const h = Array.from({ length: range }, (_, i) => i + minH);
-    
+
     return { startHour: minH, hourRange: range, hours: h };
-  }, [events]);
+  }, [events, minTimeRange]);
 
   // Calculate dynamic hour height based on content that needs to fit
   const hourHeight = useMemo(() => {
@@ -983,8 +1005,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           </div>
 
           {/* DAY COLUMN - Individual day column containing events */}
-          {visibleDays.map((_, dayIndex) => {
-            const hoveredSlotForDay = hoveredSlot?.dayIndex === dayIndex ? hoveredSlot : null;
+          {visibleDays.map((_, colIndex) => {
+            const actualDayIndex = visibleDayIndices[colIndex];
+            const hoveredSlotForDay = hoveredSlot?.dayIndex === actualDayIndex ? hoveredSlot : null;
             const slotTopPercent = hoveredSlotForDay
               ? ((hoveredSlotForDay.startHour - startHour) / hourRange) * 100
               : 0;
@@ -993,8 +1016,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
             return (
               <div
                 data-component="DayColumn"
-                key={dayIndex}
-                className={`col-span-1 relative ${dayIndex < visibleDays.length - 1 && template.showGrid ? `border-r ${gridBorderColor}` : ''}`}
+                key={actualDayIndex}
+                className={`col-span-1 relative ${colIndex < visibleDays.length - 1 && template.showGrid ? `border-r ${gridBorderColor}` : ''}`}
                 style={{ height: `${canvasDimensions.gridHeight}px` }}
                 onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                   if (interactive && onBlankClick && e.target === e.currentTarget) {
@@ -1018,7 +1041,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       const startTime = formatTimeFromHours(hoveredSlotForDay.startHour);
                       const endTime = formatTimeFromHours(hoveredSlotForDay.startHour + 1);
                       onEmptyBlockClick({
-                        dayIndex,
+                        dayIndex: actualDayIndex,
                         startTime,
                         endTime,
                       });
@@ -1027,7 +1050,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     <Plus size={18} strokeWidth={2.5} />
                   </div>
                 )}
-                {events.filter(e => e.dayIndex === dayIndex).map(event => {
+                {events.filter(e => e.dayIndex === actualDayIndex).map(event => {
                   const isSelected = selectedEventId === event.id;
                   const isDragging = draggingEventId === event.id;
                   const canDrag = interactive && onEventTimeChange && isSelected;

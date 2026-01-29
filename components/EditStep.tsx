@@ -93,7 +93,6 @@ export const EditStep: React.FC<EditStepProps> = ({
   onReupload
 }) => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [showFullTitle, setShowFullTitle] = useState(false);
   const [isContentDisplayExpanded, setIsContentDisplayExpanded] = useState(true);
   const [showGuidanceNote, setShowGuidanceNote] = useState(true);
   const [showOverlapWarning, setShowOverlapWarning] = useState(false);
@@ -117,6 +116,9 @@ export const EditStep: React.FC<EditStepProps> = ({
     showNotes: boolean;
   } | null>(null);
 
+  // Time validation error message
+  const [timeError, setTimeError] = useState<string | null>(null);
+
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
   // Check if any events have valid course sections (not NaN)
@@ -137,6 +139,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   const handleEventClick = (event: CalendarEvent) => {
     setSelectedEventId(event.id);
+    setTimeError(null); // Clear any time validation error when selecting new event
   };
 
   const handleBlankClick = () => {
@@ -174,6 +177,24 @@ export const EditStep: React.FC<EditStepProps> = ({
     if (!selectedEventId) return;
     onUpdateEvents(events.filter(e => e.id !== selectedEventId));
     setSelectedEventId(null);
+  };
+
+  // Validate and update event time (ensures end > start)
+  const handleTimeChange = (field: 'startTime' | 'endTime', value: string) => {
+    if (!selectedEvent) return;
+
+    const newStart = field === 'startTime' ? value : selectedEvent.startTime;
+    const newEnd = field === 'endTime' ? value : selectedEvent.endTime;
+
+    // Validate: end must be after start
+    if (parseTimeToHours(newEnd) <= parseTimeToHours(newStart)) {
+      setTimeError('End time must be after start time');
+      return;
+    }
+
+    // Valid - clear error and update
+    setTimeError(null);
+    handleUpdateEvent(field, value);
   };
 
   const handleEventTimeChange = (eventId: string, updates: { startTime: string; endTime: string; dayIndex: number }) => {
@@ -255,13 +276,14 @@ export const EditStep: React.FC<EditStepProps> = ({
           interactive={true}
           onEventClick={handleEventClick}
           onBlankClick={handleBlankClick}
-          showFullTitle={showFullTitle}
+          showFullTitle={template.showCourseSection}
           selectedEventId={selectedEventId}
           onEventTimeChange={handleEventTimeChange}
           onEventDragEnd={handleEventDragEnd}
           onEmptyBlockClick={openNewEventModal}
           hideUnselectedBorders={true}
           overlappingEventIds={Array.from(overlappingEventIds)}
+          minTimeRange={{ start: 8, end: 18 }}
         />
       </div>
 
@@ -332,8 +354,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                     {hasValidCourseSections && (
                       <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
                         <ToggleSwitch
-                          enabled={showFullTitle}
-                          onToggle={() => setShowFullTitle(!showFullTitle)}
+                          enabled={template.showCourseSection}
+                          onToggle={() => onUpdateTemplate({ ...template, showCourseSection: !template.showCourseSection })}
                           label={<span className="flex items-center gap-2"><Tag size={12} /> Include Course Section</span>}
                         />
                       </div>
@@ -468,6 +490,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                   </button>
                 </div>
               </div>
+
             </>
           )}
 
@@ -526,17 +549,22 @@ export const EditStep: React.FC<EditStepProps> = ({
               )}
 
               {/* Timing */}
-              <div className="grid grid-cols-2 gap-3">
-                <TimeInput
-                  label="Start"
-                  value={selectedEvent.startTime}
-                  onChange={(value) => handleUpdateEvent('startTime', value)}
-                />
-                <TimeInput
-                  label="End"
-                  value={selectedEvent.endTime}
-                  onChange={(value) => handleUpdateEvent('endTime', value)}
-                />
+              <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <TimeInput
+                    label="Start"
+                    value={selectedEvent.startTime}
+                    onChange={(value) => handleTimeChange('startTime', value)}
+                  />
+                  <TimeInput
+                    label="End"
+                    value={selectedEvent.endTime}
+                    onChange={(value) => handleTimeChange('endTime', value)}
+                  />
+                </div>
+                {timeError && (
+                  <p className="text-xs text-red-400">{timeError}</p>
+                )}
               </div>
 
               {/* Location */}

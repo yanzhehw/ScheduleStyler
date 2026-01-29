@@ -10,6 +10,7 @@ import { ExportStep } from './components/ExportStep';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
+import { getDefaultLandscapeId } from './assets/backgrounds';
 
 const DEFAULT_TEMPLATE: TemplateConfig = {
   id: 'default',
@@ -29,6 +30,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
   differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
+  showCourseSection: false, // Show full course section in title
   eventBlockNoBorders: false, // Remove borders from event blocks
   gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
   eventOpacity: 1, // Event block color layer opacity (0-1, default 100%)
@@ -43,7 +45,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)
   timeColumnBlurMode: 'bar', // 'bar' for entire column, 'cells' for individual cells
   backgroundType: 'image', // Background type: 'none', 'image', or 'color'
-  backgroundImage: 'l1', // First landscape background as default
+  backgroundImage: getDefaultLandscapeId() || 'l1', // First landscape background as default
   backgroundBlur: 0, // Background blur amount (0-20px)
   backgroundOverlay: 0, // Background overlay/highlight opacity (0-100)
   backgroundIndependent: false, // Whether background has independent aspect ratio
@@ -88,15 +90,22 @@ const App: React.FC = () => {
     // Process raw API data through the same pipeline as real API calls
     console.log('=== McGill Sample - Raw API Response ===');
     console.log(JSON.stringify(MCGILL_RAW_API_RESPONSE, null, 2));
-    
+
     const processed = processRawEvents(MCGILL_RAW_API_RESPONSE);
-    
+
     console.log('=== McGill Sample - Processed Events ===');
     console.log(JSON.stringify(processed.events, null, 2));
     console.log(`Total: ${processed.events.length} events, ${processed.categories.length} categories`);
-    
+
     setEvents(processed.events);
     setCategories(processed.categories);
+    setStep(AppStep.EDIT);
+  };
+
+  const handleEnterManually = () => {
+    // Start with empty schedule - CalendarCanvas defaults to Mon-Fri, 8am-6pm
+    setEvents([]);
+    setCategories([]);
     setStep(AppStep.EDIT);
   };
 
@@ -143,6 +152,7 @@ const App: React.FC = () => {
             onFileSelect={handleFileUpload}
             onLoadSample={handleLoadSample}
             onLoadMcGillSample={handleLoadMcGillSample}
+            onEnterManually={handleEnterManually}
             isProcessing={isProcessing}
           />
         )}
@@ -152,6 +162,7 @@ const App: React.FC = () => {
             onFileSelect={() => {}}
             onLoadSample={() => {}}
             onLoadMcGillSample={() => {}}
+            onEnterManually={() => {}}
             isProcessing={true}
           />
         )}
@@ -167,10 +178,11 @@ const App: React.FC = () => {
               // Set appropriate background type based on theme when entering Export view for the first time
               if (!hasVisitedExport) {
                 const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
+                const defaultBg = getDefaultLandscapeId() || 'l1';
                 setTemplate(prev => ({
                   ...prev,
                   backgroundType: isGlassOrAcrylic ? 'image' : 'none',
-                  backgroundImage: isGlassOrAcrylic && !prev.backgroundImage ? 'l1' : prev.backgroundImage
+                  backgroundImage: isGlassOrAcrylic && !prev.backgroundImage ? defaultBg : prev.backgroundImage
                 }));
               }
               setHasVisitedExport(true);
