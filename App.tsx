@@ -28,6 +28,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
   differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
+  eventBlockNoBorders: false, // Remove borders from event blocks
   gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
   eventOpacity: 1, // Event block color layer opacity (0-1, default 100%)
   titleFont: 'Inter', // Font for event block title

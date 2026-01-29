@@ -41,6 +41,8 @@ interface CalendarCanvasProps {
   overlappingEventIds?: string[];
   /** Vertical offset for calendar content (percentage, for lockscreen positioning) */
   contentVerticalOffset?: number;
+  /** Hide text content in event blocks (keep colored boxes only, for preview) */
+  hideTextContent?: boolean;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -292,7 +294,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   hideUnselectedBorders = false,
   onEventDragEnd,
   overlappingEventIds,
-  contentVerticalOffset = 0
+  contentVerticalOffset = 0,
+  hideTextContent = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dayColumnsRef = useRef<HTMLDivElement>(null);
@@ -404,8 +407,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
   // Get the current theme object
   const currentTheme = useMemo(() => {
-    return getTheme(template.themeFamily, template.themeVariant);
-  }, [template.themeFamily, template.themeVariant]);
+    return getTheme(template.themeFamily, template.themeVariant, template.themeSubVariant);
+  }, [template.themeFamily, template.themeVariant, template.themeSubVariant]);
 
   // Theme styles
   const themeClasses = useMemo(() => {
@@ -1065,13 +1068,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             // Use event color with opacity based on eventOpacity setting
                             background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
                             boxShadow: currentTheme.eventBlock.shadow,
-                            border: currentTheme.eventBlock.border,
+                            border: template.eventBlockNoBorders ? 'none' : currentTheme.eventBlock.border,
                             overflow: 'hidden',
                           }
                         : template.themeFamily === 'glass'
                         ? {
                             backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
-                            borderColor: 'rgba(255,255,255,0.2)',
+                            borderColor: template.eventBlockNoBorders ? 'transparent' : 'rgba(255,255,255,0.2)',
                             overflow: 'hidden',
                           }
                         : {
@@ -1134,6 +1137,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       }}
                     />
                   )}
+                  {!hideTextContent && (
                   <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
                     <div
                       className="font-bold leading-none uppercase tracking-wide break-words"
@@ -1166,8 +1170,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       </div>
                     )}
                   </div>
+                  )}
 
-                  {!template.compact && (
+                  {!hideTextContent && !template.compact && (
                     <div
                       className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
                       style={{
@@ -1184,14 +1189,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                            <span>{event.startTime} - {event.endTime}</span>
                         </div>
                       )}
-                      
+
                       {template.showLocation && event.location && (
                         <div className="flex items-start gap-1 opacity-75">
-                          <MapPin size={10} className="mt-0.5 shrink-0" /> 
+                          <MapPin size={10} className="mt-0.5 shrink-0" />
                           <span className="break-words">{event.location}</span>
                         </div>
                       )}
-                      
+
                       {(event.includeNotes ?? template.showNotes) && event.notes && (
                          <div className="flex items-start gap-1 opacity-75 border-t border-black/10" style={{ marginTop: '2px', paddingTop: '2px' }}>
                            <AlignLeft size={10} className="mt-0.5 shrink-0" />

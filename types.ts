@@ -355,6 +355,9 @@ export interface TemplateConfig {
   /** Theme variant (light, dark) */
   themeVariant: ThemeVariantId;
 
+  /** Sub-variant ID for families with extended variants (e.g., 'dark-slate', 'light-frost') */
+  themeSubVariant?: string;
+
   /** Legacy theme field for backward compatibility */
   theme: ThemeId;
 
@@ -376,6 +379,9 @@ export interface TemplateConfig {
 
   /** Differentiate Labs/Tutorials with different colors */
   differentiateTypes: boolean;
+
+  /** Remove borders from event blocks (for Acrylic/Glass themes) */
+  eventBlockNoBorders: boolean;
 
   /** Grid line style - bright or dark (independent of theme variant) */
   gridLineStyle: GridLineStyle;

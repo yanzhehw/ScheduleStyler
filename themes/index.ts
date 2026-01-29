@@ -17,6 +17,14 @@ import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
 export type ThemeVariant = 'light' | 'dark';
 
+/** Extended variant for families with more than just light/dark */
+export interface ThemeVariantOption {
+  id: string;
+  name: string;
+  baseVariant: ThemeVariant;
+  theme: CalendarCanvasTheme;
+}
+
 export interface ThemeFamily {
   id: string;
   name: string;
@@ -25,6 +33,8 @@ export interface ThemeFamily {
     light: CalendarCanvasTheme;
     dark: CalendarCanvasTheme;
   };
+  /** Extended variants for families with more than light/dark (e.g., Acrylic) */
+  extendedVariants?: ThemeVariantOption[];
   /** Theme-specific color palette for event blocks */
   colors: string[];
 }
@@ -620,58 +630,6 @@ const ACRYLIC_DARK_SLATE: CalendarCanvasTheme = {
   },
 };
 
-// Dark 2 - Deep Navy
-const ACRYLIC_DARK_NAVY: CalendarCanvasTheme = {
-  id: 'acrylic-dark-navy',
-  name: 'Acrylic Dark Navy',
-  variant: 'dark',
-  canvas: {
-    background: `url('${ACRYLIC_TEXTURE}'), linear-gradient(180deg, rgba(30, 41, 59, 0.2) 0%, rgba(15, 23, 42, 0.2) 100%), linear-gradient(0deg, rgba(99, 102, 241, 0.05), rgba(99, 102, 241, 0.05)), rgba(30, 41, 59, 0.9)`,
-    border: '1px solid rgba(99, 102, 241, 0.1)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(99, 102, 241, 0.08)',
-    padding: '32px',
-    backdropFilter: 'blur(15px)',
-  },
-  header: {
-    textColor: 'rgba(226, 232, 240, 0.95)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.85,
-  },
-  timeColumn: {
-    textColor: 'rgba(148, 163, 184, 0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(148, 163, 184, 0.08)',
-    dividerColor: 'rgba(148, 163, 184, 0.1)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(148, 163, 184, 0.12)',
-    shadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(15, 23, 42, 0.2)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 0.7,
-    titleColor: 'rgba(241, 245, 249, 0.95)',
-    subtitleColor: 'rgba(226, 232, 240, 0.8)',
-    detailsColor: 'rgba(203, 213, 225, 0.65)',
-    titleFontWeight: '600',
-    hoverBrightness: 1.1,
-    hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(148, 163, 184, 0.5)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
 // Light 1 - Frosted White
 const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
   id: 'acrylic-light-frost',
@@ -777,60 +735,7 @@ const ACRYLIC_LIGHT_SILK: CalendarCanvasTheme = {
   },
 };
 
-// Color 1 - Purple Dusk (purple-blue gradient)
-const ACRYLIC_PURPLE_DUSK: CalendarCanvasTheme = {
-  id: 'acrylic-purple-dusk',
-  name: 'Acrylic Purple Dusk',
-  variant: 'dark',
-  canvas: {
-    background: `url('${ACRYLIC_TEXTURE}'), linear-gradient(135deg, rgba(124, 111, 184, 0.25) 0%, rgba(90, 143, 184, 0.25) 100%), linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)), rgba(107, 124, 158, 0.8)`,
-    border: '1px solid rgba(167, 139, 250, 0.15)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(88, 80, 140, 0.3), 0 2px 8px rgba(88, 80, 140, 0.15), inset 0 1px 0 rgba(167, 139, 250, 0.1)',
-    padding: '32px',
-    backdropFilter: 'blur(15px)',
-  },
-  header: {
-    textColor: 'rgba(245, 243, 255, 0.95)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.9,
-  },
-  timeColumn: {
-    textColor: 'rgba(196, 181, 253, 0.55)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(196, 181, 253, 0.08)',
-    dividerColor: 'rgba(196, 181, 253, 0.12)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(196, 181, 253, 0.15)',
-    shadow: '0 4px 16px rgba(88, 80, 140, 0.25), 0 1px 4px rgba(88, 80, 140, 0.12)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 0.7,
-    gradient: 'linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(129, 140, 248, 0.1) 100%)',
-    titleColor: 'rgba(245, 243, 255, 0.95)',
-    subtitleColor: 'rgba(221, 214, 254, 0.85)',
-    detailsColor: 'rgba(196, 181, 253, 0.7)',
-    titleFontWeight: '600',
-    hoverBrightness: 1.1,
-    hoverShadow: '0 8px 24px rgba(88, 80, 140, 0.35)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(196, 181, 253, 0.5)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-// Color 2 - Ocean Mist (slate-blue oceanic)
+// Ocean Mist (slate-blue oceanic)
 const ACRYLIC_OCEAN_MIST: CalendarCanvasTheme = {
   id: 'acrylic-ocean-mist',
   name: 'Acrylic Ocean Mist',
@@ -891,6 +796,12 @@ export const THEME_ACRYLIC: ThemeFamily = {
     light: ACRYLIC_LIGHT_FROST,
     dark: ACRYLIC_DARK_SLATE,
   },
+  extendedVariants: [
+    { id: 'dark-slate', name: 'Thin Dark Slate', baseVariant: 'dark', theme: ACRYLIC_DARK_SLATE },
+    { id: 'ocean-mist', name: 'Thick Colored Ocean', baseVariant: 'dark', theme: ACRYLIC_OCEAN_MIST },
+    { id: 'light-frost', name: 'Thin Light Frost', baseVariant: 'light', theme: ACRYLIC_LIGHT_FROST },
+    { id: 'light-silk', name: 'Thick Colored Silk', baseVariant: 'light', theme: ACRYLIC_LIGHT_SILK },
+  ],
   colors: ACRYLIC_COLORS,
 };
 
@@ -916,11 +827,16 @@ export const THEME_FAMILY_LIST: ThemeFamily[] = [
   THEME_ACRYLIC,
 ];
 
-/** Get a specific theme by family ID and variant */
-export const getTheme = (familyId: string, variant: ThemeVariant): CalendarCanvasTheme => {
+/** Get a specific theme by family ID, variant, and optional sub-variant */
+export const getTheme = (familyId: string, variant: ThemeVariant, subVariant?: string): CalendarCanvasTheme => {
   const family = THEME_FAMILIES[familyId];
   if (!family) {
     return THEME_DEFAULT.variants[variant];
+  }
+  // Check extended variants first
+  if (subVariant && family.extendedVariants) {
+    const extended = family.extendedVariants.find(v => v.id === subVariant);
+    if (extended) return extended.theme;
   }
   return family.variants[variant];
 };
@@ -950,12 +866,10 @@ export const CANVAS_THEMES: Record<string, CalendarCanvasTheme> = {
   // Acrylic themes (primary light/dark)
   'acrylic-light': ACRYLIC_LIGHT_FROST,
   'acrylic-dark': ACRYLIC_DARK_SLATE,
-  // Acrylic variants (all 6 themes)
+  // Acrylic variants
   'acrylic-dark-slate': ACRYLIC_DARK_SLATE,
-  'acrylic-dark-navy': ACRYLIC_DARK_NAVY,
   'acrylic-light-frost': ACRYLIC_LIGHT_FROST,
   'acrylic-light-silk': ACRYLIC_LIGHT_SILK,
-  'acrylic-purple-dusk': ACRYLIC_PURPLE_DUSK,
   'acrylic-ocean-mist': ACRYLIC_OCEAN_MIST,
 };
 

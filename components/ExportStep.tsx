@@ -4,7 +4,7 @@ import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
-import { THEME_FAMILY_LIST, getThemeColors } from '../themes';
+import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { LANDSCAPE_BACKGROUNDS, PORTRAIT_BACKGROUNDS } from '../assets/backgrounds';
 
@@ -31,6 +31,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [showExportAdvice, setShowExportAdvice] = useState(true);
   const [showBlockAdvice, setShowBlockAdvice] = useState(true);
   const [showBackgroundColorPicker, setShowBackgroundColorPicker] = useState(false);
+  const [showBackgroundGallery, setShowBackgroundGallery] = useState(false);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
   // Header/Time column text editing
@@ -396,7 +397,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
   // Zoom controls
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
   const handleZoomReset = () => setZoom(1);
 
   const handleDownload = async () => {
@@ -454,8 +455,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
         )}
 
-        {/* ADVICE BANNERS - Positioned at top-right under zoom controls */}
-        <div className="absolute top-20 right-4 z-40 flex flex-col gap-2 max-w-xs">
+        {/* ADVICE BANNERS - Positioned at top-right under zoom controls, same width as toolbar */}
+        <div className="absolute top-20 right-4 z-40 flex flex-col gap-2 w-[200px]">
           {showBlockAdvice && (
             <div className="relative group bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5 text-xs text-blue-200/80 backdrop-blur-md">
               <button
@@ -465,19 +466,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               >
                 <X size={12} />
               </button>
-              <p><MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-blue-400" />Click on a block to adjust its color and text fonts</p>
-            </div>
-          )}
-          {showExportAdvice && (
-            <div className="relative group bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md">
-              <button
-                onClick={() => setShowExportAdvice(false)}
-                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
-                title="Dismiss"
-              >
-                <X size={12} />
-              </button>
-              <p><Camera size={14} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />Blur effects may differ in exported images. For best results, take a screenshot.</p>
+              <p className="break-words"><MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-blue-400" />Click on a block to adjust its color and text fonts</p>
             </div>
           )}
         </div>
@@ -816,6 +805,21 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onChange={(e) => onUpdateTemplate({ ...template, eventOpacity: parseFloat(e.target.value) })}
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* No Borders Toggle - Only for Acrylic/Glass themes */}
+              {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                <div className="pt-2 border-t border-gray-700/50">
+                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 bg-gray-800/50 rounded-lg">
+                    <span className="text-xs text-gray-300 font-medium whitespace-nowrap">No Borders</span>
+                    <div
+                      onClick={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
+                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.eventBlockNoBorders ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.eventBlockNoBorders ? 'left-6' : 'left-1'}`} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1671,10 +1675,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 onChange={(e) => {
                   const newFamily = e.target.value as ThemeFamilyId;
                   const isGlassOrAcrylicNew = newFamily === 'acrylic' || newFamily === 'glass';
+                  const newFamilyObj = THEME_FAMILIES[newFamily];
+                  // Set default sub-variant for families with extended variants
+                  const defaultSubVariant = newFamilyObj?.extendedVariants?.[0];
+                  const newVariant = defaultSubVariant?.baseVariant ?? template.themeVariant;
                   onUpdateTemplate({
                     ...template,
                     themeFamily: newFamily,
-                    theme: `${newFamily}-${template.themeVariant}` as any,
+                    theme: `${newFamily}-${newVariant}` as any,
+                    themeVariant: newVariant,
+                    themeSubVariant: defaultSubVariant?.id,
                     // Set image background for Acrylic/Glass, none for others
                     backgroundType: isGlassOrAcrylicNew ? 'image' : 'none',
                     // Set a default image if switching to Acrylic/Glass and no image selected
@@ -1695,33 +1705,62 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 ))}
               </select>
 
-              {/* Light/Dark Toggle Button */}
-              <button
-                onClick={() => {
-                  const newVariant = template.themeVariant === 'light' ? 'dark' : 'light';
-                  onUpdateTemplate({
-                    ...template,
-                    themeVariant: newVariant,
-                    theme: `${template.themeFamily}-${newVariant}` as any
-                  });
-                  // Apply theme colors when switching variants
-                  applyThemeColors(template.themeFamily, newVariant);
-                }}
-                className="px-4 py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border border-gray-600 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group"
-              >
-                {template.themeVariant === 'light' ? (
-                  <>
-                    <Sun size={16} className="text-yellow-400" />
-                    <span className="text-gray-200">Light</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon size={16} className="text-blue-400" />
-                    <span className="text-gray-200">Dark</span>
-                  </>
-                )}
-                <span className="text-lg group-hover:scale-110 transition-transform">⇄</span>
-              </button>
+              {/* Variant selector: dropdown for extended variants, toggle for light/dark */}
+              {(() => {
+                const family = THEME_FAMILIES[template.themeFamily];
+                if (family?.extendedVariants) {
+                  return (
+                    <select
+                      value={template.themeSubVariant || ''}
+                      onChange={(e) => {
+                        const subVariantId = e.target.value;
+                        const variant = family.extendedVariants!.find(v => v.id === subVariantId);
+                        if (variant) {
+                          onUpdateTemplate({
+                            ...template,
+                            themeSubVariant: subVariantId,
+                            themeVariant: variant.baseVariant,
+                            theme: `${template.themeFamily}-${variant.baseVariant}` as any
+                          });
+                          applyThemeColors(template.themeFamily as ThemeFamilyId, variant.baseVariant);
+                        }
+                      }}
+                      className="w-32 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all cursor-pointer hover:bg-gray-750"
+                    >
+                      {family.extendedVariants.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  );
+                }
+                return (
+                  <button
+                    onClick={() => {
+                      const newVariant = template.themeVariant === 'light' ? 'dark' : 'light';
+                      onUpdateTemplate({
+                        ...template,
+                        themeVariant: newVariant,
+                        theme: `${template.themeFamily}-${newVariant}` as any
+                      });
+                      applyThemeColors(template.themeFamily, newVariant);
+                    }}
+                    className="px-4 py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border border-gray-600 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group"
+                  >
+                    {template.themeVariant === 'light' ? (
+                      <>
+                        <Sun size={16} className="text-yellow-400" />
+                        <span className="text-gray-200">Light</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon size={16} className="text-blue-400" />
+                        <span className="text-gray-200">Dark</span>
+                      </>
+                    )}
+                    <span className="text-lg group-hover:scale-110 transition-transform">⇄</span>
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
@@ -1769,7 +1808,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 {template.backgroundType === 'image' && (
                   <div className="space-y-2">
                     {/* Side-by-side: 1 column landscape, 2 columns portrait */}
-                    <div className="flex gap-3 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                    <div className="flex gap-3 max-h-45 overflow-y-auto custom-scrollbar pr-1">
                       {/* Landscape column - single column, wider */}
                       <div className="w-[45%] flex-shrink-0 space-y-1.5">
                         <span className="text-[10px] text-gray-500 uppercase tracking-wide">Landscape</span>
@@ -1789,7 +1828,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                               }`}
                             >
                               <img
-                                src={bg.url}
+                                src={bg.thumbnailUrl}
                                 alt={bg.name}
                                 className="w-full h-full object-cover"
                               />
@@ -1816,7 +1855,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                               }`}
                             >
                               <img
-                                src={bg.url}
+                                src={bg.thumbnailUrl}
                                 alt={bg.name}
                                 className="w-full h-full object-cover"
                               />
@@ -1871,12 +1910,20 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         }
                       }}
                     />
-                    <button
-                      onClick={() => backgroundFileInputRef.current?.click()}
-                      className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Upload size={14} /> Upload Custom Image
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowBackgroundGallery(true)}
+                        className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Image size={14} /> Browse Gallery
+                      </button>
+                      <button
+                        onClick={() => backgroundFileInputRef.current?.click()}
+                        className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Upload size={14} /> Upload Custom
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -2249,6 +2296,78 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
         </div>
       </div>
+
+      {/* Background Gallery Popup */}
+      {showBackgroundGallery && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
+          <div
+            className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Gallery Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-800">
+              <h2 className="text-lg font-semibold text-white">Background Gallery</h2>
+              <button
+                onClick={() => setShowBackgroundGallery(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Gallery Content */}
+            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+              <div className="flex gap-6">
+                {/* Landscape section */}
+                <div className="w-[55%] space-y-3">
+                  <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Landscape</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {LANDSCAPE_BACKGROUNDS.map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => {
+                          onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
+                          setShowBackgroundGallery(false);
+                        }}
+                        className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.03] hover:shadow-lg ${
+                          template.backgroundImage === bg.id
+                            ? 'border-blue-500 ring-2 ring-blue-400/50'
+                            : 'border-gray-700 hover:border-gray-500'
+                        }`}
+                      >
+                        <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Portrait section */}
+                <div className="w-[45%] space-y-3">
+                  <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Portrait</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PORTRAIT_BACKGROUNDS.map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => {
+                          onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
+                          setShowBackgroundGallery(false);
+                        }}
+                        className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.03] hover:shadow-lg ${
+                          template.backgroundImage === bg.id
+                            ? 'border-blue-500 ring-2 ring-blue-400/50'
+                            : 'border-gray-700 hover:border-gray-500'
+                        }`}
+                      >
+                        <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
