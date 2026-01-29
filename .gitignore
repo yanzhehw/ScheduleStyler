@@ -24,4 +24,6 @@ dist-ssr
 *.sln
 *.sw?
 
+assets/backgrounds/landscape/
+assets/backgrounds/portrait/
 explanation.md

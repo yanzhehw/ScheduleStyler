@@ -7,6 +7,7 @@ import { processRawEvents } from './services/geminiService';
 import { UploadStep } from './components/UploadStep';
 import { EditStep } from './components/EditStep';
 import { ExportStep } from './components/ExportStep';
+import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 
@@ -28,6 +29,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   viewMode: 'desktop',
   aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
   differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
+  eventBlockNoBorders: false, // Remove borders from event blocks
   gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
   eventOpacity: 1, // Event block color layer opacity (0-1, default 100%)
   titleFont: 'Inter', // Font for event block title
@@ -99,6 +101,7 @@ const App: React.FC = () => {
   };
 
   return (
+    <BackgroundsProvider>
     <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
       
       {/* Header */}
@@ -188,6 +191,7 @@ const App: React.FC = () => {
         )}
       </main>
     </div>
+    </BackgroundsProvider>
   );
 };
 
