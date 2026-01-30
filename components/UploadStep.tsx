@@ -1,98 +1,316 @@
-import React, { useCallback } from 'react';
-import { Upload, FileImage, Play, PenLine } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X } from 'lucide-react';
 
 interface UploadStepProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File, apiKey?: string) => void;
   onLoadSample: () => void;
   onLoadMcGillSample: () => void;
   onEnterManually: () => void;
   isProcessing: boolean;
+  apiKeyError?: string | null;
+  onDismissApiKeyError?: () => void;
+  keyMode: 'invite' | 'byok';
+  onKeyModeChange: (mode: 'invite' | 'byok') => void;
+  appliedApiKey: string | null;
+  onAppliedApiKeyChange: (key: string | null) => void;
 }
 
-export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, isProcessing }) => {
+const GEMINI_API_KEY_REGEX = /^AIza[A-Za-z0-9_-]{35}$/;
+
+export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
+  const [inviteCode, setInviteCode] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [activationToken, setActivationToken] = useState<string | null>(null);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const [apiKeyValidationError, setApiKeyValidationError] = useState<string | null>(null);
+  const [isActivating, setIsActivating] = useState(false);
+
+  const isActivated = Boolean(activationToken);
+  const isByokMode = keyMode === 'byok';
+  const isByokApplied = isByokMode && Boolean(appliedApiKey);
+  const isUploadLocked = !isActivated && !isByokApplied && !isProcessing;
+
+  const handleApplyApiKey = useCallback(() => {
+    const key = apiKey.trim();
+    if (!key) {
+      setApiKeyValidationError('Please enter your API key.');
+      return;
+    }
+    if (!GEMINI_API_KEY_REGEX.test(key)) {
+      setApiKeyValidationError('Invalid API key format. Please check and try again.');
+      return;
+    }
+    setApiKeyValidationError(null);
+    onAppliedApiKeyChange(key);
+  }, [apiKey, onAppliedApiKeyChange]);
+
+  const handleRedeem = useCallback(async () => {
+    const code = inviteCode.trim();
+    if (!code) {
+      setActivationError('Please enter your invitation code.');
+      return;
+    }
+
+    setActivationError(null);
+    setIsActivating(true);
+
+    try {
+      const response = await fetch('/api/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | { activationToken: string }
+        | { error: string }
+        | null;
+
+      if (!response.ok) {
+        setActivationError(
+          data && 'error' in data ? data.error : 'Activation failed. Please try again.'
+        );
+        return;
+      }
+
+      if (data && 'activationToken' in data) {
+        setActivationToken(data.activationToken);
+        setActivationError(null);
+      } else {
+        setActivationError('Unexpected response from server.');
+      }
+    } catch (error) {
+      setActivationError('Unable to reach server. Please try again.');
+    } finally {
+      setIsActivating(false);
+    }
+  }, [inviteCode]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (isUploadLocked || isProcessing) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileSelect(e.dataTransfer.files[0]);
+      onFileSelect(e.dataTransfer.files[0], isByokApplied ? appliedApiKey! : undefined);
     }
-  }, [onFileSelect]);
+  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isUploadLocked || isProcessing) return;
     if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0]);
+      onFileSelect(e.target.files[0], isByokApplied ? appliedApiKey! : undefined);
     }
-  }, [onFileSelect]);
+  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[60vh] animate-fade-in">
-      {/* Two options side by side */}
-      <div className="flex gap-6 w-full max-w-4xl">
-        {/* Upload Screenshot option */}
-        <div
-          className={`
-            flex-1 p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300
-            ${isProcessing ? 'border-blue-500 bg-blue-500/10 cursor-wait' : 'border-gray-600 hover:border-blue-400 hover:bg-gray-800 cursor-pointer bg-gray-900'}
-          `}
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <input
-            type="file"
-            id="fileUpload"
-            className="hidden"
-            accept="image/*"
-            onChange={handleChange}
-            disabled={isProcessing}
-          />
-          <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center gap-5">
-            <div className={`p-5 rounded-full ${isProcessing ? 'bg-blue-500/20 animate-pulse' : 'bg-gray-800'}`}>
-              {isProcessing ? (
-                <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Upload className="w-10 h-10 text-blue-400" />
+      <div className="w-full max-w-5xl">
+        {/* Upload + Manual options */}
+        <div className="grid gap-6 lg:items-stretch lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="flex flex-col gap-4 h-full">
+            <div
+              className={`
+                relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300
+                ${isProcessing ? 'border-blue-500 bg-blue-500/10 cursor-wait' : 'border-gray-600 hover:border-blue-400 hover:bg-gray-800 bg-gray-900'}
+                ${isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
+              `}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <input
+                type="file"
+                id="fileUpload"
+                className="hidden"
+                accept="image/*"
+                onChange={handleChange}
+                disabled={isProcessing || isUploadLocked}
+              />
+              <label
+                htmlFor="fileUpload"
+                className={`flex flex-col items-center gap-5 ${
+                  isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'
+                }`}
+              >
+                <div className={`${isUploadLocked ? 'blur-[1px]' : ''} space-y-6`}>
+                  <div className={`mx-auto w-fit p-5 rounded-full ${isProcessing ? 'bg-blue-500/20 animate-pulse' : 'bg-gray-800'}`}>
+                    {isProcessing ? (
+                      <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Upload className="w-10 h-10 text-blue-400" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-semibold text-white">
+                      {isProcessing ? 'Analyzing Schedule...' : 'Upload Screenshot'}
+                    </h2>
+                    <p className="text-gray-400 text-sm">
+                      {isProcessing
+                        ? 'We are extracting your events.'
+                        : <>Drag & drop or click to select a PNG/JPG<br />Our AI automatically extracts your schedule from a screenshot.</>}
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              {isUploadLocked && !isByokMode && (
+                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[175px] text-center leading-tight">
+                  <Lock className="w-4 h-4 text-slate-300 shrink-0" />
+                  <span>Activate your code to unlock AI detection</span>
+                </div>
+              )}
+              {isByokMode && !isProcessing && !isByokApplied && (
+                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-700/50 bg-amber-900/60 text-amber-200 text-xs font-medium">
+                  <KeyRound className="w-4 h-4 text-amber-300 shrink-0" />
+                  <span>Please apply a valid API key</span>
+                </div>
+              )}
+              {isByokApplied && !isProcessing && (
+                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-700/50 bg-blue-900/60 text-blue-200 text-xs font-medium">
+                  <KeyRound className="w-4 h-4 text-blue-300 shrink-0" />
+                  <span>Using your personal API key</span>
+                </div>
               )}
             </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-white">
-                {isProcessing ? 'Analyzing Schedule...' : 'Upload Screenshot'}
-              </h2>
-              <p className="text-gray-400 text-sm">
-                {isProcessing
-                  ? 'We are extracting your events.'
-                  : 'Drag & drop or click to select a PNG/JPG'}
-              </p>
-            </div>
-          </label>
-        </div>
 
-        {/* Divider */}
-        {!isProcessing && (
-          <div className="flex flex-col items-center justify-center">
-            <div className="h-full w-px bg-gray-700"></div>
-            <span className="text-gray-500 text-sm py-3">or</span>
-            <div className="h-full w-px bg-gray-700"></div>
+            {!isProcessing && (
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-blue-400" />
+                  <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/80 p-1 text-xs font-semibold text-slate-300 w-fit">
+                    <button
+                    type="button"
+                    onClick={() => onKeyModeChange('invite')}
+                    className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
+                      keyMode === 'invite'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Invitation Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onKeyModeChange('byok')}
+                    className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
+                      keyMode === 'byok'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Your Own Gemini API key
+                    </button>
+                  </div>
+                </div>
+
+                {keyMode === 'invite' ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        value={inviteCode}
+                        onChange={(e) => {
+                          setInviteCode(e.target.value);
+                          if (activationError) setActivationError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRedeem();
+                          }
+                        }}
+                        placeholder="Enter your invite code"
+                        className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        disabled={isActivating || isActivated}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRedeem}
+                        disabled={isActivating || isActivated}
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                          isActivated
+                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
+                            : 'bg-blue-600 text-white hover:bg-blue-500'
+                        } ${isActivating ? 'opacity-70 cursor-wait' : ''}`}
+                      >
+                        {isActivated ? (
+                          <>
+                            <Check className="w-4 h-4" /> Activated
+                          </>
+                        ) : (
+                          'Activate'
+                        )}
+                      </button>
+                    </div>
+                    {activationError && (
+                      <p className="text-xs text-rose-400">{activationError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        value={apiKey}
+                        onChange={(e) => {
+                          setApiKey(e.target.value);
+                          setApiKeyValidationError(null);
+                          if (appliedApiKey) {
+                            onAppliedApiKeyChange(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleApplyApiKey();
+                          }
+                        }}
+                        placeholder="Paste your Gemini key (Kept Local)"
+                        className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyApiKey}
+                        disabled={Boolean(appliedApiKey)}
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                          appliedApiKey
+                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
+                            : 'bg-blue-600 text-white hover:bg-blue-500'
+                        }`}
+                      >
+                        {appliedApiKey ? (
+                          <>
+                            <Check className="w-4 h-4" /> Applied
+                          </>
+                        ) : (
+                          'Apply'
+                        )}
+                      </button>
+                    </div>
+                    {apiKeyValidationError && (
+                      <p className="text-xs text-rose-400">{apiKeyValidationError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Enter Manually option */}
-        {!isProcessing && (
-          <button
-            onClick={onEnterManually}
-            className="flex-1 p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 border-gray-600 hover:border-emerald-400 hover:bg-gray-800 bg-gray-900 cursor-pointer"
-          >
-            <div className="flex flex-col items-center gap-5">
-              <div className="p-5 rounded-full bg-gray-800">
-                <PenLine className="w-10 h-10 text-emerald-400" />
+          {!isProcessing && (
+            <button
+              onClick={onEnterManually}
+              className="h-full min-h-[400px] p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 border-gray-600 hover:border-emerald-400 hover:bg-gray-800 bg-gray-900 cursor-pointer"
+            >
+              <div className="flex flex-col items-center gap-5">
+                <div className="p-5 rounded-full bg-gray-800">
+                  <PenLine className="w-10 h-10 text-emerald-400" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-white">Enter Manually</h2>
+                  <p className="text-gray-400 text-sm">
+                    Start with an empty schedule and add classes yourself
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-white">Enter Manually</h2>
-                <p className="text-gray-400 text-sm">
-                  Start with an empty schedule and add classes yourself
-                </p>
-              </div>
-            </div>
-          </button>
-        )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Feature Pills */}
@@ -122,6 +340,39 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
           >
             <Play size={14} /> McGill Schedule
           </button>
+        </div>
+      )}
+
+      {/* API Key Error Modal */}
+      {apiKeyError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={onDismissApiKeyError}
+          />
+          <div className="relative z-10 max-w-md w-full mx-4 p-6 rounded-2xl border border-rose-500/30 bg-slate-900/95 shadow-2xl shadow-rose-500/10">
+            <button
+              onClick={onDismissApiKeyError}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="p-3 rounded-full bg-rose-500/20">
+                <AlertTriangle className="w-8 h-8 text-rose-400" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-white">Request Failed</h3>
+                <p className="text-sm text-slate-300">{apiKeyError}</p>
+              </div>
+              <button
+                onClick={onDismissApiKeyError}
+                className="mt-2 px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
