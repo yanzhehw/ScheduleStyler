@@ -1,7 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { CalendarEvent, Category, CATEGORY_COLORS, ClassType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Default client using env API key (for invite code mode)
+const defaultAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Create client with custom API key (for BYOK mode)
+function getAiClient(apiKey?: string): GoogleGenAI {
+  if (apiKey) {
+    return new GoogleGenAI({ apiKey });
+  }
+  return defaultAi;
+}
 
 const SYSTEM_INSTRUCTION = `
 You are an expert OCR and course schedule extraction assistant. 
@@ -23,8 +32,9 @@ Analyze the image layout carefully.
 - Return strictly structured JSON.
 `;
 
-export async function extractCalendarFromImage(base64Image: string): Promise<{ events: CalendarEvent[]; categories: Category[] }> {
+export async function extractCalendarFromImage(base64Image: string, apiKey?: string): Promise<{ events: CalendarEvent[]; categories: Category[] }> {
   try {
+    const ai = getAiClient(apiKey);
     const model = "gemini-3-flash-preview";
 
     const response = await ai.models.generateContent({

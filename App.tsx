@@ -61,20 +61,31 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [template, setTemplate] = useState<TemplateConfig>(DEFAULT_TEMPLATE);
   const [hasVisitedExport, setHasVisitedExport] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
+  const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, apiKey?: string) => {
     setIsProcessing(true);
+    setApiKeyError(null);
     setStep(AppStep.PROCESSING); // Technically visual state within UploadStep
     try {
       const base64 = await convertFileToBase64(file);
-      const data = await extractCalendarFromImage(base64);
+      const data = await extractCalendarFromImage(base64, apiKey);
       setEvents(data.events);
       setCategories(data.categories);
       setStep(AppStep.EDIT);
     } catch (error) {
       console.error("Extraction error", error);
-      alert("Failed to analyze the image. Please try a clearer screenshot.");
-      setStep(AppStep.UPLOAD);
+      if (apiKey) {
+        // BYOK mode - show error in the upload step and reset applied key so user can edit
+        setApiKeyError("Request failed. Please double-check the validity of your API key.");
+        setAppliedApiKey(null);
+        setStep(AppStep.UPLOAD);
+      } else {
+        alert("Failed to analyze the image. Please try a clearer screenshot.");
+        setStep(AppStep.UPLOAD);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -154,6 +165,12 @@ const App: React.FC = () => {
             onLoadMcGillSample={handleLoadMcGillSample}
             onEnterManually={handleEnterManually}
             isProcessing={isProcessing}
+            apiKeyError={apiKeyError}
+            onDismissApiKeyError={() => setApiKeyError(null)}
+            keyMode={keyMode}
+            onKeyModeChange={setKeyMode}
+            appliedApiKey={appliedApiKey}
+            onAppliedApiKeyChange={setAppliedApiKey}
           />
         )}
 
@@ -164,6 +181,10 @@ const App: React.FC = () => {
             onLoadMcGillSample={() => {}}
             onEnterManually={() => {}}
             isProcessing={true}
+            keyMode={keyMode}
+            onKeyModeChange={() => {}}
+            appliedApiKey={appliedApiKey}
+            onAppliedApiKeyChange={() => {}}
           />
         )}
 
