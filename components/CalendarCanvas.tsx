@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { CalendarEvent, TemplateConfig } from '../types';
-import { MapPin, AlignLeft, Plus } from 'lucide-react';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
+import { MapPin, AlignLeft, Plus, MousePointerClick, MoveUp, MoveDown } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
@@ -14,7 +14,7 @@ interface CalendarCanvasProps {
   id?: string;
   showFullTitle?: boolean;
   /** Callback to report computed dimensions to parent */
-  onDimensionsComputed?: (dimensions: { width: number; height: number }) => void;
+  onDimensionsComputed?: (dimensions: { width: number; height: number; minCardWidth: number; minCardHeight: number }) => void;
   /** Callback when day header is clicked */
   onHeaderClick?: () => void;
   /** Callback when time column is clicked */
@@ -39,12 +39,33 @@ interface CalendarCanvasProps {
   ) => void;
   /** Highlight overlapping events */
   overlappingEventIds?: string[];
-  /** Vertical offset for calendar content (percentage, for lockscreen positioning) */
-  contentVerticalOffset?: number;
   /** Hide text content in event blocks (keep colored boxes only, for preview) */
   hideTextContent?: boolean;
   /** Minimum time range to display (e.g., always show 8am-6pm even if events are within a smaller range) */
   minTimeRange?: { start: number; end: number };
+  /** Whether calendar card is currently selected for resizing (export mode) */
+  isCalendarCardSelected?: boolean;
+  /** Callback when calendar card area (not events) is clicked */
+  onCalendarCardSelect?: () => void;
+  /** Current resize edge being hovered (for cursor display) */
+  hoveredResizeEdge?: ResizeEdge;
+  /** Callback when mouse moves near edges (for resize cursor) */
+  onEdgeHover?: (edge: ResizeEdge) => void;
+  /** Callback when resize drag starts */
+  onResizeStart?: (edge: ResizeEdge, mousePos: { x: number; y: number }) => void;
+  /** Selected component highlight mode */
+  highlightMode?: 'none' | 'all' | SelectableExportComponent;
+  /** Components still showing onboarding highlights */
+  onboardingComponents?: Partial<Record<OnboardingComponent, boolean>>;
+  onboardingEventId?: string | null;
+  /** Callback when onboarding OK button is pressed */
+  onOnboardingOk?: (component: OnboardingComponent) => void;
+  /** Trigger to recompute hover state from current cursor position */
+  hoverResetToken?: number;
+  /** Show reset-to-fill button when calendar card is selected and resized */
+  showResetToFill?: boolean;
+  /** Callback to reset calendar card insets */
+  onResetToFill?: () => void;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -144,7 +165,14 @@ const calculateCanvasDimensions = (
   contentBasedHourHeight: number,
   aspectRatioSlider: number, // 0 = 16:9 landscape, 1 = 9:16 portrait
   minBlockWidth: number // Dynamic minimum based on text content
-): { width: number; height: number; gridWidth: number; gridHeight: number } => {
+): {
+  width: number;
+  height: number;
+  gridWidth: number;
+  gridHeight: number;
+  minCanvasWidth: number;
+  minCanvasHeight: number;
+} => {
   // Minimum grid dimensions
   const minGridWidth = numDays * minBlockWidth;
   const minGridHeight = hourRange * contentBasedHourHeight;
@@ -215,6 +243,8 @@ const calculateCanvasDimensions = (
     height: finalHeight,
     gridWidth: finalGridWidth,
     gridHeight: finalGridHeight,
+    minCanvasWidth,
+    minCanvasHeight,
   };
 };
 
@@ -296,16 +326,29 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   hideUnselectedBorders = false,
   onEventDragEnd,
   overlappingEventIds,
-  contentVerticalOffset = 0,
   hideTextContent = false,
-  minTimeRange
+  minTimeRange,
+  isCalendarCardSelected = false,
+  onCalendarCardSelect,
+  hoveredResizeEdge,
+  onEdgeHover,
+  onResizeStart,
+  highlightMode = 'none',
+  onboardingComponents,
+  onboardingEventId,
+  onOnboardingOk,
+  hoverResetToken,
+  showResetToFill = false,
+  onResetToFill,
 }) => {
   // Get background image map from context
   const { imageMap } = useBackgrounds();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dayColumnsRef = useRef<HTMLDivElement>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
+  const [hoveredComponent, setHoveredComponent] = useState<SelectableExportComponent>('none');
   const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
   const dragInfoRef = useRef<{
     eventId: string;
@@ -315,6 +358,36 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     latest?: { startTime: string; endTime: string; dayIndex: number };
   } | null>(null);
   const overlappingSet = useMemo(() => new Set(overlappingEventIds ?? []), [overlappingEventIds]);
+
+  const getHoveredComponentFromTarget = (target: HTMLElement | null): SelectableExportComponent => {
+    if (!target) return 'none';
+    if (target.closest('[data-component="EventBlock"]')) return 'none';
+    if (target.closest('[data-component="DayHeader"]')) return 'dayHeader';
+    if (target.closest('[data-component="TimeColumn"]')) return 'timeColumn';
+    if (target.closest('[data-component="CalendarCard"]')) return 'calendarCard';
+    return 'none';
+  };
+
+  useEffect(() => {
+    if (!interactive) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [interactive]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    if (hoverResetToken === undefined) return;
+    const lastPointer = lastPointerRef.current;
+    if (!lastPointer) {
+      setHoveredComponent('none');
+      return;
+    }
+    const target = document.elementFromPoint(lastPointer.x, lastPointer.y) as HTMLElement | null;
+    setHoveredComponent(getHoveredComponentFromTarget(target));
+  }, [hoverResetToken, interactive]);
 
   // Calculate visible days and their actual day indices
   const { visibleDays, visibleDayIndices } = useMemo(() => {
@@ -420,16 +493,6 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     );
   }, [template.aspectRatio, visibleDays.length, hourRange, hourHeight, minBlockWidth]);
 
-  // Report computed dimensions to parent (for ZoomWrapper sizing)
-  useEffect(() => {
-    if (onDimensionsComputed) {
-      onDimensionsComputed({
-        width: canvasDimensions.width,
-        height: canvasDimensions.height
-      });
-    }
-  }, [canvasDimensions.width, canvasDimensions.height, onDimensionsComputed]);
-
   // Get the current theme object
   const currentTheme = useMemo(() => {
     return getTheme(template.themeFamily, template.themeVariant, template.themeSubVariant);
@@ -469,35 +532,6 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       ? 'text-gray-100 border-gray-700'
       : 'bg-gray-900 text-gray-100 border-gray-700';
   }, [template.theme, template.themeVariant, template.themeFamily, template.backgroundType]);
-
-  // Canvas inline styles for acrylic theme
-  const canvasStyles = useMemo(() => {
-    const baseStyles: React.CSSProperties = {
-      borderRadius: template.borderRadius,
-      width: `${canvasDimensions.width}px`,
-      height: `${canvasDimensions.height}px`,
-    };
-
-    // When custom background is set, make canvas transparent
-    if (template.backgroundType !== 'none') {
-      return {
-        ...baseStyles,
-        background: 'transparent',
-      };
-    }
-
-    // Apply acrylic canvas background
-    if (template.themeFamily === 'acrylic') {
-      return {
-        ...baseStyles,
-        background: currentTheme.canvas.background,
-        backgroundSize: currentTheme.canvas.backgroundSize || 'cover',
-        backgroundPosition: currentTheme.canvas.backgroundPosition || 'center',
-      };
-    }
-
-    return baseStyles;
-  }, [template.borderRadius, template.themeFamily, template.backgroundType, canvasDimensions, currentTheme]);
 
   // Grid line color based on gridLineStyle setting (independent of theme variant)
   const gridBorderColor = useMemo(() => {
@@ -551,41 +585,127 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return null;
   }, [template.backgroundType, template.backgroundImage, template.customBackgroundImage, imageMap]);
 
-  // Calculate outer container dimensions when background is independent
-  const outerDimensions = useMemo(() => {
-    if (!template.backgroundIndependent) {
-      return null; // No outer container needed
-    }
-
-    const contentWidth = canvasDimensions.width;
-    const contentHeight = canvasDimensions.height;
-    const contentRatio = contentWidth / contentHeight;
+  // Calculate background dimensions from aspectRatio slider
+  // The background is now the source of truth for the export canvas size
+  const backgroundDimensions = useMemo(() => {
+    // Base size - use minimum content dimensions as starting point
+    const baseSize = 600; // Reference size for calculations
 
     // Calculate background target ratio from slider (interpolate between 16:9 and 9:19.5)
     const LANDSCAPE_RATIO = 16 / 9;    // ~1.778 (slider = 0)
     const PORTRAIT_RATIO = 9 / 19.5;   // ~0.462 (slider = 1)
-    const bgTargetRatio = LANDSCAPE_RATIO + (PORTRAIT_RATIO - LANDSCAPE_RATIO) * template.backgroundAspectRatio;
+    const bgTargetRatio = LANDSCAPE_RATIO + (PORTRAIT_RATIO - LANDSCAPE_RATIO) * template.aspectRatio;
 
-    let outerWidth: number;
-    let outerHeight: number;
+    let bgWidth: number;
+    let bgHeight: number;
 
-    if (bgTargetRatio > contentRatio) {
-      // Background is more landscape than content - add padding on sides
-      outerWidth = contentHeight * bgTargetRatio;
-      outerHeight = contentHeight;
+    // Calculate background dimensions to fit the content with insets applied
+    // Start from content dimensions and expand to accommodate the aspect ratio
+    const contentWidth = canvasDimensions.width;
+    const contentHeight = canvasDimensions.height;
+
+    // Keep background size tied to content, not to inset scaling, so the CC can shrink without inflating the canvas.
+    const minBgWidthForContent = contentWidth;
+    const minBgHeightForContent = contentHeight;
+
+    // Calculate dimensions that satisfy both content constraints and aspect ratio
+    if (bgTargetRatio > 1) {
+      // Landscape - width is larger
+      bgHeight = Math.max(minBgHeightForContent, baseSize);
+      bgWidth = bgHeight * bgTargetRatio;
+      // Ensure width is large enough for content
+      if (bgWidth < minBgWidthForContent) {
+        bgWidth = minBgWidthForContent;
+        bgHeight = bgWidth / bgTargetRatio;
+      }
     } else {
-      // Background is more portrait than content - add padding on top/bottom
-      outerWidth = contentWidth;
-      outerHeight = contentWidth / bgTargetRatio;
+      // Portrait - height is larger
+      bgWidth = Math.max(minBgWidthForContent, baseSize);
+      bgHeight = bgWidth / bgTargetRatio;
+      // Ensure height is large enough for content
+      if (bgHeight < minBgHeightForContent) {
+        bgHeight = minBgHeightForContent;
+        bgWidth = bgHeight * bgTargetRatio;
+      }
     }
 
     return {
-      width: outerWidth,
-      height: outerHeight,
-      paddingX: (outerWidth - contentWidth) / 2,
-      paddingY: (outerHeight - contentHeight) / 2,
+      width: bgWidth,
+      height: bgHeight,
     };
-  }, [template.backgroundIndependent, template.backgroundAspectRatio, canvasDimensions]);
+  }, [template.aspectRatio, canvasDimensions]);
+
+  // Calculate card dimensions from background dimensions and insets
+  const cardDimensions = useMemo(() => {
+    const insets = template.calendarCardInsets;
+    const cardWidthPercent = (100 - insets.left - insets.right) / 100;
+    const cardHeightPercent = (100 - insets.top - insets.bottom) / 100;
+
+    const cardWidth = backgroundDimensions.width * cardWidthPercent;
+    const cardHeight = backgroundDimensions.height * cardHeightPercent;
+
+    // Position within the background
+    const cardX = backgroundDimensions.width * (insets.left / 100);
+    const cardY = backgroundDimensions.height * (insets.top / 100);
+
+    return {
+      width: cardWidth,
+      height: cardHeight,
+      x: cardX,
+      y: cardY,
+      // Grid dimensions for internal layout
+      gridWidth: cardWidth - TIME_COLUMN_WIDTH - GRID_PADDING,
+      gridHeight: cardHeight - HEADER_HEIGHT - FOOTER_HEIGHT - GRID_PADDING,
+    };
+  }, [backgroundDimensions, template.calendarCardInsets]);
+
+  // Report computed dimensions to parent (for ZoomWrapper sizing)
+  // Reports background dimensions since that's the export canvas size
+  useEffect(() => {
+    if (onDimensionsComputed) {
+      onDimensionsComputed({
+        width: backgroundDimensions.width,
+        height: backgroundDimensions.height,
+        minCardWidth: canvasDimensions.minCanvasWidth,
+        minCardHeight: canvasDimensions.minCanvasHeight,
+      });
+    }
+  }, [
+    backgroundDimensions.width,
+    backgroundDimensions.height,
+    canvasDimensions.minCanvasWidth,
+    canvasDimensions.minCanvasHeight,
+    onDimensionsComputed,
+  ]);
+
+  // Canvas inline styles for the calendar card
+  const canvasStyles = useMemo(() => {
+    const baseStyles: React.CSSProperties = {
+      borderRadius: template.borderRadius,
+      width: `${cardDimensions.width}px`,
+      height: `${cardDimensions.height}px`,
+    };
+
+    // When custom background is set, make canvas transparent
+    if (template.backgroundType !== 'none') {
+      return {
+        ...baseStyles,
+        background: 'transparent',
+      };
+    }
+
+    // Apply acrylic canvas background
+    if (template.themeFamily === 'acrylic') {
+      return {
+        ...baseStyles,
+        background: currentTheme.canvas.background,
+        backgroundSize: currentTheme.canvas.backgroundSize || 'cover',
+        backgroundPosition: currentTheme.canvas.backgroundPosition || 'center',
+      };
+    }
+
+    return baseStyles;
+  }, [template.borderRadius, template.themeFamily, template.backgroundType, cardDimensions, currentTheme]);
 
   const addSlotStyle = useMemo(() => {
     return {
@@ -600,6 +720,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
   const addSlotTextColor = isLightTheme ? '#0f172a' : '#e2e8f0';
   const selectedBorderColor = isLightTheme ? 'rgba(37, 99, 235, 0.9)' : 'rgba(191, 219, 254, 0.95)';
+  const isOnboardingActive = (component: OnboardingComponent) =>
+    onboardingComponents?.[component] ?? false;
+  const showDayHeaderHighlight = isOnboardingActive('dayHeader') || highlightMode === 'dayHeader';
+  const showTimeColumnHighlight = isOnboardingActive('timeColumn') || highlightMode === 'timeColumn';
 
   const isSlotEmpty = (dayIndex: number, slotStart: number): boolean => {
     const slotEnd = slotStart + 1;
@@ -730,7 +854,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   const renderBackgroundLayer = () => (
     <div
       data-component="BackgroundLayer"
-      className="absolute inset-0 z-0"
+      className="absolute inset-0 z-0 overflow-hidden"
       style={{ borderRadius: 'inherit' }}
     >
       {/* Background Image */}
@@ -771,15 +895,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     </div>
   );
 
-  // Check if we need the outer container for independent aspect ratio
-  const useOuterContainer = !!outerDimensions;
+  // Background container is always used now
+  const useOuterContainer = true;
 
-  // Wrapper component for independent aspect ratio
+  // Wrapper component for background container - always renders
   const OuterWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    if (!useOuterContainer || !outerDimensions) {
-      return <>{children}</>;
-    }
-
     // Determine outer container background
     const outerBgStyle: React.CSSProperties = {};
     if (template.backgroundType === 'none') {
@@ -796,44 +916,325 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       }
     }
 
+    const cardTop = cardDimensions.y;
+
     return (
       <div
         data-component="BackgroundContainer"
         id={id}
-        className="relative overflow-hidden rounded-xl shadow-2xl"
+        className="relative rounded-xl shadow-2xl"
         style={{
-          width: `${outerDimensions.width}px`,
-          height: `${outerDimensions.height}px`,
+          width: `${backgroundDimensions.width}px`,
+          height: `${backgroundDimensions.height}px`,
           borderRadius: template.borderRadius,
           ...outerBgStyle,
+        }}
+        onClick={(e: React.MouseEvent) => {
+          // Deselect card when clicking on background (not on the card itself)
+          const target = e.target as HTMLElement;
+          const isCardArea = target.closest('[data-component="CalendarCardWrapper"]') ||
+                            target.closest('[data-component="CalendarCard"]') ||
+                            target.closest('[data-component="ResizeEdge-top"]') ||
+                            target.closest('[data-component="ResizeEdge-bottom"]') ||
+                            target.closest('[data-component="ResizeEdge-left"]') ||
+                            target.closest('[data-component="ResizeEdge-right"]') ||
+                            target.closest('[data-component="ResetToFillButton"]');
+          if (!isCardArea && interactive && onBlankClick) {
+            onBlankClick();
+          }
         }}
       >
         {/* Background fills the outer container (only when there's an image or color background) */}
         {template.backgroundType !== 'none' && renderBackgroundLayer()}
-        {/* Calendar positioned within - applies vertical offset for lockscreen positioning */}
+        {/* Calendar card positioned within */}
         <div
+          data-component="CalendarCardWrapper"
+          className={`transition-all duration-200 ease-in relative ${
+            interactive && onCalendarCardSelect ? 'rounded-xl' : ''
+          } ${
+            interactive && onCalendarCardSelect && !isCalendarCardSelected && hoveredComponent === 'calendarCard' && highlightMode === 'none'
+              ? 'ring-2 ring-blue-400/50 ring-offset-2 ring-offset-transparent'
+              : ''
+          }`}
           style={{
             position: 'absolute',
-            left: `${outerDimensions.paddingX}px`,
-            top: (() => {
-              // Calculate offset from the centered position
-              // The slider moves the card DOWN from center, offset is a percentage of available space
-              const availableSpace = outerDimensions.height - canvasDimensions.height;
-              // Minimum bottom margin is 5% of container height
-              const minBottomMargin = outerDimensions.height * 0.05;
-              // Maximum top position (offset from top edge)
-              const maxTopOffset = availableSpace - minBottomMargin;
-              // Calculate raw offset: 0% = centered, 50% = max down
-              const centeredTop = outerDimensions.paddingY;
-              const rawOffset = (contentVerticalOffset / 50) * (maxTopOffset - centeredTop);
-              // Final position: centered + offset, clamped to valid range
-              const finalTop = Math.max(0, Math.min(centeredTop + rawOffset, maxTopOffset));
-              return `${finalTop}px`;
-            })(),
+            left: `${cardDimensions.x}px`,
+            top: `${cardTop}px`,
           }}
         >
+          {showResetToFill && onResetToFill && (
+            <button
+              type="button"
+              data-component="ResetToFillButton"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onResetToFill();
+              }}
+              className="absolute top-3 right-3 z-[120] rounded-lg border border-white/15 bg-slate-900/50 px-3 py-2 text-xs text-white/90 shadow-lg backdrop-blur-md transition hover:border-white/30 hover:bg-slate-900/70 hover:text-white"
+            >
+              Reset to fill canvas
+            </button>
+          )}
           {children}
         </div>
+        {/* Selection overlay for CC resizing - dotted lines with corner extensions and arrows */}
+        {isCalendarCardSelected && (() => {
+          const cardLeft = cardDimensions.x;
+          const cardRight = cardDimensions.x + cardDimensions.width;
+          const cardBottom = cardTop + cardDimensions.height;
+          const lineColor = 'rgba(148, 163, 184, 0.95)'; // gray-400
+          const lineWidth = 3;
+          const horizontalExtension = 48;
+          const verticalExtension = 32;
+          const dashLength = 14;
+          const dashGap = 8;
+          const topLineLeft = cardLeft - horizontalExtension;
+          const topLineRight = cardRight + horizontalExtension;
+          const topLineWidth = topLineRight - topLineLeft;
+          const sideLineTop = cardTop - verticalExtension;
+          const sideLineBottom = cardBottom + verticalExtension;
+          const sideLineHeight = sideLineBottom - sideLineTop;
+          const arrowSize = 28;
+          const arrowGap = 14;
+          const arrowLeft = cardRight + 12;
+          const topArrowTop = cardTop - arrowSize - arrowGap;
+          const bottomArrowTop = cardTop + arrowGap;
+
+          return (
+            <>
+              {/* Dotted outline with slight corner extensions */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: topLineLeft,
+                  top: cardTop,
+                  width: topLineWidth,
+                  height: lineWidth,
+                  backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
+                  backgroundRepeat: 'repeat-x',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: topLineLeft,
+                  top: cardBottom,
+                  width: topLineWidth,
+                  height: lineWidth,
+                  backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
+                  backgroundRepeat: 'repeat-x',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardLeft,
+                  top: sideLineTop,
+                  width: lineWidth,
+                  height: sideLineHeight,
+                  backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
+                  backgroundRepeat: 'repeat-y',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardRight,
+                  top: sideLineTop,
+                  width: lineWidth,
+                  height: sideLineHeight,
+                  backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
+                  backgroundRepeat: 'repeat-y',
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              />
+
+              {/* Arrow indicators on top-right showing vertical adjustment */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: arrowLeft,
+                  top: topArrowTop,
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              >
+                <MoveUp size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
+              </div>
+              <div
+                style={{
+                  position: 'absolute',
+                  left: arrowLeft,
+                  top: bottomArrowTop,
+                  pointerEvents: 'none',
+                  zIndex: 100,
+                }}
+              >
+                <MoveDown size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
+              </div>
+
+              {/* Edge hit areas for resize - invisible areas on each edge */}
+              {/* Top edge */}
+              <div
+                data-component="ResizeEdge-top"
+                style={{
+                  position: 'absolute',
+                  left: topLineLeft,
+                  top: cardTop - 6,
+                  width: topLineWidth,
+                  height: 12,
+                  cursor: 'n-resize',
+                  zIndex: 101,
+                }}
+                onMouseEnter={() => onEdgeHover?.('top')}
+                onMouseLeave={() => onEdgeHover?.(null)}
+                onMouseDown={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onResizeStart?.('top', { x: e.clientX, y: e.clientY });
+                }}
+              />
+              {/* Bottom edge */}
+              <div
+                data-component="ResizeEdge-bottom"
+                style={{
+                  position: 'absolute',
+                  left: topLineLeft,
+                  top: cardBottom - 6,
+                  width: topLineWidth,
+                  height: 12,
+                  cursor: 's-resize',
+                  zIndex: 101,
+                }}
+                onMouseEnter={() => onEdgeHover?.('bottom')}
+                onMouseLeave={() => onEdgeHover?.(null)}
+                onMouseDown={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onResizeStart?.('bottom', { x: e.clientX, y: e.clientY });
+                }}
+              />
+              {/* Left edge */}
+              <div
+                data-component="ResizeEdge-left"
+                style={{
+                  position: 'absolute',
+                  left: cardLeft - 6,
+                  top: sideLineTop,
+                  width: 12,
+                  height: sideLineHeight,
+                  cursor: 'ew-resize',
+                  zIndex: 101,
+                }}
+                onMouseEnter={() => onEdgeHover?.('left')}
+                onMouseLeave={() => onEdgeHover?.(null)}
+                onMouseDown={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onResizeStart?.('left', { x: e.clientX, y: e.clientY });
+                }}
+              />
+              {/* Right edge */}
+              <div
+                data-component="ResizeEdge-right"
+                style={{
+                  position: 'absolute',
+                  left: cardRight - 6,
+                  top: sideLineTop,
+                  width: 12,
+                  height: sideLineHeight,
+                  cursor: 'ew-resize',
+                  zIndex: 101,
+                }}
+                onMouseEnter={() => onEdgeHover?.('right')}
+                onMouseLeave={() => onEdgeHover?.(null)}
+                onMouseDown={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onResizeStart?.('right', { x: e.clientX, y: e.clientY });
+                }}
+              />
+            </>
+          );
+        })()}
+        {/* Highlight overlay for onboarding */}
+        {isOnboardingActive('calendarCard') && !isCalendarCardSelected && (
+          <div
+            data-component="HighlightOverlay"
+            style={{
+              position: 'absolute',
+              left: `${cardDimensions.x - 3}px`,
+              top: `${cardTop - 3}px`,
+              width: `${cardDimensions.width + 6}px`,
+              height: `${cardDimensions.height + 6}px`,
+              border: '3px dotted rgba(168, 85, 247, 0.6)',
+              borderRadius: template.borderRadius,
+              pointerEvents: 'none',
+              zIndex: 50,
+            }}
+          />
+        )}
+        {isOnboardingActive('calendarCard')
+          && !isCalendarCardSelected
+          && hoveredComponent === 'calendarCard'
+          && highlightMode === 'none' && (
+          <div
+            data-component="HighlightOverlay-hover"
+            style={{
+              position: 'absolute',
+              left: `${cardDimensions.x - 2}px`,
+              top: `${cardTop - 2}px`,
+              width: `${cardDimensions.width + 4}px`,
+              height: `${cardDimensions.height + 4}px`,
+              border: '2px solid rgba(59, 130, 246, 0.55)',
+              borderRadius: template.borderRadius,
+              pointerEvents: 'none',
+              zIndex: 70,
+            }}
+          />
+        )}
+        {/* Onboarding callout for calendar card */}
+        {isOnboardingActive('calendarCard') && (
+          <div
+            data-component="OnboardingCallout-calendarCard"
+            style={{
+              position: 'absolute',
+              left: `${cardDimensions.x + cardDimensions.width + 12}px`,
+              top: `${cardTop + cardDimensions.height / 2 - 16}px`,
+              zIndex: 200,
+              pointerEvents: 'auto',
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-0">
+              {/* Arrow pointing left */}
+              <div
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderTop: '6px solid transparent',
+                  borderBottom: '6px solid transparent',
+                  borderRight: '8px solid rgba(168, 85, 247, 0.4)',
+                }}
+              />
+              <div className="relative group bg-purple-500/20 border border-purple-500/35 rounded-lg p-2.5 text-xs text-purple-200/90 backdrop-blur-md max-w-[350px]">
+                <p className="break-words">
+                  <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-purple-400" />
+                  Click on calendar card to select &amp; resize
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -845,8 +1246,36 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       data-component="CalendarCard"
       ref={containerRef}
       id={useOuterContainer ? undefined : id}
-      className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl ${useOuterContainer ? '' : 'shadow-2xl'} relative overflow-hidden`}
+      className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl ${useOuterContainer ? '' : 'shadow-2xl'} relative ${interactive && onCalendarCardSelect ? 'cursor-pointer' : ''}`}
       style={canvasStyles}
+      onMouseEnter={(e) => {
+        if (!interactive) return;
+        setHoveredComponent(getHoveredComponentFromTarget(e.target as HTMLElement));
+      }}
+      onMouseMove={(e) => {
+        if (!interactive) return;
+        const nextHovered = getHoveredComponentFromTarget(e.target as HTMLElement);
+        if (nextHovered !== hoveredComponent) {
+          setHoveredComponent(nextHovered);
+        }
+      }}
+      onMouseLeave={() => {
+        if (interactive) {
+          setHoveredComponent('none');
+        }
+      }}
+      onClick={(e: React.MouseEvent) => {
+        // Only trigger card selection if clicking on the card background (not on events/header/time column)
+        const target = e.target as HTMLElement;
+        const isEventBlock = target.closest('[data-component="EventBlock"]');
+        const isDayHeader = target.closest('[data-component="DayHeader"]');
+        const isTimeColumn = target.closest('[data-component="TimeColumn"]');
+        const isEmptySlot = target.closest('[data-component="EmptySlot"]');
+
+        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive && onCalendarCardSelect) {
+          onCalendarCardSelect();
+        }
+      }}
     >
       {/* BACKGROUND LAYER - Renders background image or color (only when not using outer container) */}
       {template.backgroundType !== 'none' && !useOuterContainer && renderBackgroundLayer()}
@@ -857,13 +1286,32 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         className="relative z-10"
       >
         {/* DAY HEADER - Shows MON TUE WED THU FRI (SAT SUN if needed) */}
-        <div data-component="DayHeader" className="flex mb-4">
+        <div data-component="DayHeader" className="flex mb-4 relative">
           <div className="w-12 shrink-0"></div>
           <div
             onClick={() => interactive && onHeaderClick && onHeaderClick()}
-            className={`flex-1 grid relative ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+            onMouseEnter={() => {
+              if (interactive && onHeaderClick) {
+                setHoveredComponent('dayHeader');
+              }
+            }}
+            onMouseLeave={(e: React.MouseEvent) => {
+              if (!interactive || !onHeaderClick) return;
+              const relatedTarget = e.relatedTarget as HTMLElement | null;
+              setHoveredComponent(getHoveredComponentFromTarget(relatedTarget));
+            }}
+            className={`flex-1 grid relative ${interactive && onHeaderClick ? 'cursor-pointer rounded-lg transition-all' : ''} ${
+              interactive && onHeaderClick && hoveredComponent === 'dayHeader' && highlightMode === 'none'
+                ? 'bg-white/10 ring-2 ring-blue-400/50'
+                : ''
+            }`}
             style={{
               gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))`,
+              ...(showDayHeaderHighlight ? {
+                border: '3px dotted rgba(34, 197, 94, 0.6)',
+                borderRadius: '10px',
+                boxSizing: 'border-box',
+              } : {}),
               // Apply blur to entire bar when mode is 'bar'
               ...(template.headerBlurAmount > 0 && template.headerBlurMode === 'bar' ? {
                 position: 'relative' as const,
@@ -912,16 +1360,63 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               </div>
             ))}
           </div>
+          {/* Onboarding callout for day header - appears below */}
+          {isOnboardingActive('dayHeader') && (
+            <div
+              data-component="OnboardingCallout-dayHeader"
+              className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-[200]"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col items-center gap-0">
+                {/* Arrow pointing up */}
+                <div
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderBottom: '8px solid rgba(34, 197, 94, 0.4)',
+                  }}
+                />
+                <div className="relative group bg-green-500/20 border border-green-500/35 rounded-lg p-2.5 text-xs text-green-200/90 backdrop-blur-md max-w-[350px]">
+                  <p className="break-words">
+                    <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-green-400" />
+                    Click to edit color + blur
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       {/* SCHEDULE GRID - The main time grid with events */}
-      <div data-component="ScheduleGrid" className="flex relative isolate" style={{ height: `${canvasDimensions.gridHeight}px` }}>
+      <div data-component="ScheduleGrid" className="flex relative isolate" style={{ height: `${cardDimensions.gridHeight}px` }}>
         {/* TIME COLUMN - Shows 8:00, 9:00, etc. */}
         <div
           data-component="TimeColumn"
           onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
-          className={`w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0 ${interactive && onTimeColumnClick ? 'cursor-pointer rounded-lg transition-all hover:bg-white/10 hover:ring-2 hover:ring-blue-400/50' : ''}`}
+          onMouseEnter={() => {
+            if (interactive && onTimeColumnClick) {
+              setHoveredComponent('timeColumn');
+            }
+          }}
+          onMouseLeave={(e: React.MouseEvent) => {
+            if (!interactive || !onTimeColumnClick) return;
+            const relatedTarget = e.relatedTarget as HTMLElement | null;
+            setHoveredComponent(getHoveredComponentFromTarget(relatedTarget));
+          }}
+          className={`w-12 flex flex-col text-xs font-mono pr-2 items-end relative z-10 shrink-0 ${interactive && onTimeColumnClick ? 'cursor-pointer rounded-lg transition-all' : ''} ${
+            interactive && onTimeColumnClick && hoveredComponent === 'timeColumn' && highlightMode === 'none'
+              ? 'bg-white/10 ring-2 ring-blue-400/50'
+              : ''
+          }`}
           style={{
+            ...(showTimeColumnHighlight ? {
+              border: '3px dotted rgba(245, 158, 11, 0.6)',
+              borderRadius: '10px',
+              boxSizing: 'border-box',
+            } : {}),
             // Apply blur to entire column when mode is 'bar'
             ...(template.timeColumnBlurAmount > 0 && template.timeColumnBlurMode === 'bar' ? {
               position: 'relative' as const,
@@ -955,7 +1450,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               <div
                 key={hour}
                 style={{
-                  height: `${canvasDimensions.gridHeight / hourRange}px`,
+                  height: `${cardDimensions.gridHeight / hourRange}px`,
                   ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {}),
                 }}
                 className={hourTextColor}
@@ -986,6 +1481,34 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               </div>
             );
           })}
+          {/* Onboarding callout for time column */}
+          {isOnboardingActive('timeColumn') && (
+            <div
+              data-component="OnboardingCallout-timeColumn"
+              className="absolute -left-2 top-1/2 -translate-y-1/2 -translate-x-full z-[200]"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-0">
+                <div className="relative group bg-amber-500/20 border border-amber-500/35 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md max-w-[350px]">
+                  <p className="break-words">
+                    <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />
+                    Click to edit time labels
+                  </p>
+                </div>
+                {/* Arrow pointing right */}
+                <div
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderTop: '6px solid transparent',
+                    borderBottom: '6px solid transparent',
+                    borderLeft: '8px solid rgba(245, 158, 11, 0.4)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* DAY COLUMNS CONTAINER - Contains grid lines and event blocks */}
@@ -1000,7 +1523,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           {/* GRID LINES - Horizontal hour separator lines */}
           <div data-component="GridLines" className="absolute inset-0 z-0 flex flex-col pointer-events-none">
             {hours.map((hour) => (
-              <div key={hour} style={{ height: `${canvasDimensions.gridHeight / hourRange}px` }} className={`w-full ${template.showGrid ? `border-t ${gridBorderColor}` : ''}`}></div>
+              <div key={hour} style={{ height: `${cardDimensions.gridHeight / hourRange}px` }} className={`w-full ${template.showGrid ? `border-t ${gridBorderColor}` : ''}`}></div>
             ))}
           </div>
 
@@ -1018,7 +1541,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 data-component="DayColumn"
                 key={actualDayIndex}
                 className={`col-span-1 relative ${colIndex < visibleDays.length - 1 && template.showGrid ? `border-r ${gridBorderColor}` : ''}`}
-                style={{ height: `${canvasDimensions.gridHeight}px` }}
+                style={{ height: `${cardDimensions.gridHeight}px` }}
                 onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                   if (interactive && onBlankClick && e.target === e.currentTarget) {
                     onBlankClick();
@@ -1070,169 +1593,212 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
                   const topPercent = ((alignedStart - startHour) / hourRange) * 100;
                   const heightPercent = (alignedDuration / hourRange) * 100;
+                  const showEventOnboarding = isOnboardingActive('eventBlock') && event.id === onboardingEventId;
+                  const calloutTopPx = (topPercent / 100) * cardDimensions.gridHeight + (heightPercent / 100) * cardDimensions.gridHeight / 2;
 
                   return (
-                  // EVENT BLOCK - Individual class/event card
-                  <div
-                    data-component="EventBlock"
-                    data-event-id={event.id}
-                    key={event.id}
-                    onClick={() => interactive && onEventClick && onEventClick(event)}
-                    onMouseDown={(e) => handleEventMouseDown(event, e)}
-                    className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
-                      ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
-                      ${canDrag ? 'cursor-grab' : ''}
-                      ${isDragging ? 'cursor-grabbing' : ''}
-                      ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
-                    `}
-                    style={{
-                      top: `${topPercent}%`,
-                      height: `${heightPercent}%`,
-                      // Apply acrylic effect for acrylic theme
-                      ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
-                        ? {
-                            // Use event color with opacity based on eventOpacity setting
-                            background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
-                            boxShadow: currentTheme.eventBlock.shadow,
-                            border: template.eventBlockNoBorders ? 'none' : currentTheme.eventBlock.border,
-                            overflow: 'hidden',
-                          }
-                        : template.themeFamily === 'glass'
-                        ? {
-                            backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
-                            borderColor: template.eventBlockNoBorders ? 'transparent' : 'rgba(255,255,255,0.2)',
-                            overflow: 'hidden',
-                          }
-                        : {
-                            backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
-                            borderColor: 'rgba(0,0,0,0.1)',
-                          }),
-                      ...(isOverlapping
-                        ? {
-                            borderColor: 'rgba(239, 68, 68, 0.95)',
-                            borderWidth: '3px',
-                            boxShadow: '0 12px 26px rgba(239, 68, 68, 0.35)',
-                          }
-                        : isSelected
-                        ? {
-                            borderColor: selectedBorderColor,
-                            borderWidth: '3px',
-                            boxShadow: '0 10px 24px rgba(37, 99, 235, 0.25)',
-                          }
-                        : {}),
-                      ...(shouldHideBorder ? { borderColor: 'transparent' } : {}),
-                      color: '#fff',
-                      zIndex: isDragging ? 30 : isSelected ? 20 : 10,
-                      userSelect: isDragging ? 'none' : 'auto',
-                    }}
-                  >
-                  {/* Backdrop blur layer for acrylic/glass themes */}
-                  {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        // In export mode, use semi-transparent background instead of backdrop blur
-                        ...(exportMode ? {
-                          // Export fallback: gradient overlay to simulate frosted glass
-                          background: template.themeVariant === 'light'
-                            ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
-                            : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
-                        } : {
-                          backdropFilter: `blur(${12 * blurScale}px)`,
-                          WebkitBackdropFilter: `blur(${12 * blurScale}px)`,
-                        }),
-                        pointerEvents: 'none',
-                        borderRadius: 'inherit',
-                        zIndex: -1,
-                      }}
-                    />
-                  )}
-                  {/* Grain texture overlay for acrylic theme */}
-                  {template.themeFamily === 'acrylic' && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        backgroundImage: `url('${acrylicTextureUrl}')`,
-                        backgroundRepeat: 'repeat',
-                        backgroundSize: '128px 128px',
-                        opacity: 0.1,
-                        pointerEvents: 'none',
-                        borderRadius: 'inherit',
-                      }}
-                    />
-                  )}
-                  {!hideTextContent && (
-                  <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
-                    <div
-                      className="font-bold leading-none uppercase tracking-wide break-words"
-                      style={{
-                        fontSize: `${template.titleFontSize}px`,
-                        fontFamily: template.titleFont,
-                        color: template.titleTextColor || (template.themeFamily === 'acrylic'
-                          ? currentTheme.eventBlock.titleColor
-                          : '#1f2937')
-                      }}
-                      title={showFullTitle ? event.title : event.displayTitle}
-                    >
-                      {showFullTitle ? event.title : event.displayTitle}
-                    </div>
-
-                    {/* Class Type Label */}
-                    {template.showClassType && (
+                    <React.Fragment key={event.id}>
+                      {/* EVENT BLOCK - Individual class/event card */}
                       <div
-                        className="font-semibold opacity-90"
+                        data-component="EventBlock"
+                        data-event-id={event.id}
+                        onClick={() => interactive && onEventClick && onEventClick(event)}
+                        onMouseDown={(e) => handleEventMouseDown(event, e)}
+                        className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
+                          ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
+                          ${canDrag ? 'cursor-grab' : ''}
+                          ${isDragging ? 'cursor-grabbing' : ''}
+                          ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
+                        `}
                         style={{
-                          fontSize: `${template.subtitleFontSize}px`,
-                          fontFamily: template.subtitleFont,
-                          color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
-                            ? currentTheme.eventBlock.subtitleColor
-                            : '#1f2937'),
-                          marginTop: '2px'
+                          top: `${topPercent}%`,
+                          height: `${heightPercent}%`,
+                          // Apply acrylic effect for acrylic theme
+                          ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
+                            ? {
+                                // Use event color with opacity based on eventOpacity setting
+                                background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
+                                boxShadow: currentTheme.eventBlock.shadow,
+                                border: template.eventBlockNoBorders ? 'none' : currentTheme.eventBlock.border,
+                                overflow: 'hidden',
+                              }
+                            : template.themeFamily === 'glass'
+                            ? {
+                                backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
+                                borderColor: template.eventBlockNoBorders ? 'transparent' : 'rgba(255,255,255,0.2)',
+                                overflow: 'hidden',
+                              }
+                            : {
+                                backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
+                                borderColor: 'rgba(0,0,0,0.1)',
+                              }),
+                          ...(isOverlapping
+                            ? {
+                                borderColor: 'rgba(239, 68, 68, 0.95)',
+                                borderWidth: '3px',
+                                boxShadow: '0 12px 26px rgba(239, 68, 68, 0.35)',
+                              }
+                            : isSelected
+                            ? {
+                                borderColor: selectedBorderColor,
+                                borderWidth: '3px',
+                                boxShadow: '0 10px 24px rgba(37, 99, 235, 0.25)',
+                              }
+                            : {}),
+                          ...(shouldHideBorder ? { borderColor: 'transparent' } : {}),
+                          ...(showEventOnboarding ? {
+                            borderColor: 'rgba(6, 182, 212, 0.6)',
+                            borderStyle: 'dotted',
+                            borderWidth: '3px',
+                            boxShadow: '0 0 0 1px rgba(6, 182, 212, 0.25)',
+                          } : {}),
+                          color: '#fff',
+                          zIndex: isDragging ? 30 : isSelected ? 20 : 10,
+                          userSelect: isDragging ? 'none' : 'auto',
                         }}
                       >
-                        {event.classType === 'Custom' ? event.customClassType : event.classType}
+                        {/* Backdrop blur layer for acrylic/glass themes */}
+                        {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              // In export mode, use semi-transparent background instead of backdrop blur
+                              ...(exportMode ? {
+                                // Export fallback: gradient overlay to simulate frosted glass
+                                background: template.themeVariant === 'light'
+                                  ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
+                                  : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
+                              } : {
+                                backdropFilter: `blur(${12 * blurScale}px)`,
+                                WebkitBackdropFilter: `blur(${12 * blurScale}px)`,
+                              }),
+                              pointerEvents: 'none',
+                              borderRadius: 'inherit',
+                              zIndex: -1,
+                            }}
+                          />
+                        )}
+                        {/* Grain texture overlay for acrylic theme */}
+                        {template.themeFamily === 'acrylic' && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              backgroundImage: `url('${acrylicTextureUrl}')`,
+                              backgroundRepeat: 'repeat',
+                              backgroundSize: '128px 128px',
+                              opacity: 0.1,
+                              pointerEvents: 'none',
+                              borderRadius: 'inherit',
+                            }}
+                          />
+                        )}
+                        {!hideTextContent && (
+                          <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
+                            <div
+                              className="font-bold leading-none uppercase tracking-wide break-words"
+                              style={{
+                                fontSize: `${template.titleFontSize}px`,
+                                fontFamily: template.titleFont,
+                                color: template.titleTextColor || (template.themeFamily === 'acrylic'
+                                  ? currentTheme.eventBlock.titleColor
+                                  : '#1f2937')
+                              }}
+                              title={showFullTitle ? event.title : event.displayTitle}
+                            >
+                              {showFullTitle ? event.title : event.displayTitle}
+                            </div>
+
+                            {/* Class Type Label */}
+                            {template.showClassType && (
+                              <div
+                                className="font-semibold opacity-90"
+                                style={{
+                                  fontSize: `${template.subtitleFontSize}px`,
+                                  fontFamily: template.subtitleFont,
+                                  color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
+                                    ? currentTheme.eventBlock.subtitleColor
+                                    : '#1f2937'),
+                                  marginTop: '2px'
+                                }}
+                              >
+                                {event.classType === 'Custom' ? event.customClassType : event.classType}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {!hideTextContent && !template.compact && (
+                          <div
+                            className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
+                            style={{
+                              fontSize: `${template.detailsFontSize}px`,
+                              fontFamily: template.detailsFont,
+                              color: template.detailsTextColor || (template.themeFamily === 'acrylic'
+                                ? currentTheme.eventBlock.detailsColor
+                                : '#374151'),
+                              marginTop: '2px'
+                            }}
+                          >
+                            {template.showTime && (
+                              <div className="flex items-center gap-1 font-mono opacity-80">
+                                 <span>{event.startTime} - {event.endTime}</span>
+                              </div>
+                            )}
+
+                            {template.showLocation && event.location && (
+                              <div className="flex items-start gap-1 opacity-75">
+                                <MapPin size={10} className="mt-0.5 shrink-0" />
+                                <span className="break-words">{event.location}</span>
+                              </div>
+                            )}
+
+                            {(event.includeNotes ?? template.showNotes) && event.notes && (
+                               <div className="flex items-start gap-1 opacity-75 border-t border-black/10" style={{ marginTop: '2px', paddingTop: '2px' }}>
+                                 <AlignLeft size={10} className="mt-0.5 shrink-0" />
+                                 <span className="line-clamp-4 leading-tight break-words">{event.notes}</span>
+                               </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  )}
 
-                  {!hideTextContent && !template.compact && (
-                    <div
-                      className="opacity-90 flex flex-col gap-0 min-w-0 overflow-hidden"
-                      style={{
-                        fontSize: `${template.detailsFontSize}px`,
-                        fontFamily: template.detailsFont,
-                        color: template.detailsTextColor || (template.themeFamily === 'acrylic'
-                          ? currentTheme.eventBlock.detailsColor
-                          : '#374151'),
-                        marginTop: '2px'
-                      }}
-                    >
-                      {template.showTime && (
-                        <div className="flex items-center gap-1 font-mono opacity-80">
-                           <span>{event.startTime} - {event.endTime}</span>
+                      {showEventOnboarding && (
+                        <div
+                          data-component="OnboardingCallout-eventBlock"
+                          className="absolute z-[200]"
+                          style={{
+                            left: 'calc(100% + 12px)',
+                            top: `${calloutTopPx}px`,
+                            transform: 'translateY(-50%)',
+                            pointerEvents: 'auto',
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-0">
+                            {/* Arrow pointing left towards the event block */}
+                            <div
+                              style={{
+                                width: 0,
+                                height: 0,
+                                borderTop: '6px solid transparent',
+                                borderBottom: '6px solid transparent',
+                                borderRight: '8px solid rgba(6, 182, 212, 0.4)',
+                              }}
+                            />
+                            <div className="relative group bg-cyan-500/20 border border-cyan-500/35 rounded-lg p-2.5 text-xs text-cyan-200/90 backdrop-blur-md max-w-[350px]">
+                              <p className="break-words">
+                                <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
+                                Click on block to edit color/font/layout.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
-
-                      {template.showLocation && event.location && (
-                        <div className="flex items-start gap-1 opacity-75">
-                          <MapPin size={10} className="mt-0.5 shrink-0" />
-                          <span className="break-words">{event.location}</span>
-                        </div>
-                      )}
-
-                      {(event.includeNotes ?? template.showNotes) && event.notes && (
-                         <div className="flex items-start gap-1 opacity-75 border-t border-black/10" style={{ marginTop: '2px', paddingTop: '2px' }}>
-                           <AlignLeft size={10} className="mt-0.5 shrink-0" />
-                           <span className="line-clamp-4 leading-tight break-words">{event.notes}</span>
-                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
+                    </React.Fragment>
+                  );
                 })}
               </div>
             );

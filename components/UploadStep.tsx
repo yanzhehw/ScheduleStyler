@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X } from 'lucide-react';
 
 interface UploadStepProps {
-  onFileSelect: (file: File, apiKey?: string) => void;
+  onFileSelect: (file: File, apiKey?: string, activationToken?: string) => void;
   onLoadSample: () => void;
   onLoadMcGillSample: () => void;
   onEnterManually: () => void;
@@ -90,16 +90,24 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
     e.preventDefault();
     if (isUploadLocked || isProcessing) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileSelect(e.dataTransfer.files[0], isByokApplied ? appliedApiKey! : undefined);
+      onFileSelect(
+        e.dataTransfer.files[0],
+        isByokApplied ? appliedApiKey! : undefined,
+        activationToken || undefined
+      );
     }
-  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey]);
+  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey, activationToken]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (isUploadLocked || isProcessing) return;
     if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0], isByokApplied ? appliedApiKey! : undefined);
+      onFileSelect(
+        e.target.files[0],
+        isByokApplied ? appliedApiKey! : undefined,
+        activationToken || undefined
+      );
     }
-  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey]);
+  }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey, activationToken]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[60vh] animate-fade-in">
@@ -130,7 +138,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                   isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'
                 }`}
               >
-                <div className={`${isUploadLocked ? 'blur-[1px]' : ''} space-y-6`}>
+                <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-6`}>
                   <div className={`mx-auto w-fit p-5 rounded-full ${isProcessing ? 'bg-blue-500/20 animate-pulse' : 'bg-gray-800'}`}>
                     {isProcessing ? (
                       <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>

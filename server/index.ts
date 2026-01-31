@@ -4,6 +4,8 @@ import { env } from "./env";
 import express from "express";
 import cors from "cors";
 import { redeemRouter } from "./routes/redeem";
+import { markUsedRouter } from "./routes/mark-used";
+import { backgroundsRouter } from "./routes/backgrounds";
 
 const app = express();
 const PORT = env.SERVER_PORT;
@@ -17,6 +19,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/redeem", redeemRouter);
+app.use("/api/mark-used", markUsedRouter);
+app.use("/api/backgrounds", backgroundsRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

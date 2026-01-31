@@ -24,4 +24,9 @@ export const env = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
   SERVER_PORT: process.env.SERVER_PORT || "3001",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  // R2 Storage
+  R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+  R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+  R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+  R2_BUCKET_NAME: process.env.R2_BUCKET_NAME || "schedule-styler-backgrounds",
 };

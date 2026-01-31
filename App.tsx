@@ -48,10 +48,8 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   backgroundImage: getDefaultLandscapeId() || 'l1', // First landscape background as default
   backgroundBlur: 0, // Background blur amount (0-20px)
   backgroundOverlay: 0, // Background overlay/highlight opacity (0-100)
-  backgroundIndependent: false, // Whether background has independent aspect ratio
-  backgroundAspectRatio: 0.6, // Background aspect ratio when independent
+  calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 }, // Calendar card insets from background edges
   lockscreenMockup: false, // Show iPhone lockscreen mockup overlay
-  lockscreenOffset: 15, // Vertical offset for calendar within lockscreen (0-100%)
 };
 
 const App: React.FC = () => {
@@ -65,7 +63,7 @@ const App: React.FC = () => {
   const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
   const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
 
-  const handleFileUpload = async (file: File, apiKey?: string) => {
+  const handleFileUpload = async (file: File, apiKey?: string, activationToken?: string) => {
     setIsProcessing(true);
     setApiKeyError(null);
     setStep(AppStep.PROCESSING); // Technically visual state within UploadStep
@@ -75,6 +73,29 @@ const App: React.FC = () => {
       setEvents(data.events);
       setCategories(data.categories);
       setStep(AppStep.EDIT);
+
+      // Mark the invitation code as used after successful extraction
+      if (activationToken) {
+        console.log('[mark-used] Calling /api/mark-used with activationToken:', activationToken);
+        try {
+          const markResponse = await fetch('/api/mark-used', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activationToken }),
+          });
+          const markResult = await markResponse.json();
+          console.log('[mark-used] Response status:', markResponse.status);
+          console.log('[mark-used] Response body:', markResult);
+          if (markResponse.ok) {
+            console.log('[mark-used] ✅ Invitation code successfully marked as USED');
+          } else {
+            console.warn('[mark-used] ⚠️ Failed to mark code as used:', markResult.error);
+          }
+        } catch (markError) {
+          // Log but don't fail the extraction if marking fails
+          console.error("[mark-used] ❌ Failed to mark invitation code as used:", markError);
+        }
+      }
     } catch (error) {
       console.error("Extraction error", error);
       if (apiKey) {
@@ -196,14 +217,19 @@ const App: React.FC = () => {
             onUpdateEvents={setEvents}
             onUpdateTemplate={setTemplate}
             onNext={() => {
-              // Set appropriate background type based on theme when entering Export view for the first time
+              // Set acrylic theme and appropriate background when entering Export view for the first time
               if (!hasVisitedExport) {
-                const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
                 const defaultBg = getDefaultLandscapeId() || 'l1';
                 setTemplate(prev => ({
                   ...prev,
-                  backgroundType: isGlassOrAcrylic ? 'image' : 'none',
-                  backgroundImage: isGlassOrAcrylic && !prev.backgroundImage ? defaultBg : prev.backgroundImage
+                  // Switch to acrylic theme on first visit to Export
+                  themeFamily: 'acrylic',
+                  themeVariant: 'dark',
+                  themeSubVariant: 'dark-slate',
+                  theme: 'acrylic-dark',
+                  // Set image background for acrylic theme
+                  backgroundType: 'image',
+                  backgroundImage: prev.backgroundImage || defaultBg,
                 }));
               }
               setHasVisitedExport(true);

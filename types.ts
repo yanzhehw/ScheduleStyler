@@ -342,6 +342,13 @@ export type BlurMode = 'bar' | 'cells';
 /** Background type - none, image, or solid color */
 export type BackgroundType = 'none' | 'image' | 'color';
 
+/** Selectable components on the export canvas */
+export type SelectableExportComponent = 'none' | 'dayHeader' | 'timeColumn' | 'calendarCard';
+export type OnboardingComponent = 'calendarCard' | 'dayHeader' | 'timeColumn' | 'eventBlock';
+
+/** Edge being dragged for calendar card resize */
+export type ResizeEdge = 'top' | 'bottom' | 'left' | 'right' | null;
+
 export interface TemplateConfig {
   id: string;
   name: string;
@@ -374,7 +381,8 @@ export interface TemplateConfig {
   showClassType: boolean;
   viewMode: 'desktop' | 'mobile';
 
-  // Aspect ratio slider (0 = 16:9 landscape, 1 = 9:16 portrait, ~0.6 = natural content)
+  // Background aspect ratio slider (0 = 16:9 landscape, 1 = 9:16 portrait)
+  // This controls the export canvas/background size; calendar card is resized via calendarCardInsets
   aspectRatio: number;
 
   /** Differentiate Labs/Tutorials with different colors */
@@ -455,17 +463,17 @@ export interface TemplateConfig {
   /** Background highlight/overlay opacity (0-100) to make content more visible */
   backgroundOverlay: number;
 
-  /** Whether background has independent aspect ratio from calendar content */
-  backgroundIndependent: boolean;
-
-  /** Background aspect ratio when independent (0 = 16:9 landscape, 1 = 9:16 portrait) */
-  backgroundAspectRatio: number;
+  /** Calendar card insets from background edges (percentage 0-50) */
+  calendarCardInsets: {
+    top: number;
+    bottom: number;
+    left: number;   // symmetric with right
+    right: number;  // symmetric with left
+  };
 
   /** Whether to show iPhone lockscreen mockup overlay */
   lockscreenMockup: boolean;
 
-  /** Vertical offset for calendar position within lockscreen (0-100, percentage from top) */
-  lockscreenOffset: number;
 }
 
 export interface ProcessedData {

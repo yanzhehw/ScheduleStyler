@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType } from '../types';
+import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
+import { VerticalSlider } from './VerticalSlider';
 import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
 import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
+import { getDefaultLandscapeId } from '../assets/backgrounds';
 
 // Import lockscreen mockup overlay
 import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
@@ -20,6 +22,8 @@ interface ExportStepProps {
 }
 
 export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onUpdateEvents, onBack }) => {
+  const DETECT_IF_ON_BOARDED = false;
+  
   // Backgrounds from R2 storage
   const { landscapes, portraits, isLoading: isBackgroundsLoading, error: backgroundsError } = useBackgrounds();
 
@@ -45,23 +49,133 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   
   // Selected event for color picking
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [applyColorToAll, setApplyColorToAll] = useState(
-    template.themeFamily === 'acrylic' || template.themeFamily === 'glass'
-  );
+  const [applyColorToAll, setApplyColorToAll] = useState(false);
   const [showFontSelector, setShowFontSelector] = useState(false);
 
-  // When theme changes to Acrylic or Glass, turn on "apply to all" and unify colors with random selection
+  // Calendar card selection and resize state
+  const [selectedComponent, setSelectedComponent] = useState<SelectableExportComponent>('none');
+  const [hoveredEdge, setHoveredEdge] = useState<ResizeEdge>(null);
+  const [hoverResetToken, setHoverResetToken] = useState(0);
+  const resizeUserSelectRef = useRef<string | null>(null);
+  const [resizeDragState, setResizeDragState] = useState<{
+    isResizing: boolean;
+    edge: ResizeEdge;
+    startMousePos: { x: number; y: number };
+    startInsets: { top: number; bottom: number; left: number; right: number };
+  } | null>(null);
+
+  type OnboardingSeenState = {
+    calendarCard: boolean;
+    dayHeader: boolean;
+    timeColumn: boolean;
+    eventBlock: boolean;
+  };
+
+  const [onboardingSeen, setOnboardingSeen] = useState<OnboardingSeenState>(() => {
+    if (typeof window === 'undefined') {
+      return { calendarCard: false, dayHeader: false, timeColumn: false, eventBlock: false };
+    }
+    if (!DETECT_IF_ON_BOARDED) {
+      localStorage.removeItem('export-onboarding-seen');
+      return { calendarCard: false, dayHeader: false, timeColumn: false, eventBlock: false };
+    }
+    const stored = localStorage.getItem('export-onboarding-seen');
+    if (!stored) {
+      return { calendarCard: false, dayHeader: false, timeColumn: false, eventBlock: false };
+    }
+    if (stored === 'true') {
+      return { calendarCard: true, dayHeader: true, timeColumn: true, eventBlock: true };
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      return {
+        calendarCard: Boolean(parsed?.calendarCard),
+        dayHeader: Boolean(parsed?.dayHeader),
+        timeColumn: Boolean(parsed?.timeColumn),
+        eventBlock: Boolean(parsed?.eventBlock),
+      };
+    } catch {
+      return { calendarCard: false, dayHeader: false, timeColumn: false, eventBlock: false };
+    }
+  });
+
+  const onboardingPending = {
+    calendarCard: !onboardingSeen.calendarCard,
+    dayHeader: !onboardingSeen.dayHeader,
+    timeColumn: !onboardingSeen.timeColumn,
+    eventBlock: !onboardingSeen.eventBlock,
+  };
+
+  const completeOnboardingFor = React.useCallback((component: OnboardingComponent) => {
+    const key = component as OnboardingComponent;
+    setOnboardingSeen((prev) => {
+      if (prev[key]) return prev;
+      return { ...prev, [key]: true };
+    });
+  }, []);
+
+  const previousSelectedRef = useRef<SelectableExportComponent>('none');
+  const [onboardingEventId, setOnboardingEventId] = useState<string | null>(null);
+  const eventOnboardingTouchedRef = useRef(false);
+
+  useEffect(() => {
+    const previous = previousSelectedRef.current;
+    if (previous !== 'none' && previous !== selectedComponent) {
+      completeOnboardingFor(previous);
+    }
+    previousSelectedRef.current = selectedComponent;
+  }, [selectedComponent, completeOnboardingFor]);
+
+  useEffect(() => {
+    if (!onboardingPending.eventBlock) {
+      setOnboardingEventId(null);
+      eventOnboardingTouchedRef.current = false;
+      return;
+    }
+    if (events.length === 0) {
+      setOnboardingEventId(null);
+      return;
+    }
+    if (onboardingEventId && events.some((event) => event.id === onboardingEventId)) {
+      return;
+    }
+    const randomEvent = events[Math.floor(Math.random() * events.length)];
+    setOnboardingEventId(randomEvent.id);
+  }, [events, onboardingPending.eventBlock, onboardingEventId]);
+
+  useEffect(() => {
+    if (!onboardingPending.eventBlock || !onboardingEventId) return;
+    if (selectedEventId === onboardingEventId) {
+      eventOnboardingTouchedRef.current = true;
+      return;
+    }
+    if (eventOnboardingTouchedRef.current) {
+      completeOnboardingFor('eventBlock');
+      eventOnboardingTouchedRef.current = false;
+    }
+  }, [selectedEventId, onboardingEventId, onboardingPending.eventBlock, completeOnboardingFor]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !DETECT_IF_ON_BOARDED) return;
+    const allSeen = onboardingSeen.calendarCard
+      && onboardingSeen.dayHeader
+      && onboardingSeen.timeColumn
+      && onboardingSeen.eventBlock;
+    localStorage.setItem(
+      'export-onboarding-seen',
+      allSeen ? 'true' : JSON.stringify(onboardingSeen)
+    );
+  }, [onboardingSeen]);
+
+  // When theme changes to Acrylic or Glass, unify colors with random selection (if apply-to-all is enabled)
   useEffect(() => {
     const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
-    if (isGlassOrAcrylic) {
-      setApplyColorToAll(true);
-      // Apply uniform random color to all blocks
-      if (events.length > 0) {
-        const themeColorPalette = getThemeColors(template.themeFamily, template.themeVariant);
-        const randomColor = themeColorPalette[Math.floor(Math.random() * themeColorPalette.length)];
-        const updatedEvents = events.map(e => ({ ...e, color: randomColor }));
-        onUpdateEvents(updatedEvents);
-      }
+    if (isGlassOrAcrylic && applyColorToAll && events.length > 0) {
+      // Apply uniform random color to all blocks only if apply-to-all is enabled
+      const themeColorPalette = getThemeColors(template.themeFamily, template.themeVariant);
+      const randomColor = themeColorPalette[Math.floor(Math.random() * themeColorPalette.length)];
+      const updatedEvents = events.map(e => ({ ...e, color: randomColor }));
+      onUpdateEvents(updatedEvents);
     }
   }, [template.themeFamily]);
   const [openFontDropdown, setOpenFontDropdown] = useState<'title' | 'subtitle' | 'details' | null>(null);
@@ -156,12 +270,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       });
     }
   };
-  const [colorPickerPosition, setColorPickerPosition] = useState<{
+  type CalloutPosition = {
     x: number;
     y: number;
     placement: 'top' | 'bottom' | 'left' | 'right';
     arrowOffset: number; // Offset from center for arrow positioning (in pixels)
-  } | null>(null);
+  };
+  const [colorPickerPosition, setColorPickerPosition] = useState<CalloutPosition | null>(null);
+  const [headerEditorPosition, setHeaderEditorPosition] = useState<CalloutPosition | null>(null);
+  const [timeEditorPosition, setTimeEditorPosition] = useState<CalloutPosition | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const previewPanelRef = useRef<HTMLDivElement>(null);
 
@@ -182,8 +299,94 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   // Get the selected event
   const selectedEvent = useMemo(() => events.find(e => e.id === selectedEventId), [events, selectedEventId]);
 
+  const getCalloutPosition = (
+    target: HTMLElement,
+    calloutSize: { width: number; height: number }
+  ): CalloutPosition | null => {
+    const panel = previewPanelRef.current;
+    if (!panel) return null;
+    const elementRect = target.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const padding = 12;
+
+    const spaceAbove = elementRect.top - panelRect.top;
+    const spaceBelow = panelRect.bottom - elementRect.bottom;
+    const spaceRight = panelRect.right - elementRect.right;
+    const spaceLeft = elementRect.left - panelRect.left;
+
+    const elementCenterX = elementRect.left - panelRect.left + panel.scrollLeft + elementRect.width / 2;
+    const elementCenterY = elementRect.top - panelRect.top + panel.scrollTop + elementRect.height / 2;
+
+    let placement: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
+    let x = elementCenterX;
+    let y = elementRect.bottom - panelRect.top + panel.scrollTop + 8;
+    let arrowOffset = 0;
+
+    const hasSpaceBelow = spaceBelow >= calloutSize.height + padding;
+    const hasSpaceAbove = spaceAbove >= calloutSize.height + padding;
+
+    if (hasSpaceBelow || hasSpaceAbove) {
+      placement = hasSpaceBelow ? 'bottom' : 'top';
+      y = placement === 'top'
+        ? elementRect.top - panelRect.top + panel.scrollTop - 8
+        : elementRect.bottom - panelRect.top + panel.scrollTop + 8;
+
+      const calloutLeft = x - calloutSize.width / 2;
+      const calloutRight = x + calloutSize.width / 2;
+      const panelVisibleWidth = panelRect.width;
+
+      if (calloutLeft < padding) {
+        const shift = padding - calloutLeft;
+        x += shift;
+        arrowOffset = -shift;
+      } else if (calloutRight > panelVisibleWidth - padding) {
+        const shift = calloutRight - (panelVisibleWidth - padding);
+        x -= shift;
+        arrowOffset = shift;
+      }
+
+      if (placement === 'top') {
+        y = Math.max(calloutSize.height + padding, y);
+      } else {
+        y = Math.min(panelRect.height + panel.scrollTop - padding, y);
+      }
+    } else if (spaceRight >= calloutSize.width + padding) {
+      placement = 'right';
+      x = elementRect.right - panelRect.left + panel.scrollLeft + 8;
+      y = Math.min(Math.max(calloutSize.height / 2 + padding, elementCenterY), panelRect.height - calloutSize.height / 2 - padding);
+    } else {
+      placement = 'left';
+      x = elementRect.left - panelRect.left + panel.scrollLeft - 8;
+      y = Math.min(Math.max(calloutSize.height / 2 + padding, elementCenterY), panelRect.height - calloutSize.height / 2 - padding);
+    }
+
+    return { x, y, placement, arrowOffset };
+  };
+
+  const getRightCenteredCalloutPosition = (
+    target: HTMLElement,
+    calloutSize: { width: number; height: number }
+  ): CalloutPosition | null => {
+    const panel = previewPanelRef.current;
+    if (!panel) return null;
+    const elementRect = target.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const padding = 12;
+
+    const elementCenterY = elementRect.top - panelRect.top + panel.scrollTop + elementRect.height / 2;
+    const x = elementRect.right - panelRect.left + panel.scrollLeft + 10;
+    const minY = calloutSize.height / 2 + padding;
+    const maxY = panelRect.height - calloutSize.height / 2 - padding;
+    const y = Math.min(Math.max(elementCenterY, minY), maxY);
+
+    return { x, y, placement: 'right', arrowOffset: 0 };
+  };
+
   // Handle event click - show color picker with smart positioning
   const handleEventClick = (event: CalendarEvent) => {
+    clearComponentSelection();
+    setHeaderTextEditorOpen(false);
+    setTimeColumnEditorOpen(false);
     const clickedElement = document.querySelector(`[data-event-id="${event.id}"]`);
     const panel = previewPanelRef.current;
 
@@ -269,11 +472,223 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     setShowFontSelector(false); // Close font selector when clicking an event block
   };
 
-  // Handle blank click - close color picker
+  const clearComponentSelection = () => {
+    setSelectedComponent('none');
+    setHoverResetToken((value) => value + 1);
+    setHeaderTextEditorOpen(false);
+    setTimeColumnEditorOpen(false);
+    setHeaderEditorPosition(null);
+    setTimeEditorPosition(null);
+  };
+
+  const handleOnboardingOk = (component: OnboardingComponent) => {
+    if (component === 'eventBlock') {
+      setSelectedEventId(null);
+      return;
+    }
+    if (selectedComponent === component) {
+      clearComponentSelection();
+    }
+  };
+
+  // Handle blank click - close color picker and deselect components
   const handleBlankClick = () => {
     setSelectedEventId(null);
     setColorPickerPosition(null);
+    clearComponentSelection();
   };
+
+  // Reset calendar card to fill canvas
+  const handleResetToFill = () => {
+    onUpdateTemplate({
+      ...template,
+      calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 }
+    });
+  };
+
+  // Check if card has been resized (has non-zero insets)
+  const hasCardInsets = template.calendarCardInsets.top !== 0 ||
+    template.calendarCardInsets.bottom !== 0 ||
+    template.calendarCardInsets.left !== 0 ||
+    template.calendarCardInsets.right !== 0;
+
+  const cardHeightPercent = 100 - template.calendarCardInsets.top - template.calendarCardInsets.bottom;
+  const verticalSlackPercent = Math.max(0, template.calendarCardInsets.top + template.calendarCardInsets.bottom);
+  const showVerticalTranslateSlider = selectedComponent === 'calendarCard'
+    && verticalSlackPercent > 10
+    && cardHeightPercent < 90;
+  const verticalTranslateValue = verticalSlackPercent > 0
+    ? (template.calendarCardInsets.top / verticalSlackPercent) * 100
+    : 0;
+  const sliderValue = 100 - verticalTranslateValue;
+
+  // Track canvas dimensions for resize calculations
+  const [canvasDimensions, setCanvasDimensions] = useState({
+    width: 600,
+    height: 400,
+    minCardWidth: 600,
+    minCardHeight: 400,
+  });
+
+  // Handle resize start
+  const handleResizeStart = (edge: ResizeEdge, mousePos: { x: number; y: number }) => {
+    if (!edge) return;
+    if (typeof document !== 'undefined') {
+      resizeUserSelectRef.current = document.body.style.userSelect;
+      document.body.style.userSelect = 'none';
+    }
+    setResizeDragState({
+      isResizing: true,
+      edge,
+      startMousePos: mousePos,
+      startInsets: { ...template.calendarCardInsets },
+    });
+  };
+
+  // Clamp utility
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+  const handleVerticalTranslateChange = (value: number) => {
+    if (verticalSlackPercent <= 0) return;
+    const clamped = clamp(value, 0, 100);
+    const nextTop = (verticalSlackPercent * clamped) / 100;
+    const nextBottom = verticalSlackPercent - nextTop;
+    onUpdateTemplate({
+      ...template,
+      calendarCardInsets: {
+        ...template.calendarCardInsets,
+        top: nextTop,
+        bottom: nextBottom,
+      },
+    });
+  };
+
+  const [sliderLeft, setSliderLeft] = useState<number | null>(null);
+  const sliderHeight = Math.min(280, canvasDimensions.height * zoom);
+
+  const updateSliderLeft = () => {
+    const panel = previewPanelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const canvasWidth = canvasDimensions.width * zoom;
+    const cardWidthPercent = 100 - template.calendarCardInsets.left - template.calendarCardInsets.right;
+    const cardHalfWidth = (canvasWidth * cardWidthPercent) / 200;
+    const cardCenterOffset = (canvasWidth * (template.calendarCardInsets.left - template.calendarCardInsets.right)) / 200;
+    const nextLeft = rect.left + rect.width / 2 + cardCenterOffset + cardHalfWidth + 25;
+    setSliderLeft(nextLeft);
+  };
+
+  useEffect(() => {
+    updateSliderLeft();
+  }, [
+    zoom,
+    canvasDimensions.width,
+    isSidebarOpen,
+    template.lockscreenMockup,
+    template.calendarCardInsets.left,
+    template.calendarCardInsets.right,
+  ]);
+
+  useEffect(() => {
+    const handleResize = () => updateSliderLeft();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle resize drag
+  useEffect(() => {
+    if (!resizeDragState?.isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const { edge, startMousePos, startInsets } = resizeDragState;
+      if (!edge) return;
+
+      const deltaX = e.clientX - startMousePos.x;
+      const deltaY = e.clientY - startMousePos.y;
+
+      // Convert pixel delta to percentage of background dimensions
+      // Account for zoom level
+      const effectiveZoom = zoom;
+      const bgWidth = canvasDimensions.width * effectiveZoom;
+      const bgHeight = canvasDimensions.height * effectiveZoom;
+
+      const deltaXPercent = (deltaX / bgWidth) * 100;
+      const deltaYPercent = (deltaY / bgHeight) * 100;
+      const minWidthPercent = Math.max(
+        40,
+        Math.min(100, (canvasDimensions.minCardWidth / canvasDimensions.width) * 100)
+      );
+      const minHeightPercent = Math.max(
+        20,
+        Math.min(100, (canvasDimensions.minCardHeight / canvasDimensions.height) * 100)
+      );
+
+      const maxHorizontalInset = Math.min(30, (100 - minWidthPercent) / 2);
+      const maxTopInset = Math.min(45, 100 - minHeightPercent - startInsets.bottom);
+      const maxBottomInset = Math.min(45, 100 - minHeightPercent - startInsets.top);
+
+      const newInsets = { ...startInsets };
+
+      switch (edge) {
+        case 'top':
+          // Independent - only top changes
+          newInsets.top = clamp(startInsets.top + deltaYPercent, 0, maxTopInset);
+          break;
+
+        case 'bottom':
+          // Independent - only bottom changes
+          newInsets.bottom = clamp(startInsets.bottom - deltaYPercent, 0, maxBottomInset);
+          break;
+
+        case 'left':
+          // Symmetric - left and right change together
+          const leftChange = deltaXPercent * 2;
+          newInsets.left = clamp(startInsets.left + leftChange, 0, maxHorizontalInset);
+          newInsets.right = newInsets.left; // Symmetric
+          break;
+
+        case 'right':
+          // Symmetric - left and right change together
+          const rightChange = -deltaXPercent * 2;
+          newInsets.right = clamp(startInsets.right + rightChange, 0, maxHorizontalInset);
+          newInsets.left = newInsets.right; // Symmetric
+          break;
+      }
+
+      // Minimum size constraint - card must be at least 20% of background
+      const remainingWidth = 100 - newInsets.left - newInsets.right;
+      const remainingHeight = 100 - newInsets.top - newInsets.bottom;
+
+      if (remainingWidth < minWidthPercent || remainingHeight < minHeightPercent) {
+        return; // Don't apply change
+      }
+
+      onUpdateTemplate({
+        ...template,
+        calendarCardInsets: newInsets,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setResizeDragState(null);
+      if (typeof document !== 'undefined' && resizeUserSelectRef.current !== null) {
+        document.body.style.userSelect = resizeUserSelectRef.current;
+        resizeUserSelectRef.current = null;
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (typeof document !== 'undefined' && resizeUserSelectRef.current !== null) {
+        document.body.style.userSelect = resizeUserSelectRef.current;
+        resizeUserSelectRef.current = null;
+      }
+    };
+  }, [resizeDragState, zoom, canvasDimensions, template, onUpdateTemplate]);
 
   // Update color for events - handles apply to all, course groups, and type differentiation
   const handleColorSelect = (newColor: string) => {
@@ -487,7 +902,21 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     <div data-component="ExportLayout" className="flex h-full gap-6 relative">
       
       {/* PREVIEW PANEL - The dark container that holds the calendar preview */}
-      <div data-component="PreviewPanel" ref={previewPanelRef} className="flex-1 overflow-auto relative">
+      <div
+        data-component="PreviewPanel"
+        ref={previewPanelRef}
+        className="flex-1 overflow-auto relative"
+        onMouseDown={(e) => {
+          const target = e.target as HTMLElement;
+          if (colorPickerRef.current?.contains(target)) return;
+          if (target.closest('[data-component="HeaderTextEditorCallout"]')) return;
+          if (target.closest('[data-component="TimeColumnEditorCallout"]')) return;
+          if (target.closest('[data-component="ZoomToolbar"]')) return;
+          if (target.closest('[data-component="VerticalTranslateSlider"]')) return;
+          if (target.closest('[data-component="BackgroundContainer"]')) return;
+          handleBlankClick();
+        }}
+      >
         
         {/* ZOOM TOOLBAR - Absolute positioned, overlays on calendar */}
         {isZoomToolbarOpen && (
@@ -528,22 +957,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
         )}
 
-        {/* ADVICE BANNERS - Positioned at top-right under zoom controls, same width as toolbar */}
-        <div className="absolute top-20 right-4 z-40 flex flex-col gap-2 w-[200px]">
-          {showBlockAdvice && (
-            <div className="relative group bg-blue-500/10 border border-blue-500/20 rounded-lg p-2.5 text-xs text-blue-200/80 backdrop-blur-md">
-              <button
-                onClick={() => setShowBlockAdvice(false)}
-                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-full bg-gray-800 border border-gray-600"
-                title="Dismiss"
-              >
-                <X size={12} />
-              </button>
-              <p className="break-words"><MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-blue-400" />Click on a block to adjust its color and text fonts</p>
-            </div>
-          )}
-        </div>
-
         {/* PREVIEW VIEWPORT - Centers the calendar */}
         <div
           data-component="PreviewViewport"
@@ -561,96 +974,151 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           >
             {/* LOCKSCREEN MOCKUP WRAPPER - When enabled, shows iPhone frame border around canvas */}
             {template.lockscreenMockup ? (
-              <>
-                <div data-component="LockscreenMockup" className="relative">
-                  {/* iPhone frame border - wraps around the canvas */}
-                  <div
-                    className="absolute pointer-events-none z-10"
-                    style={{
-                      // Frame extends outside the canvas by ~3% on each side
-                      inset: '-3%',
-                      width: '106%',
-                      height: '106%',
-                    }}
-                  >
-                    <img
-                      src={lockscreenMockupImg}
-                      alt="iPhone Lockscreen Frame"
-                      className="w-full h-full object-fill"
-                    />
-                  </div>
-                  {/* EXPORT NODE - Canvas stays static, only card content moves via prop */}
-                  <div data-component="ExportNode" id="calendar-export-node">
-                    <CalendarCanvas
-                      events={events}
-                      template={template}
-                      interactive={true}
-                      onEventClick={handleEventClick}
-                      onBlankClick={handleBlankClick}
-                      visualScale={supportsZoom ? 1 : zoom}
-                      contentVerticalOffset={template.lockscreenOffset}
-                      showFullTitle={template.showCourseSection}
+              <div data-component="LockscreenMockup" className="relative">
+                {/* iPhone frame border - wraps around the canvas */}
+                <div
+                  className="absolute pointer-events-none z-10"
+                  style={{
+                    // Frame extends outside the canvas by ~3% on each side
+                    inset: '-3%',
+                    width: '106%',
+                    height: '106%',
+                  }}
+                >
+                  <img
+                    src={lockscreenMockupImg}
+                    alt="iPhone Lockscreen Frame"
+                    className="w-full h-full object-fill"
+                  />
+                </div>
+                {/* EXPORT NODE */}
+                <div data-component="ExportNode" id="calendar-export-node">
+                  <CalendarCanvas
+                    events={events}
+                    template={template}
+                    interactive={true}
+                    onEventClick={handleEventClick}
+                    onBlankClick={handleBlankClick}
+                    visualScale={supportsZoom ? 1 : zoom}
+                    showFullTitle={template.showCourseSection}
                       onHeaderClick={() => {
                         setHeaderTextEditorOpen(true);
                         setTimeColumnEditorOpen(false);
+                        setTimeEditorPosition(null);
                         setSelectedEventId(null);
                         setColorPickerPosition(null);
+                        setSelectedComponent('dayHeader');
+                        const target = previewPanelRef.current?.querySelector('[data-component="ExportNode"] [data-component="DayHeader"]') as HTMLElement | null;
+                        setHeaderEditorPosition(target ? getCalloutPosition(target, { width: 240, height: 210 }) : null);
                       }}
                       onTimeColumnClick={() => {
                         setTimeColumnEditorOpen(true);
                         setHeaderTextEditorOpen(false);
+                        setHeaderEditorPosition(null);
                         setSelectedEventId(null);
                         setColorPickerPosition(null);
+                        setSelectedComponent('timeColumn');
+                        const target = previewPanelRef.current?.querySelector('[data-component="ExportNode"] [data-component="TimeColumn"]') as HTMLElement | null;
+                        setTimeEditorPosition(target ? getRightCenteredCalloutPosition(target, { width: 240, height: 230 }) : null);
                       }}
-                    />
-                  </div>
-                </div>
-                {/* Lockscreen position slider - on the right, inside zoom wrapper for adjacency */}
-                <div className="flex flex-col items-center ml-8 self-stretch justify-center">
-                  <span className="text-[10px] text-gray-500 mb-2 whitespace-nowrap">Top</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="0.5"
-                    value={template.lockscreenOffset}
-                    onChange={(e) => onUpdateTemplate({ ...template, lockscreenOffset: parseInt(e.target.value) })}
-                    className="flex-1 max-h-[400px] w-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    style={{ writingMode: 'vertical-lr' }}
-                    title={`Offset: ${template.lockscreenOffset}%`}
+                    isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                    onCalendarCardSelect={() => {
+                      setSelectedComponent('calendarCard');
+                      setHeaderTextEditorOpen(false);
+                      setTimeColumnEditorOpen(false);
+                      setSelectedEventId(null);
+                      setColorPickerPosition(null);
+                    }}
+                    showResetToFill={hasCardInsets && selectedComponent === 'calendarCard'}
+                    onResetToFill={handleResetToFill}
+                    highlightMode={selectedComponent}
+                    onboardingComponents={onboardingPending}
+                    onboardingEventId={onboardingEventId}
+                    onOnboardingOk={handleOnboardingOk}
+                    hoveredResizeEdge={hoveredEdge}
+                    onEdgeHover={setHoveredEdge}
+                    onResizeStart={handleResizeStart}
+                    hoverResetToken={hoverResetToken}
+                    onDimensionsComputed={setCanvasDimensions}
                   />
-                  <span className="text-[10px] text-gray-500 mt-2">{template.lockscreenOffset}%</span>
                 </div>
-              </>
+              </div>
             ) : (
               /* EXPORT NODE - Visible interactive canvas (normal mode) */
-              <div data-component="ExportNode" id="calendar-export-node">
-                <CalendarCanvas
-                  events={events}
-                  template={template}
-                  interactive={true}
-                  onEventClick={handleEventClick}
-                  onBlankClick={handleBlankClick}
-                  visualScale={supportsZoom ? 1 : zoom}
-                  contentVerticalOffset={template.lockscreenOffset}
-                  showFullTitle={template.showCourseSection}
+              <div data-component="ExportNodeWrapper" className="relative">
+                <div data-component="ExportNode" id="calendar-export-node">
+                  <CalendarCanvas
+                    events={events}
+                    template={template}
+                    interactive={true}
+                    onEventClick={handleEventClick}
+                    onBlankClick={handleBlankClick}
+                    visualScale={supportsZoom ? 1 : zoom}
+                    showFullTitle={template.showCourseSection}
                   onHeaderClick={() => {
                     setHeaderTextEditorOpen(true);
                     setTimeColumnEditorOpen(false);
+                    setTimeEditorPosition(null);
                     setSelectedEventId(null);
                     setColorPickerPosition(null);
+                    setSelectedComponent('dayHeader');
+                    const target = previewPanelRef.current?.querySelector('[data-component="ExportNode"] [data-component="DayHeader"]') as HTMLElement | null;
+                    setHeaderEditorPosition(target ? getCalloutPosition(target, { width: 240, height: 210 }) : null);
                   }}
                   onTimeColumnClick={() => {
                     setTimeColumnEditorOpen(true);
                     setHeaderTextEditorOpen(false);
+                    setHeaderEditorPosition(null);
+                    setSelectedEventId(null);
+                    setColorPickerPosition(null);
+                    setSelectedComponent('timeColumn');
+                    const target = previewPanelRef.current?.querySelector('[data-component="ExportNode"] [data-component="TimeColumn"]') as HTMLElement | null;
+                    setTimeEditorPosition(target ? getRightCenteredCalloutPosition(target, { width: 240, height: 230 }) : null);
+                  }}
+                  isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                  onCalendarCardSelect={() => {
+                    setSelectedComponent('calendarCard');
+                    setHeaderTextEditorOpen(false);
+                    setTimeColumnEditorOpen(false);
                     setSelectedEventId(null);
                     setColorPickerPosition(null);
                   }}
-                />
+                  showResetToFill={hasCardInsets && selectedComponent === 'calendarCard'}
+                  onResetToFill={handleResetToFill}
+                  highlightMode={selectedComponent}
+                  onboardingComponents={onboardingPending}
+                  onboardingEventId={onboardingEventId}
+                  onOnboardingOk={handleOnboardingOk}
+                  hoveredResizeEdge={hoveredEdge}
+                    onEdgeHover={setHoveredEdge}
+                    onResizeStart={handleResizeStart}
+                    hoverResetToken={hoverResetToken}
+                    onDimensionsComputed={setCanvasDimensions}
+                  />
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        {showVerticalTranslateSlider && sliderLeft !== null && (
+          <div
+            data-component="VerticalTranslateSlider"
+            className="fixed z-50 flex items-center"
+            style={{
+              left: `${sliderLeft}px`,
+              top: '60%',
+              transform: 'translateY(-50%)',
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <VerticalSlider
+              value={sliderValue / 100}
+              onChange={(v) => handleVerticalTranslateChange((1 - v) * 100)}
+              height={sliderHeight}
+            />
+          </div>
+        )}
 
         {/* HIDDEN EXPORT CANVAS - Used for actual image export */}
         <div
@@ -668,7 +1136,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               events={events}
               template={template}
               interactive={false}
-              contentVerticalOffset={template.lockscreenOffset}
               showFullTitle={template.showCourseSection}
             />
           </div>
@@ -882,6 +1349,226 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <TypeIcon size={14} /> Edit Fonts
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {headerTextEditorOpen && headerEditorPosition && (
+          <div
+            data-component="HeaderTextEditorCallout"
+            className="absolute z-[100] animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
+            style={{
+              left: headerEditorPosition.x,
+              top: headerEditorPosition.y,
+              transform: headerEditorPosition.placement === 'top' ? 'translate(-50%, -100%)' :
+                         headerEditorPosition.placement === 'bottom' ? 'translate(-50%, 0%)' :
+                         headerEditorPosition.placement === 'right' ? 'translate(0%, -50%)' :
+                         'translate(-100%, -50%)'
+            }}
+          >
+            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative w-[240px]">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearComponentSelection();
+                }}
+                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200"
+                aria-label="Close day header editor"
+              >
+                <X size={14} />
+              </button>
+              {headerEditorPosition.placement === 'top' && (
+                <div
+                  className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700"
+                  style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
+                />
+              )}
+              {headerEditorPosition.placement === 'bottom' && (
+                <div
+                  className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700"
+                  style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
+                />
+              )}
+              {headerEditorPosition.placement === 'right' && (
+                <div className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+              )}
+              {headerEditorPosition.placement === 'left' && (
+                <div className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+              )}
+
+              <div className="text-xs text-gray-400 font-medium italic mb-2">Day Header</div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
+                        className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                          template.headerTextColor === color
+                            ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                            : 'border-gray-600 hover:border-gray-500'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                  <label className="text-[10px] text-gray-400 font-medium">Backdrop Blur</label>
+                  <div className="space-y-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={template.headerBlurAmount}
+                      onChange={(e) => onUpdateTemplate({ ...template, headerBlurAmount: parseInt(e.target.value) })}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'bar' })}
+                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
+                        template.headerBlurMode === 'bar'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Entire Row
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'cells' })}
+                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
+                        template.headerBlurMode === 'cells'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Each Cell
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
+                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+                >
+                  Reset to Default
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {timeColumnEditorOpen && timeEditorPosition && (
+          <div
+            data-component="TimeColumnEditorCallout"
+            className="absolute z-[100] animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
+            style={{
+              left: timeEditorPosition.x,
+              top: timeEditorPosition.y,
+              transform: timeEditorPosition.placement === 'top' ? 'translate(-50%, -100%)' :
+                         timeEditorPosition.placement === 'bottom' ? 'translate(-50%, 0%)' :
+                         timeEditorPosition.placement === 'right' ? 'translate(0%, -50%)' :
+                         'translate(-100%, -50%)'
+            }}
+          >
+            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative w-[240px]">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearComponentSelection();
+                }}
+                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200"
+                aria-label="Close time column editor"
+              >
+                <X size={14} />
+              </button>
+              {timeEditorPosition.placement === 'top' && (
+                <div className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+              )}
+              {timeEditorPosition.placement === 'bottom' && (
+                <div className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+              )}
+              {timeEditorPosition.placement === 'right' && (
+                <div className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+              )}
+              {timeEditorPosition.placement === 'left' && (
+                <div className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+              )}
+
+              <div className="text-xs text-gray-400 font-medium italic mb-2">Time Column</div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
+                        className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                          template.timeColumnTextColor === color
+                            ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                            : 'border-gray-600 hover:border-gray-500'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                  <label className="text-[10px] text-gray-400 font-medium">Backdrop Blur</label>
+                  <div className="space-y-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={template.timeColumnBlurAmount}
+                      onChange={(e) => onUpdateTemplate({ ...template, timeColumnBlurAmount: parseInt(e.target.value) })}
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'bar' })}
+                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
+                        template.timeColumnBlurMode === 'bar'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Entire Column
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'cells' })}
+                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
+                        template.timeColumnBlurMode === 'cells'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Each Cell
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: undefined, timeColumnBlurAmount: 0 })}
+                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+                >
+                  Reset to Default
                 </button>
               </div>
             </div>
@@ -1387,294 +2074,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         </div>
       )}
 
-      {/* HEADER TEXT EDITOR PANEL - Shows when day titles are clicked */}
-      {headerTextEditorOpen && (
-        <div
-          data-component="HeaderTextEditorPanel"
-          className="w-80 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
-          style={{ pointerEvents: 'auto' }}
-        >
-          {/* Panel Header */}
-          <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white text-sm">Day Header Style</h3>
-            <button
-              onClick={() => setHeaderTextEditorOpen(false)}
-              className="text-gray-500 hover:text-white transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Preview */}
-          <div className="p-4 border-b border-gray-800 flex-shrink-0">
-            <div className="relative rounded-lg overflow-hidden">
-              {/* Background for blur preview */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30" />
-
-              {/* Mode 1: Bar blur - entire row */}
-              {template.headerBlurMode === 'bar' && template.headerBlurAmount > 0 && (
-                <div
-                  className="absolute inset-0 bg-gray-800/30"
-                  style={{ backdropFilter: `blur(${template.headerBlurAmount}px)` }}
-                />
-              )}
-
-              <div className="relative flex justify-center gap-2 py-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
-                  <div
-                    key={day}
-                    className="text-center font-semibold tracking-wider uppercase text-xs px-2 py-1 rounded"
-                    style={{
-                      color: template.headerTextColor || (template.themeVariant === 'light' ? '#111827' : '#f3f4f6'),
-                      backdropFilter: template.headerBlurMode === 'cells' && template.headerBlurAmount > 0
-                        ? `blur(${template.headerBlurAmount}px)`
-                        : undefined,
-                      backgroundColor: template.headerBlurMode === 'cells' && template.headerBlurAmount > 0
-                        ? 'rgba(128, 128, 128, 0.2)'
-                        : undefined,
-                    }}
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="p-4 space-y-4 overflow-y-auto flex-1">
-            {/* Text Color */}
-            <div className="space-y-2">
-              <label className="text-xs text-gray-400 font-medium">Text Color</label>
-              <div className="grid grid-cols-6 gap-1.5">
-                {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
-                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                      template.headerTextColor === color
-                        ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                        : 'border-transparent hover:border-gray-500'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Backdrop Blur Section */}
-            <div className="space-y-3 pt-3 border-t border-gray-700/50">
-              <label className="text-xs text-gray-400 font-medium">Backdrop Blur</label>
-
-              {/* Blur Amount Slider */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500">Blur Amount</span>
-                  <span className="text-[10px] text-gray-500">{template.headerBlurAmount}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="20"
-                  step="1"
-                  value={template.headerBlurAmount}
-                  onChange={(e) => onUpdateTemplate({ ...template, headerBlurAmount: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-              </div>
-
-              {/* Blur Mode Toggle */}
-              <div className="space-y-2">
-                <span className="text-[10px] text-gray-500">Blur Mode</span>
-                <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'bar' })}
-                    className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${
-                      template.headerBlurMode === 'bar'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Entire Row
-                  </button>
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'cells' })}
-                    className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${
-                      template.headerBlurMode === 'cells'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Each Cell
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Reset Button */}
-            <button
-              onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
-              className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
-            >
-              Reset to Default
-            </button>
-
-            {/* Done Button */}
-            <button
-              onClick={() => setHeaderTextEditorOpen(false)}
-              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TIME COLUMN EDITOR PANEL - Shows when time column is clicked */}
-      {timeColumnEditorOpen && (
-        <div
-          data-component="TimeColumnEditorPanel"
-          className="w-80 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
-          style={{ pointerEvents: 'auto' }}
-        >
-          {/* Panel Header */}
-          <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white text-sm">Time Column Style</h3>
-            <button
-              onClick={() => setTimeColumnEditorOpen(false)}
-              className="text-gray-500 hover:text-white transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Preview */}
-          <div className="p-4 border-b border-gray-800 flex-shrink-0">
-            <div className="relative rounded-lg overflow-hidden">
-              {/* Background for blur preview */}
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/30 via-purple-500/30 to-pink-500/30" />
-
-              {/* Mode 1: Bar blur - entire column */}
-              {template.timeColumnBlurMode === 'bar' && template.timeColumnBlurAmount > 0 && (
-                <div
-                  className="absolute inset-0 bg-gray-800/30"
-                  style={{ backdropFilter: `blur(${template.timeColumnBlurAmount}px)` }}
-                />
-              )}
-
-              <div className="relative flex flex-col items-center gap-1 py-2 font-mono text-xs">
-                {[9, 10, 11, 12].map((hour) => (
-                  <div
-                    key={hour}
-                    className="px-2 py-0.5 rounded"
-                    style={{
-                      color: template.timeColumnTextColor || (template.themeVariant === 'light' ? '#9ca3af' : '#6b7280'),
-                      backdropFilter: template.timeColumnBlurMode === 'cells' && template.timeColumnBlurAmount > 0
-                        ? `blur(${template.timeColumnBlurAmount}px)`
-                        : undefined,
-                      backgroundColor: template.timeColumnBlurMode === 'cells' && template.timeColumnBlurAmount > 0
-                        ? 'rgba(128, 128, 128, 0.2)'
-                        : undefined,
-                    }}
-                  >
-                    {hour}:00
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="p-4 space-y-4 overflow-y-auto flex-1">
-            {/* Text Color */}
-            <div className="space-y-2">
-              <label className="text-xs text-gray-400 font-medium">Text Color</label>
-              <div className="grid grid-cols-6 gap-1.5">
-                {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
-                    className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                      template.timeColumnTextColor === color
-                        ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                        : 'border-transparent hover:border-gray-500'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Backdrop Blur Section */}
-            <div className="space-y-3 pt-3 border-t border-gray-700/50">
-              <label className="text-xs text-gray-400 font-medium">Backdrop Blur</label>
-
-              {/* Blur Amount Slider */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500">Blur Amount</span>
-                  <span className="text-[10px] text-gray-500">{template.timeColumnBlurAmount}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="20"
-                  step="1"
-                  value={template.timeColumnBlurAmount}
-                  onChange={(e) => onUpdateTemplate({ ...template, timeColumnBlurAmount: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-              </div>
-
-              {/* Blur Mode Toggle */}
-              <div className="space-y-2">
-                <span className="text-[10px] text-gray-500">Blur Mode</span>
-                <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'bar' })}
-                    className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${
-                      template.timeColumnBlurMode === 'bar'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Entire Column
-                  </button>
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'cells' })}
-                    className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${
-                      template.timeColumnBlurMode === 'cells'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    Each Cell
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Reset Button */}
-            <button
-              onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: undefined, timeColumnBlurAmount: 0 })}
-              className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
-            >
-              Reset to Default
-            </button>
-
-            {/* Done Button */}
-            <button
-              onClick={() => setTimeColumnEditorOpen(false)}
-              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* HEADER/TIME COLUMN EDITORS - Inline callouts rendered in preview */}
       {/* SETTINGS SIDEBAR - Right panel with all style controls */}
       <div 
         data-component="SettingsSidebar"
@@ -1722,7 +2122,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     // Set image background for Acrylic/Glass, none for others
                     backgroundType: isGlassOrAcrylicNew ? 'image' : 'none',
                     // Set a default image if switching to Acrylic/Glass and no image selected
-                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage
+                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage,
+                    eventOpacity: 1,
                   });
                   // Apply theme colors when switching themes (except default)
                   if (newFamily !== prevThemeFamilyRef.current) {
@@ -1754,7 +2155,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                             ...template,
                             themeSubVariant: subVariantId,
                             themeVariant: variant.baseVariant,
-                            theme: `${template.themeFamily}-${variant.baseVariant}` as any
+                            theme: `${template.themeFamily}-${variant.baseVariant}` as any,
+                            eventOpacity: 1,
                           });
                           applyThemeColors(template.themeFamily as ThemeFamilyId, variant.baseVariant);
                         }
@@ -1774,7 +2176,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onUpdateTemplate({
                         ...template,
                         themeVariant: newVariant,
-                        theme: `${template.themeFamily}-${newVariant}` as any
+                        theme: `${template.themeFamily}-${newVariant}` as any,
+                        eventOpacity: 1,
                       });
                       applyThemeColors(template.themeFamily, newVariant);
                     }}
@@ -2085,10 +2488,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </button>
             <div className={`overflow-hidden transition-all duration-300 ease-out ${isScaleRatioExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="space-y-4 pt-2">
-                {/* Calendar Aspect Ratio */}
+                {/* Background Aspect Ratio */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Calendar Aspect Ratio</span>
+                    <span className="text-xs text-gray-400">Background Ratio</span>
                     <span className="text-xs text-gray-500">
                       {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
                     </span>
@@ -2104,7 +2507,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
                       className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
-                    <span className="text-xs text-gray-500">9:16</span>
+                    <span className="text-xs text-gray-500">9:19.5</span>
                   </div>
                   {/* Quick Presets */}
                   <div className="flex bg-gray-700/50 rounded-lg p-0.5">
@@ -2123,65 +2526,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   </div>
                 </div>
 
-                {/* Independent Background Aspect Ratio */}
-                <div className="space-y-2 pt-3 border-t border-gray-700/50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Independent Background Ratio</span>
-                    <div
-                      onClick={() => onUpdateTemplate({ ...template, backgroundIndependent: !template.backgroundIndependent })}
-                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.backgroundIndependent ? 'bg-blue-600' : 'bg-gray-700'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.backgroundIndependent ? 'left-6' : 'left-1'}`} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-gray-500">When enabled, background can have a different aspect ratio than the calendar content.</p>
-                </div>
-
-                {/* Background Aspect Ratio Slider - only shown when independent is enabled */}
-                {template.backgroundIndependent && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">Background Ratio</span>
-                      <span className="text-xs text-gray-500">
-                        {template.backgroundAspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-500">16:9</span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={template.backgroundAspectRatio}
-                        onChange={(e) => onUpdateTemplate({ ...template, backgroundAspectRatio: parseFloat(e.target.value) })}
-                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                      <span className="text-xs text-gray-500">9:19.5</span>
-                    </div>
-                    {/* Quick Presets */}
-                    <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, backgroundAspectRatio: 0 })}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] transition-colors ${template.backgroundAspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                      >
-                        <Monitor size={12} /> Landscape
-                      </button>
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, backgroundAspectRatio: 1 })}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] transition-colors ${template.backgroundAspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                      >
-                        <Smartphone size={12} /> Portrait
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Lockscreen Mockup */}
                 <div className="space-y-2 pt-3 border-t border-gray-700/50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <Smartphone size={12} /> Lockscreen Mockup
+                      <Smartphone size={12} /> Iphone Lockscreen Mockup
                     </span>
                     <div
                       onClick={() => {
@@ -2191,17 +2540,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           lockscreenMockup: newMockupState,
                           // When enabling mockup, set portrait background ratio
                           ...(newMockupState && {
-                            backgroundIndependent: true,
-                            backgroundAspectRatio: 1,
+                            aspectRatio: 1,
                           })
                         });
+                        if (newMockupState) {
+                          setSelectedComponent('calendarCard');
+                          setHeaderTextEditorOpen(false);
+                          setTimeColumnEditorOpen(false);
+                          setSelectedEventId(null);
+                          setColorPickerPosition(null);
+                        }
                       }}
                       className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'bg-blue-600' : 'bg-gray-700'}`}
                     >
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
                     </div>
                   </div>
-                  <p className="text-[10px] text-gray-500">Preview with iPhone lock screen frame. Use the slider next to the preview to position calendar for clock space.</p>
+                  <p className="text-[10px] text-gray-500">Preview with iPhone lock screen frame. </p>
                 </div>
               </div>
             </div>

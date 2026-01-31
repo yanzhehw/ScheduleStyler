@@ -19,7 +19,9 @@ CalendarCanvas is the core rendering component that displays a styled weekly sch
 | `exportMode` | `boolean` | Use solid backgrounds instead of backdrop-filter for image export |
 | `hideTextContent` | `boolean` | Hide text in event blocks (for preview thumbnails) |
 | `visualScale` | `number` | Scale factor for consistent blur effects |
-| `contentVerticalOffset` | `number` | Vertical positioning for lockscreen layouts |
+| `isCalendarCardSelected` | `boolean` | Whether the calendar card is selected for resize |
+| `onCalendarCardSelect` | `() => void` | Callback when card is clicked |
+| `highlightMode` | `string` | Controls onboarding highlight visibility |
 
 ### Dimension Calculation System
 
@@ -50,12 +52,31 @@ Each theme family can have extended variants accessed via `themeSubVariant`:
 - Thick Colored Silk
 - Thick Colored Ocean
 
-### Background Independence
+### Background and Calendar Card Layout
 
-When `backgroundIndependent` is enabled:
-- Background and calendar content have separate aspect ratios
-- Outer container wraps background at `backgroundAspectRatio`
-- Calendar card is centered with optional `contentVerticalOffset`
+The canvas uses a two-layer layout system:
+
+1. **Background Container:** Dimensions controlled by `template.aspectRatio` slider (0=16:9, 1=9:19.5)
+2. **Calendar Card:** Positioned within background using `template.calendarCardInsets`
+
+```typescript
+// Background dimensions from aspect ratio slider
+const bgTargetRatio = LANDSCAPE_RATIO + (PORTRAIT_RATIO - LANDSCAPE_RATIO) * template.aspectRatio;
+
+// Card dimensions from insets (percentage-based)
+const cardWidth = bgWidth * (100 - insets.left - insets.right) / 100;
+const cardHeight = bgHeight * (100 - insets.top - insets.bottom) / 100;
+```
+
+The `calendarCardInsets` type:
+```typescript
+calendarCardInsets: {
+  top: number;     // 0-50 percentage from top
+  bottom: number;  // 0-50 percentage from bottom
+  left: number;    // 0-50 percentage from left (symmetric with right)
+  right: number;   // 0-50 percentage from right (symmetric with left)
+}
+```
 
 ### Event Block Rendering
 
@@ -72,6 +93,116 @@ When `exportMode={true}`:
 - Replaces `backdrop-filter` with semi-transparent solid backgrounds
 - Ensures compatibility with `html2canvas` for image export
 - Gradient overlays simulate frosted glass appearance
+
+---
+
+## Calendar Card Edge Resizing
+
+**File:** `components/ExportStep.tsx`, `components/CalendarCanvas.tsx`
+
+### Overview
+
+Interactive edge-drag resizing allows users to adjust the calendar card size within the background container on the Export step.
+
+### New Types
+
+```typescript
+// types.ts
+export type SelectableExportComponent = 'none' | 'dayHeader' | 'timeColumn' | 'calendarCard';
+export type OnboardingComponent = 'calendarCard' | 'dayHeader' | 'timeColumn' | 'eventBlock';
+export type ResizeEdge = 'top' | 'bottom' | 'left' | 'right' | null;
+```
+
+### CalendarCanvas Props for Selection/Resize
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `isCalendarCardSelected` | `boolean` | Whether the calendar card is currently selected |
+| `onCalendarCardSelect` | `() => void` | Callback when card is clicked for selection |
+| `hoveredResizeEdge` | `ResizeEdge` | Currently hovered edge for cursor changes |
+| `onEdgeHover` | `(edge: ResizeEdge) => void` | Callback when hovering over resize edges |
+| `onResizeStart` | `(edge, mousePos) => void` | Callback when starting edge drag |
+| `onBlankClick` | `() => void` | Callback when clicking outside the card (deselect) |
+| `highlightMode` | `'none' \| 'all' \| SelectableExportComponent` | Controls onboarding highlight visibility |
+
+### Resize Behavior
+
+- **Horizontal (left/right):** Symmetric resize - both edges move together, keeping card centered
+- **Vertical (top/bottom):** Independent resize - each edge moves separately
+- **Clamping:** Insets clamped to 0-45%, minimum 20% card size remaining
+
+```typescript
+// Symmetric horizontal resize
+if (edge === 'left' || edge === 'right') {
+  const deltaPercent = (deltaX / bgWidth) * 100;
+  newInsets.left = clamp(startInsets.left + deltaPercent, 0, 45);
+  newInsets.right = newInsets.left; // symmetric
+}
+
+// Independent vertical resize
+if (edge === 'top') {
+  newInsets.top = clamp(startInsets.top + deltaYPercent, 0, 45);
+}
+if (edge === 'bottom') {
+  newInsets.bottom = clamp(startInsets.bottom - deltaYPercent, 0, 45);
+}
+```
+
+### Selection UI
+
+When the calendar card is selected:
+- **Corner crop marks:** Dashed gray lines extending from each corner to canvas edges
+- **Arrow indicators:** Show vertical adjustability on top-left
+- **Edge hit areas:** Invisible 12px wide zones on each edge for drag detection
+- **Cursor changes:** `n-resize` (top), `s-resize` (bottom), `ew-resize` (left/right)
+
+When hovering (not selected):
+- Blue ring effect on the calendar card wrapper
+
+### Onboarding System
+
+#### Per-Component States
+
+Onboarding is tracked per component and persists in localStorage as either:
+- `"true"` for fully completed
+- A JSON object with per-component booleans
+
+Components tracked:
+- `calendarCard`
+- `dayHeader`
+- `timeColumn`
+- `eventBlock`
+
+#### Completion Rules
+
+- **Day Header / Time Column / Calendar Card:** Marked complete when the user selects and then deselects the component. An OK button appears while selected.
+- **Event Block:** A random event block is highlighted; completion occurs after the user selects that block and then deselects it (OK button also clears).
+
+#### Callout Identifiers
+
+Each onboarding callout exposes a `data-component` hook:
+- `OnboardingCallout-calendarCard`
+- `OnboardingCallout-dayHeader`
+- `OnboardingCallout-timeColumn`
+- `OnboardingCallout-eventBlock`
+
+#### Debug Toggle
+
+`DETECT_IF_ON_BOARDED` in `components/ExportStep.tsx` can force onboarding to reset each visit by clearing localStorage.
+
+### Vertical Translation Slider
+
+When the calendar card height is at least 10% smaller than the background and the card is selected, a minimal slider appears to translate the card vertically:
+- Fixed position, centered in the viewport
+- Offset 12px to the right of the card edge
+- Max height: 234px
+- Changes redistribute top/bottom insets while preserving card height
+
+### Reset Button
+
+A floating "Reset to fill canvas" button appears when `calendarCardInsets` has non-zero values:
+- Position: Top-right corner of preview panel
+- Action: Resets insets to `{ top: 0, bottom: 0, left: 0, right: 0 }`
 
 ---
 
@@ -157,7 +288,7 @@ No code changes required - images are auto-discovered on next build.
    - Width: 450px
    - Shows CalendarCanvas with `hideTextContent={true}`
    - Dynamic aspect ratio based on selection (landscape/portrait)
-   - Uses `backgroundIndependent` mode for proper preview
+   - Uses `calendarCardInsets` for card positioning within background
 
 ### State Management
 
@@ -182,13 +313,14 @@ assets/
     portrait/          # Drop portrait images here
 
 components/
-  CalendarCanvas.tsx   # Main canvas component
-  ExportStep.tsx       # Export UI with gallery popup
+  CalendarCanvas.tsx   # Main canvas component with selection/resize support
+  ExportStep.tsx       # Export UI with gallery popup and resize handlers
 
 themes/
   index.ts             # Theme definitions and getTheme()
 
-types.ts               # TypeScript interfaces (TemplateConfig, CalendarEvent, etc.)
+types.ts               # TypeScript interfaces (TemplateConfig, CalendarEvent,
+                       # SelectableExportComponent, ResizeEdge, etc.)
 ```
 
 ---
