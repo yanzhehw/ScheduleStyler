@@ -58,6 +58,8 @@ interface CalendarCanvasProps {
   /** Components still showing onboarding highlights */
   onboardingComponents?: Partial<Record<OnboardingComponent, boolean>>;
   onboardingEventId?: string | null;
+  /** Custom message for event block onboarding (JSX) */
+  eventBlockOnboardingMessage?: React.ReactNode;
   /** Callback when onboarding OK button is pressed */
   onOnboardingOk?: (component: OnboardingComponent) => void;
   /** Trigger to recompute hover state from current cursor position */
@@ -336,6 +338,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   highlightMode = 'none',
   onboardingComponents,
   onboardingEventId,
+  eventBlockOnboardingMessage,
   onOnboardingOk,
   hoverResetToken,
   showResetToFill = false,
@@ -1789,10 +1792,17 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                               }}
                             />
                             <div className="relative group bg-cyan-500/20 border border-cyan-500/35 rounded-lg p-2.5 text-xs text-cyan-200/90 backdrop-blur-md max-w-[350px]">
-                              <p className="break-words">
-                                <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
-                                Click on block to edit color/font/layout.
-                              </p>
+                              {eventBlockOnboardingMessage ? (
+                                <p className="break-words">
+                                  <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
+                                  {eventBlockOnboardingMessage}
+                                </p>
+                              ) : (
+                                <p className="break-words">
+                                  <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
+                                  Click on block to edit color/font/layout.
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
