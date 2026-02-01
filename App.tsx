@@ -40,6 +40,14 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   titleFontSize: 12, // Title font size in pixels
   subtitleFontSize: 10, // Subtitle font size in pixels
   detailsFontSize: 10, // Details font size in pixels
+  titleBold: true, // Bold for title text
+  titleItalic: false, // Italic for title text
+  subtitleBold: true, // Bold for subtitle text
+  subtitleItalic: false, // Italic for subtitle text
+  detailsBold: false, // Bold for details text
+  detailsItalic: false, // Italic for details text
+  textAlignHorizontal: 'left', // Horizontal text alignment
+  textAlignVertical: 'top', // Vertical text alignment
   headerBlurAmount: 0, // Day header backdrop blur (0-20px)
   headerBlurMode: 'bar', // 'bar' for entire row, 'cells' for individual cells
   timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)

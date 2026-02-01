@@ -4,8 +4,8 @@ import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
 import { downloadCalendarExport } from '../services/exportPipeline';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet } from 'lucide-react';
-import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors } from '../themes';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Bold, Italic } from 'lucide-react';
+import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors, COLOR_PALETTES, getPalette, ColorPalette } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
 import { getDefaultLandscapeId } from '../assets/backgrounds';
@@ -51,6 +51,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [applyColorToAll, setApplyColorToAll] = useState(false);
   const [showFontSelector, setShowFontSelector] = useState(false);
+  const [showPalettePicker, setShowPalettePicker] = useState(false);
+  const [activePaletteId, setActivePaletteId] = useState<string | null>(null);
 
   // Calendar card selection and resize state
   const [selectedComponent, setSelectedComponent] = useState<SelectableExportComponent>('none');
@@ -293,8 +295,27 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     showNotes: boolean;
   } | null>(null);
 
-  // Get theme colors for the picker (with variant support for acrylic)
-  const themeColors = useMemo(() => getThemeColors(template.themeFamily, template.themeVariant), [template.themeFamily, template.themeVariant]);
+  // Get theme colors for the picker (with variant support for acrylic, or from selected palette)
+  const themeColors = useMemo(() => {
+    if (activePaletteId) {
+      return getPalette(activePaletteId).colors;
+    }
+    return getThemeColors(template.themeFamily, template.themeVariant);
+  }, [template.themeFamily, template.themeVariant, activePaletteId]);
+
+  // Current palette info for display
+  const currentPalette = useMemo(() => {
+    if (activePaletteId) {
+      return getPalette(activePaletteId);
+    }
+    // Find default palette for current theme
+    const defaultPaletteId = template.themeFamily === 'acrylic'
+      ? (template.themeVariant === 'dark' ? 'dark-slate' : 'light-silk')
+      : template.themeFamily === 'glass'
+        ? 'fresh-tint'
+        : 'saturated';
+    return getPalette(defaultPaletteId);
+  }, [activePaletteId, template.themeFamily, template.themeVariant]);
   
   // Get the selected event
   const selectedEvent = useMemo(() => events.find(e => e.id === selectedEventId), [events, selectedEventId]);
@@ -495,6 +516,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const handleBlankClick = () => {
     setSelectedEventId(null);
     setColorPickerPosition(null);
+    setShowPalettePicker(false);
     clearComponentSelection();
   };
 
@@ -851,6 +873,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   // Apply theme colors when theme family or variant changes
   const applyThemeColors = (newThemeFamily: ThemeFamilyId, newVariant?: 'light' | 'dark') => {
     const variant = newVariant ?? template.themeVariant;
+    // Reset to theme's default palette when switching themes
+    setActivePaletteId(null);
     const newThemeColors = getThemeColors(newThemeFamily, variant);
 
     // For Acrylic and Glass themes with applyColorToAll, use a single random color
@@ -1191,6 +1215,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   onClick={() => {
                     setSelectedEventId(null);
                     setColorPickerPosition(null);
+                    setShowPalettePicker(false);
                   }}
                   className="text-gray-500 hover:text-white transition-colors flex-shrink-0"
                 >
@@ -1205,10 +1230,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   onClick={() => {
                     const newValue = !applyColorToAll;
                     setApplyColorToAll(newValue);
-                    if (newValue && selectedEvent?.color) {
-                      // When toggling ON, apply current color to all blocks
-                      const updatedEvents = events.map(e => ({ ...e, color: selectedEvent.color }));
+                    if (newValue && selectedEvent) {
+                      // When toggling ON, apply current color and opacity to all blocks
+                      const currentOpacity = selectedEvent.opacity ?? template.eventOpacity;
+                      const updatedEvents = events.map(e => ({
+                        ...e,
+                        color: selectedEvent.color,
+                        opacity: currentOpacity,
+                      }));
                       onUpdateEvents(updatedEvents);
+                      // Also update template opacity to match
+                      onUpdateTemplate({ ...template, eventOpacity: currentOpacity });
                     } else if (!newValue) {
                       // When toggling OFF, shuffle colors so courses have different colors
                       shuffleColorsForEvents(template.differentiateTypes);
@@ -1289,21 +1321,112 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 ))}
               </div>
 
+              {/* Use Different Palette */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowPalettePicker(!showPalettePicker)}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer mb-2 flex items-center gap-1 ml-auto"
+                >
+                  <Palette size={12} />
+                  {showPalettePicker ? 'Hide palettes' : `Using ${currentPalette.name} · Change`}
+                </button>
+
+                {/* Palette Options Panel */}
+                {showPalettePicker && (
+                  <div className="mb-2 p-2 bg-gray-800/80 rounded-lg border border-gray-700/50">
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Other Palettes</div>
+                    <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
+                      {COLOR_PALETTES.map((palette: ColorPalette) => (
+                        <button
+                          key={palette.id}
+                          onClick={() => {
+                            setActivePaletteId(palette.id);
+                            // Re-shuffle colors with new palette
+                            const newColors = palette.colors;
+                            if (applyColorToAll) {
+                              const randomColor = newColors[Math.floor(Math.random() * newColors.length)];
+                              const updatedEvents = events.map(e => ({ ...e, color: randomColor }));
+                              onUpdateEvents(updatedEvents);
+                            } else {
+                              // Assign colors by course
+                              const courseColorMap = new Map<string, string>();
+                              let colorIndex = 0;
+                              const updatedEvents = events.map(e => {
+                                const key = template.differentiateTypes
+                                  ? `${e.displayTitle}-${e.classType}`
+                                  : e.displayTitle;
+                                if (!courseColorMap.has(key)) {
+                                  courseColorMap.set(key, newColors[colorIndex % newColors.length]);
+                                  colorIndex++;
+                                }
+                                return { ...e, color: courseColorMap.get(key)! };
+                              });
+                              onUpdateEvents(updatedEvents);
+                            }
+                            setShowPalettePicker(false);
+                          }}
+                          className={`w-full flex items-center gap-2 p-1.5 rounded-md transition-all ${
+                            currentPalette.id === palette.id
+                              ? 'bg-blue-600/30 border border-blue-500/50'
+                              : 'hover:bg-gray-700/50 border border-transparent'
+                          }`}
+                        >
+                          {/* Palette preview - first 6 colors */}
+                          <div className="flex gap-0.5 flex-shrink-0">
+                            {palette.colors.slice(0, 6).map((color, idx) => (
+                              <div
+                                key={idx}
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                          <span className={`text-xs ${currentPalette.id === palette.id ? 'text-blue-300 font-medium' : 'text-gray-300'}`}>
+                            {palette.name}
+                          </span>
+                          {currentPalette.id === palette.id && (
+                            <span className="ml-auto text-[10px] text-blue-400">Active</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Color Opacity Slider - Only for acrylic and glass themes */}
               {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
                 <div className="pt-2 border-t border-gray-700/50">
                   <div className="px-1 py-1.5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-gray-300 font-medium">Color Opacity</span>
-                      <span className="text-xs text-gray-500">{Math.round(template.eventOpacity * 100)}%</span>
+                      <span className="text-xs text-gray-500">
+                        {Math.round((applyColorToAll ? template.eventOpacity : (selectedEvent?.opacity ?? template.eventOpacity)) * 100)}%
+                      </span>
                     </div>
                     <input
                       type="range"
                       min="0.1"
                       max="1"
                       step="0.05"
-                      value={template.eventOpacity}
-                      onChange={(e) => onUpdateTemplate({ ...template, eventOpacity: parseFloat(e.target.value) })}
+                      value={applyColorToAll ? template.eventOpacity : (selectedEvent?.opacity ?? template.eventOpacity)}
+                      onChange={(e) => {
+                        const newOpacity = parseFloat(e.target.value);
+                        if (applyColorToAll) {
+                          // Apply to all: update template and clear per-event opacities
+                          onUpdateTemplate({ ...template, eventOpacity: newOpacity });
+                          const updatedEvents = events.map(ev => ({ ...ev, opacity: undefined }));
+                          onUpdateEvents(updatedEvents);
+                        } else {
+                          // Apply to same course only
+                          const updatedEvents = events.map(ev =>
+                            ev.displayTitle === selectedEvent?.displayTitle
+                              ? { ...ev, opacity: newOpacity }
+                              : ev
+                          );
+                          onUpdateEvents(updatedEvents);
+                        }
+                      }}
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
                   </div>
@@ -1348,7 +1471,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   }}
                   className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
                 >
-                  <TypeIcon size={14} /> Edit Fonts
+                  <TypeIcon size={14} /> Edit Fonts/Color
                 </button>
               </div>
             </div>
@@ -1632,9 +1755,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           {/* Sample Block Preview */}
           <div className="p-4 border-b border-gray-800 flex-shrink-0">
             <div
-              className="p-3 rounded-lg relative overflow-hidden"
+              className="p-3 rounded-lg relative overflow-hidden flex"
               style={{
                 backgroundColor: 'transparent',
+                minHeight: '80px',
+                justifyContent: template.textAlignHorizontal === 'center' ? 'center' : template.textAlignHorizontal === 'right' ? 'flex-end' : 'flex-start',
+                alignItems: template.textAlignVertical === 'center' ? 'center' : template.textAlignVertical === 'bottom' ? 'flex-end' : 'flex-start',
               }}
             >
               {/* Background layer with opacity */}
@@ -1646,12 +1772,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 }}
               />
               {/* Content layer - no opacity applied */}
-              <div className="relative z-10">
+              <div className="relative z-10" style={{ textAlign: template.textAlignHorizontal }}>
                 <div
-                  className="font-bold uppercase tracking-wide mb-1"
+                  className="uppercase tracking-wide mb-1"
                   style={{
                     fontFamily: template.titleFont,
                     fontSize: `${template.fontScale * 0.75}rem`,
+                    fontWeight: template.titleBold ? 700 : 400,
+                    fontStyle: template.titleItalic ? 'italic' : 'normal',
                     color: template.titleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? '#fff' : '#1f2937'),
                   }}
                 >
@@ -1659,10 +1787,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
                 {template.showClassType && (
                   <div
-                    className="font-semibold opacity-90 mb-1"
+                    className="opacity-90 mb-1"
                     style={{
                       fontFamily: template.subtitleFont,
                       fontSize: `${template.fontScale * 0.6}rem`,
+                      fontWeight: template.subtitleBold ? 600 : 400,
+                      fontStyle: template.subtitleItalic ? 'italic' : 'normal',
                       color: template.subtitleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937'),
                     }}
                   >
@@ -1675,6 +1805,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     style={{
                       fontFamily: template.detailsFont,
                       fontSize: `${template.fontScale * 0.6}rem`,
+                      fontWeight: template.detailsBold ? 600 : 400,
+                      fontStyle: template.detailsItalic ? 'italic' : 'normal',
                       color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151'),
                     }}
                   >
@@ -1683,10 +1815,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 )}
                 {template.showLocation && selectedEvent.location && (
                   <div
-                    className="flex items-center gap-1 opacity-75 mt-0.5"
+                    className={`flex items-center gap-1 opacity-75 mt-0.5 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}
                     style={{
                       fontFamily: template.detailsFont,
                       fontSize: `${template.fontScale * 0.6}rem`,
+                      fontWeight: template.detailsBold ? 600 : 400,
+                      fontStyle: template.detailsItalic ? 'italic' : 'normal',
                       color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.75)' : '#374151'),
                     }}
                   >
@@ -1752,6 +1886,67 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
             </div>
 
+            {/* Text Alignment Controls */}
+            <div className="space-y-3 pt-2 border-t border-gray-700/50">
+              <label className="text-xs text-gray-400 font-medium">Text Alignment</label>
+              <div className="flex gap-4">
+                {/* Horizontal Alignment */}
+                <div className="flex-1">
+                  <span className="text-[10px]  block mb-1.5"></span>
+                  <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'left' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'left' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Left"
+                    >
+                      <AlignLeft size={14} className="mx-auto" />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'center' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'center' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Center"
+                    >
+                      <AlignCenter size={14} className="mx-auto" />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'right' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'right' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Right"
+                    >
+                      <AlignRight size={14} className="mx-auto" />
+                    </button>
+                  </div>
+                </div>
+                {/* Vertical Alignment */}
+                <div className="flex-1">
+                  <span className="text-[10px]  block mb-1.5"></span>
+                  <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'top' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'top' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Top"
+                    >
+                      <AlignVerticalJustifyStart size={14} className="mx-auto" />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'center' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'center' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Middle"
+                    >
+                      <AlignVerticalJustifyCenter size={14} className="mx-auto" />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'bottom' })}
+                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'bottom' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Align Bottom"
+                    >
+                      <AlignVerticalJustifyEnd size={14} className="mx-auto" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Individual Font Selectors - Always visible, auto-switches to Custom when changed */}
             <div className="space-y-3 pt-2 border-t border-gray-700/50" data-dropdown>
               <div className="flex items-center justify-between">
@@ -1766,6 +1961,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       titleFontSize: 12,
                       subtitleFontSize: 10,
                       detailsFontSize: 10,
+                      titleBold: true,
+                      titleItalic: false,
+                      subtitleBold: true,
+                      subtitleItalic: false,
+                      detailsBold: false,
+                      detailsItalic: false,
                     });
                     setSelectedFontPairId('none');
                   }}
@@ -1784,7 +1985,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onClick={() => { setOpenFontDropdown(openFontDropdown === 'title' ? null : 'title'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
                       className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
                     >
-                      <span style={{ fontFamily: template.titleFont, fontWeight: 700 }}>{template.titleFont}</span>
+                      <span style={{ fontFamily: template.titleFont, fontWeight: template.titleBold ? 700 : 400, fontStyle: template.titleItalic ? 'italic' : 'normal' }}>{template.titleFont}</span>
                       <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'title' ? 'rotate-180' : ''}`} />
                     </button>
                     {openFontDropdown === 'title' && (
@@ -1806,6 +2007,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         ))}
                       </div>
                     )}
+                  </div>
+                  {/* Bold/Italic buttons */}
+                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, titleBold: !template.titleBold })}
+                      className={`px-2 py-2 transition-colors ${template.titleBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Bold"
+                    >
+                      <Bold size={14} />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, titleItalic: !template.titleItalic })}
+                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.titleItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Italic"
+                    >
+                      <Italic size={14} />
+                    </button>
                   </div>
                   {/* Font size input with arrows */}
                   <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
@@ -1844,7 +2062,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onClick={() => { setOpenFontDropdown(openFontDropdown === 'subtitle' ? null : 'subtitle'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
                       className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
                     >
-                      <span style={{ fontFamily: template.subtitleFont, fontWeight: 600 }}>{template.subtitleFont}</span>
+                      <span style={{ fontFamily: template.subtitleFont, fontWeight: template.subtitleBold ? 600 : 400, fontStyle: template.subtitleItalic ? 'italic' : 'normal' }}>{template.subtitleFont}</span>
                       <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'subtitle' ? 'rotate-180' : ''}`} />
                     </button>
                     {openFontDropdown === 'subtitle' && (
@@ -1866,6 +2084,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         ))}
                       </div>
                     )}
+                  </div>
+                  {/* Bold/Italic buttons */}
+                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, subtitleBold: !template.subtitleBold })}
+                      className={`px-2 py-2 transition-colors ${template.subtitleBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Bold"
+                    >
+                      <Bold size={14} />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, subtitleItalic: !template.subtitleItalic })}
+                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.subtitleItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Italic"
+                    >
+                      <Italic size={14} />
+                    </button>
                   </div>
                   {/* Font size input with arrows */}
                   <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
@@ -1904,7 +2139,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       onClick={() => { setOpenFontDropdown(openFontDropdown === 'details' ? null : 'details'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
                       className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
                     >
-                      <span style={{ fontFamily: template.detailsFont, fontWeight: 400 }}>{template.detailsFont}</span>
+                      <span style={{ fontFamily: template.detailsFont, fontWeight: template.detailsBold ? 600 : 400, fontStyle: template.detailsItalic ? 'italic' : 'normal' }}>{template.detailsFont}</span>
                       <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'details' ? 'rotate-180' : ''}`} />
                     </button>
                     {openFontDropdown === 'details' && (
@@ -1926,6 +2161,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         ))}
                       </div>
                     )}
+                  </div>
+                  {/* Bold/Italic buttons */}
+                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, detailsBold: !template.detailsBold })}
+                      className={`px-2 py-2 transition-colors ${template.detailsBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Bold"
+                    >
+                      <Bold size={14} />
+                    </button>
+                    <button
+                      onClick={() => onUpdateTemplate({ ...template, detailsItalic: !template.detailsItalic })}
+                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.detailsItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      title="Italic"
+                    >
+                      <Italic size={14} />
+                    </button>
                   </div>
                   {/* Font size input with arrows */}
                   <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">

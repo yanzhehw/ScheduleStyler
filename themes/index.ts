@@ -1,9 +1,11 @@
 /**
  * Structured Theme System for CalendarCanvas
  *
- * Parent themes: Default, Glass, Matt, Acrylic
- * Each parent has Light and Dark variants
- * Each theme family has its own curated color palette
+ * Themes: Default, Glass, Acrylic
+ * Each theme has Light and Dark variants
+ * Acrylic has additional Thin/Thick variants
+ *
+ * Palettes: Separate color palettes that can be used with any theme
  */
 
 import { CalendarCanvasTheme } from '../types';
@@ -35,96 +37,199 @@ export interface ThemeFamily {
   };
   /** Extended variants for families with more than light/dark (e.g., Acrylic) */
   extendedVariants?: ThemeVariantOption[];
-  /** Theme-specific color palette for event blocks */
-  colors: string[];
 }
 
 // =============================================================================
-// COLOR PALETTES - Curated colors for each theme family
+// COLOR PALETTES - Universal palettes usable with any theme
 // =============================================================================
 
-/** Default theme colors - Vibrant and saturated */
-const DEFAULT_COLORS = [
-  '#f87171', // Red
-  '#fb923c', // Orange
-  '#facc15', // Yellow
-  '#4ade80', // Green
-  '#22d3ee', // Cyan
-  '#60a5fa', // Blue
-  '#a78bfa', // Purple
-  '#f472b6', // Pink
-  '#34d399', // Emerald
-  '#fbbf24', // Amber
-  '#818cf8', // Indigo
-  '#fb7185', // Rose
+export interface ColorPalette {
+  id: string;
+  name: string;
+  colors: string[];
+}
+
+/** Saturated - Vibrant and saturated colors (from Default theme) */
+const PALETTE_SATURATED: ColorPalette = {
+  id: 'saturated',
+  name: 'Saturated',
+  colors: [
+    '#f87171', // Red
+    '#fb923c', // Orange
+    '#facc15', // Yellow
+    '#4ade80', // Green
+    '#22d3ee', // Cyan
+    '#60a5fa', // Blue
+    '#a78bfa', // Purple
+    '#f472b6', // Pink
+    '#34d399', // Emerald
+    '#fbbf24', // Amber
+    '#818cf8', // Indigo
+    '#fb7185', // Rose
+  ],
+};
+
+/** Fresh Tint - Semi-transparent, ethereal (from Glass theme) */
+const PALETTE_FRESH_TINT: ColorPalette = {
+  id: 'fresh-tint',
+  name: 'Fresh Tint',
+  colors: [
+    '#94a3b8', // Slate
+    '#7dd3fc', // Sky
+    '#c4b5fd', // Violet
+    '#fda4af', // Rose
+    '#86efac', // Green
+    '#fcd34d', // Amber
+    '#a5b4fc', // Indigo
+    '#f0abfc', // Fuchsia
+    '#67e8f9', // Cyan
+    '#fdba74', // Orange
+    '#d8b4fe', // Purple
+    '#bef264', // Lime
+  ],
+};
+
+/** Morandi - Muted, earthy tones (from Matt theme) */
+const PALETTE_MORANDI: ColorPalette = {
+  id: 'morandi',
+  name: 'Morandi',
+  colors: [
+    '#a8a29e', // Stone
+    '#d4a574', // Tan
+    '#8b9dc3', // Slate Blue
+    '#c9a9a6', // Dusty Rose
+    '#87a889', // Sage
+    '#b8a9c9', // Lavender
+    '#9eb8a8', // Sea Green
+    '#c4a77d', // Sand
+    '#a3b1c6', // Cool Gray
+    '#d4b5b0', // Blush
+    '#8ea8b8', // Steel Blue
+    '#c9c4a6', // Khaki
+  ],
+};
+
+/** Midnight Slate - Deep, moody slate tones */
+const PALETTE_MIDNIGHT_SLATE: ColorPalette = {
+  id: 'midnight-slate',
+  name: 'Midnight Slate',
+  colors: [
+    '#64748b', // Slate
+    '#6366f1', // Indigo
+    '#8b5cf6', // Violet
+    '#ec4899', // Pink
+    '#14b8a6', // Teal
+    '#f59e0b', // Amber
+    '#3b82f6', // Blue
+    '#10b981', // Emerald
+    '#f43f5e', // Rose
+    '#06b6d4', // Cyan
+    '#a855f7', // Purple
+    '#84cc16', // Lime
+  ],
+};
+
+/** Light Silk - Brighter, vibrant frosted colors */
+const PALETTE_LIGHT_SILK: ColorPalette = {
+  id: 'light-silk',
+  name: 'Light Silk',
+  colors: [
+    '#94a3b8', // Frosted Slate
+    '#a78bfa', // Frosted Violet
+    '#7dd3fc', // Frosted Sky
+    '#f0abfc', // Frosted Magenta
+    '#86efac', // Frosted Mint
+    '#fcd34d', // Frosted Amber
+    '#fda4af', // Frosted Rose
+    '#67e8f9', // Frosted Cyan
+    '#c4b5fd', // Frosted Lavender
+    '#fdba74', // Frosted Peach
+    '#a5f3fc', // Frosted Aqua
+    '#d8b4fe', // Frosted Purple
+  ],
+};
+
+/** Dark Slate - Deep, muted frosted colors */
+const PALETTE_DARK_SLATE: ColorPalette = {
+  id: 'dark-slate',
+  name: 'Dark Slate',
+  colors: [
+    '#0e1526', // Deep Navy
+    '#1e1b4b', // Deep Indigo
+    '#134e4a', // Deep Teal
+    '#3f3f46', // Deep Zinc
+    '#1c1917', // Deep Stone
+    '#422006', // Deep Amber
+    '#4a044e', // Deep Fuchsia
+    '#083344', // Deep Cyan
+    '#365314', // Deep Lime
+    '#7f1d1d', // Deep Red
+    '#312e81', // Deep Violet
+    '#1e3a5f', // Deep Slate Blue
+  ],
+};
+
+/** Ocean Mist - Oceanic blue-slate tones */
+const PALETTE_OCEAN_MIST: ColorPalette = {
+  id: 'ocean-mist',
+  name: 'Ocean Mist',
+  colors: [
+    '#0ea5e9', // Sky Blue
+    '#06b6d4', // Cyan
+    '#14b8a6', // Teal
+    '#3b82f6', // Blue
+    '#6366f1', // Indigo
+    '#8b5cf6', // Violet
+    '#0891b2', // Dark Cyan
+    '#0284c7', // Light Blue
+    '#2563eb', // Royal Blue
+    '#4f46e5', // Dark Indigo
+    '#7c3aed', // Purple
+    '#059669', // Emerald
+  ],
+};
+
+/** Light Forest - Natural green tones */
+const PALETTE_LIGHT_FOREST: ColorPalette = {
+  id: 'light-forest',
+  name: 'Light Forest',
+  colors: [
+    '#86efac', // Mint
+    '#4ade80', // Green
+    '#22c55e', // Emerald
+    '#10b981', // Teal Green
+    '#34d399', // Light Emerald
+    '#a3e635', // Lime
+    '#84cc16', // Yellow Green
+    '#65a30d', // Olive
+    '#15803d', // Forest
+    '#059669', // Dark Emerald
+    '#047857', // Dark Teal
+    '#6ee7b7', // Aquamarine
+  ],
+};
+
+/** All available color palettes */
+export const COLOR_PALETTES: ColorPalette[] = [
+  PALETTE_SATURATED,
+  PALETTE_FRESH_TINT,
+  PALETTE_LIGHT_SILK,
+  PALETTE_OCEAN_MIST,
+  PALETTE_LIGHT_FOREST,
+  PALETTE_MORANDI,
+  PALETTE_MIDNIGHT_SLATE,
+  PALETTE_DARK_SLATE,
 ];
 
-/** Glass theme colors - Semi-transparent, ethereal */
-const GLASS_COLORS = [
-  '#94a3b8', // Slate
-  '#7dd3fc', // Sky
-  '#c4b5fd', // Violet
-  '#fda4af', // Rose
-  '#86efac', // Green
-  '#fcd34d', // Amber
-  '#a5b4fc', // Indigo
-  '#f0abfc', // Fuchsia
-  '#67e8f9', // Cyan
-  '#fdba74', // Orange
-  '#d8b4fe', // Purple
-  '#bef264', // Lime
-];
+/** Get palette by ID */
+export const getPalette = (paletteId: string): ColorPalette => {
+  return COLOR_PALETTES.find(p => p.id === paletteId) || PALETTE_SATURATED;
+};
 
-/** Matt theme colors - Muted, earthy tones */
-const MATT_COLORS = [
-  '#a8a29e', // Stone
-  '#d4a574', // Tan
-  '#8b9dc3', // Slate Blue
-  '#c9a9a6', // Dusty Rose
-  '#87a889', // Sage
-  '#b8a9c9', // Lavender
-  '#9eb8a8', // Sea Green
-  '#c4a77d', // Sand
-  '#a3b1c6', // Cool Gray
-  '#d4b5b0', // Blush
-  '#8ea8b8', // Steel Blue
-  '#c9c4a6', // Khaki
-];
-
-/** Acrylic theme colors for LIGHT variant - Brighter, vibrant frosted colors */
-const ACRYLIC_COLORS_LIGHT = [
-  '#94a3b8', // Frosted Slate
-  '#a78bfa', // Frosted Violet
-  '#7dd3fc', // Frosted Sky
-  '#f0abfc', // Frosted Magenta
-  '#86efac', // Frosted Mint
-  '#fcd34d', // Frosted Amber
-  '#fda4af', // Frosted Rose
-  '#67e8f9', // Frosted Cyan
-  '#c4b5fd', // Frosted Lavender
-  '#fdba74', // Frosted Peach
-  '#a5f3fc', // Frosted Aqua
-  '#d8b4fe', // Frosted Purple
-];
-
-/** Acrylic theme colors for DARK variant - Deep, muted frosted colors */
-const ACRYLIC_COLORS_DARK = [
-  '#0e1526', // Deep Navy
-  '#1e1b4b', // Deep Indigo
-  '#134e4a', // Deep Teal
-  '#3f3f46', // Deep Zinc
-  '#1c1917', // Deep Stone
-  '#422006', // Deep Amber
-  '#4a044e', // Deep Fuchsia
-  '#083344', // Deep Cyan
-  '#365314', // Deep Lime
-  '#7f1d1d', // Deep Red
-  '#312e81', // Deep Violet
-  '#1e3a5f', // Deep Slate Blue
-];
-
-/** Legacy: Default acrylic colors (light variant) */
-const ACRYLIC_COLORS = ACRYLIC_COLORS_LIGHT;
+/** Get default palette ID for a theme variant */
+export const getDefaultPaletteForVariant = (variant: ThemeVariant): string => {
+  return variant === 'light' ? 'saturated' : 'saturated';
+};
 
 // =============================================================================
 // DEFAULT THEME FAMILY
@@ -236,7 +341,6 @@ export const THEME_DEFAULT: ThemeFamily = {
     light: DEFAULT_LIGHT,
     dark: DEFAULT_DARK,
   },
-  colors: DEFAULT_COLORS,
 };
 
 // =============================================================================
@@ -353,234 +457,19 @@ export const THEME_GLASS: ThemeFamily = {
     light: GLASS_LIGHT,
     dark: GLASS_DARK,
   },
-  colors: GLASS_COLORS,
 };
 
 // =============================================================================
-// MIDNIGHT SLATE THEME - Dark Only (based on Glass Light styling)
+// ACRYLIC THEME FAMILY - Frosted Glass Effect (Thin/Thick variants)
 // =============================================================================
-
-/** Midnight Slate colors - Deep, moody slate tones */
-const MIDNIGHT_SLATE_COLORS = [
-  '#64748b', // Slate
-  '#6366f1', // Indigo
-  '#8b5cf6', // Violet
-  '#ec4899', // Pink
-  '#14b8a6', // Teal
-  '#f59e0b', // Amber
-  '#3b82f6', // Blue
-  '#10b981', // Emerald
-  '#f43f5e', // Rose
-  '#06b6d4', // Cyan
-  '#a855f7', // Purple
-  '#84cc16', // Lime
-];
-
-const MIDNIGHT_SLATE_DARK: CalendarCanvasTheme = {
-  id: 'midnight-slate-dark',
-  name: 'Midnight Slate',
-  variant: 'dark',
-  canvas: {
-    background: 'rgba(15, 23, 42, 0.85)',
-    border: '1px solid rgba(148, 163, 184, 0.2)',
-    borderRadius: '20px',
-    shadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-    padding: '32px',
-    backdropFilter: 'blur(16px)',
-  },
-  header: {
-    textColor: '#e2e8f0',
-    fontWeight: '600',
-    fontSize: '0.875rem',
-    letterSpacing: '0.05em',
-    opacity: 0.9,
-  },
-  timeColumn: {
-    textColor: 'rgba(148, 163, 184, 0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(148, 163, 184, 0.1)',
-    dividerColor: 'rgba(148, 163, 184, 0.1)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '12px',
-    border: '1px solid rgba(148, 163, 184, 0.15)',
-    shadow: '0 4px 16px rgba(0,0,0,0.2)',
-    padding: '8px',
-    marginX: '4px',
-    backgroundOpacity: 0.8,
-    titleColor: '#f1f5f9',
-    subtitleColor: 'rgba(226, 232, 240, 0.9)',
-    detailsColor: 'rgba(203, 213, 225, 0.8)',
-    titleFontWeight: '700',
-    hoverBrightness: 1.08,
-    hoverShadow: '0 8px 24px rgba(0,0,0,0.3)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(148, 163, 184, 0.6)',
-    fontSize: '0.75rem',
-    opacity: 0.6,
-  },
-};
-
-export const THEME_MIDNIGHT_SLATE: ThemeFamily = {
-  id: 'midnight-slate',
-  name: 'Midnight Slate',
-  description: 'Deep slate glassmorphism (dark only)',
-  variants: {
-    // Both variants point to dark - this theme is dark only
-    light: MIDNIGHT_SLATE_DARK,
-    dark: MIDNIGHT_SLATE_DARK,
-  },
-  colors: MIDNIGHT_SLATE_COLORS,
-};
-
-// =============================================================================
-// MATT (MATTE) THEME FAMILY
-// =============================================================================
-
-const MATT_LIGHT: CalendarCanvasTheme = {
-  id: 'matt-light',
-  name: 'Matt Light',
-  variant: 'light',
-  canvas: {
-    background: '#f5f5f4',
-    border: 'none',
-    borderRadius: '12px',
-    shadow: 'none',
-    padding: '28px',
-  },
-  header: {
-    textColor: '#44403c',
-    fontWeight: '500',
-    fontSize: '0.8rem',
-    letterSpacing: '0.08em',
-    opacity: 0.7,
-  },
-  timeColumn: {
-    textColor: '#a8a29e',
-    fontSize: '0.7rem',
-    width: '44px',
-  },
-  grid: {
-    lineColor: '#e7e5e4',
-    dividerColor: '#d6d3d1',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '4px',
-    border: 'none',
-    shadow: 'none',
-    padding: '6px 8px',
-    marginX: '3px',
-    backgroundOpacity: 0.9,
-    titleColor: '#1c1917',
-    subtitleColor: '#57534e',
-    detailsColor: '#78716c',
-    titleFontWeight: '600',
-    hoverBrightness: 1.02,
-    hoverShadow: 'none',
-  },
-  footer: {
-    textColor: '#a8a29e',
-    fontSize: '0.65rem',
-    opacity: 0.6,
-  },
-};
-
-const MATT_DARK: CalendarCanvasTheme = {
-  id: 'matt-dark',
-  name: 'Matt Dark',
-  variant: 'dark',
-  canvas: {
-    background: '#1c1917',
-    border: 'none',
-    borderRadius: '12px',
-    shadow: 'none',
-    padding: '28px',
-  },
-  header: {
-    textColor: '#d6d3d1',
-    fontWeight: '500',
-    fontSize: '0.8rem',
-    letterSpacing: '0.08em',
-    opacity: 0.7,
-  },
-  timeColumn: {
-    textColor: '#78716c',
-    fontSize: '0.7rem',
-    width: '44px',
-  },
-  grid: {
-    lineColor: '#292524',
-    dividerColor: '#44403c',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '4px',
-    border: 'none',
-    shadow: 'none',
-    padding: '6px 8px',
-    marginX: '3px',
-    backgroundOpacity: 0.9,
-    titleColor: '#fafaf9',
-    subtitleColor: '#d6d3d1',
-    detailsColor: '#a8a29e',
-    titleFontWeight: '600',
-    hoverBrightness: 1.08,
-    hoverShadow: 'none',
-  },
-  footer: {
-    textColor: '#78716c',
-    fontSize: '0.65rem',
-    opacity: 0.6,
-  },
-};
-
-export const THEME_MATT: ThemeFamily = {
-  id: 'matt',
-  name: 'Matt',
-  description: 'Flat matte finish, no shadows',
-  variants: {
-    light: MATT_LIGHT,
-    dark: MATT_DARK,
-  },
-  colors: MATT_COLORS,
-};
-
-// =============================================================================
-// ACRYLIC THEME FAMILY - Frosted Glass Effect
-// =============================================================================
-
-/**
- * Acrylic/Frosted Glass Theme System
- * 
- * Effect achieved through:
- * - Base color with opacity
- * - Noise/grain texture overlay (Texture_Acrylic.png)
- * - Subtle gradients for depth
- * - Backdrop blur effect (15px)
- * - Layered shadows for floating glass effect
- * - Soft borders relying on shadows for definition
- * - Higher letter-spacing for airy aesthetic
- * 
- * CSS technique from Figma:
- * background: url(texture.png), gradient, gradient, base-color;
- * background-blend-mode: overlay, normal, normal, overlay;
- * backdrop-filter: blur(15px);
- */
 
 // Texture path for acrylic noise effect (imported for Vite bundling)
 const ACRYLIC_TEXTURE = acrylicTextureUrl;
 
-// Dark 1 - Deep Charcoal Slate
-const ACRYLIC_DARK_SLATE: CalendarCanvasTheme = {
-  id: 'acrylic-dark-slate',
-  name: 'Acrylic Dark Slate',
+// Thin Dark (minimal frosted effect)
+const ACRYLIC_THIN_DARK: CalendarCanvasTheme = {
+  id: 'acrylic-thin-dark',
+  name: 'Acrylic Thin Dark',
   variant: 'dark',
   canvas: {
     background: 'transparent',
@@ -630,10 +519,10 @@ const ACRYLIC_DARK_SLATE: CalendarCanvasTheme = {
   },
 };
 
-// Light 1 - Frosted White
-const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
-  id: 'acrylic-light-frost',
-  name: 'Acrylic Light Frost',
+// Thin Light (minimal frosted effect)
+const ACRYLIC_THIN_LIGHT: CalendarCanvasTheme = {
+  id: 'acrylic-thin-light',
+  name: 'Acrylic Thin Light',
   variant: 'light',
   canvas: {
     background: 'transparent',
@@ -665,7 +554,7 @@ const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
     shadow: '0px 10px 14px rgba(0, 0, 0, 0.25)',
     padding: '10px',
     marginX: '4px',
-    backgroundOpacity: 1, // Not used when acrylicBackground is set
+    backgroundOpacity: 1,
     titleColor: '#111827',
     subtitleColor: '#1f2937',
     detailsColor: '#374151',
@@ -683,62 +572,10 @@ const ACRYLIC_LIGHT_FROST: CalendarCanvasTheme = {
   },
 };
 
-// Light 2 - Silk White with warm tint
-const ACRYLIC_LIGHT_SILK: CalendarCanvasTheme = {
-  id: 'acrylic-light-silk',
-  name: 'Acrylic Light Silk',
-  variant: 'light',
-  canvas: {
-    background: `url('${ACRYLIC_TEXTURE}'), linear-gradient(180deg, rgba(253, 251, 247, 0.2) 0%, rgba(239, 235, 230, 0.2) 100%), linear-gradient(0deg, rgba(255, 253, 250, 0.3), rgba(255, 253, 250, 0.3)), rgba(250, 248, 245, 0.6)`,
-    border: '1px solid rgba(255, 253, 250, 0.7)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(120, 100, 80, 0.06), 0 2px 8px rgba(120, 100, 80, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-    padding: '32px',
-    backdropFilter: 'blur(15px)',
-  },
-  header: {
-    textColor: 'rgba(68, 64, 60, 0.9)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.85,
-  },
-  timeColumn: {
-    textColor: 'rgba(120, 113, 108, 0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(68, 64, 60, 0.04)',
-    dividerColor: 'rgba(68, 64, 60, 0.06)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(255, 253, 250, 0.8)',
-    shadow: '0 4px 16px rgba(120, 100, 80, 0.05), 0 1px 4px rgba(120, 100, 80, 0.02)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 0.75,
-    titleColor: '#111827',
-    subtitleColor: '#1f2937',
-    detailsColor: '#374151',
-    titleFontWeight: '600',
-    hoverBrightness: 1.02,
-    hoverShadow: '0 8px 24px rgba(120, 100, 80, 0.08)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(120, 113, 108, 0.6)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-// Ocean Mist (slate-blue oceanic)
-const ACRYLIC_OCEAN_MIST: CalendarCanvasTheme = {
-  id: 'acrylic-ocean-mist',
-  name: 'Acrylic Ocean Mist',
+// Thick Dark (more prominent frosted effect with texture)
+const ACRYLIC_THICK_DARK: CalendarCanvasTheme = {
+  id: 'acrylic-thick-dark',
+  name: 'Acrylic Thick Dark',
   variant: 'dark',
   canvas: {
     background: `url('${ACRYLIC_TEXTURE}'), linear-gradient(180deg, rgba(74, 95, 127, 0.2) 0%, rgba(56, 89, 122, 0.2) 100%), linear-gradient(0deg, rgba(147, 197, 253, 0.08), rgba(147, 197, 253, 0.08)), rgba(74, 95, 127, 0.75)`,
@@ -788,21 +625,72 @@ const ACRYLIC_OCEAN_MIST: CalendarCanvasTheme = {
   },
 };
 
+// Thick Light (more prominent frosted effect with warm tint)
+const ACRYLIC_THICK_LIGHT: CalendarCanvasTheme = {
+  id: 'acrylic-thick-light',
+  name: 'Acrylic Thick Light',
+  variant: 'light',
+  canvas: {
+    background: `url('${ACRYLIC_TEXTURE}'), linear-gradient(180deg, rgba(253, 251, 247, 0.2) 0%, rgba(239, 235, 230, 0.2) 100%), linear-gradient(0deg, rgba(255, 253, 250, 0.3), rgba(255, 253, 250, 0.3)), rgba(250, 248, 245, 0.6)`,
+    border: '1px solid rgba(255, 253, 250, 0.7)',
+    borderRadius: '24px',
+    shadow: '0 8px 32px rgba(120, 100, 80, 0.06), 0 2px 8px rgba(120, 100, 80, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+    padding: '32px',
+    backdropFilter: 'blur(15px)',
+  },
+  header: {
+    textColor: 'rgba(68, 64, 60, 0.9)',
+    fontWeight: '500',
+    fontSize: '0.85rem',
+    letterSpacing: '0.12em',
+    opacity: 0.85,
+  },
+  timeColumn: {
+    textColor: 'rgba(120, 113, 108, 0.6)',
+    fontSize: '0.75rem',
+    width: '48px',
+  },
+  grid: {
+    lineColor: 'rgba(68, 64, 60, 0.04)',
+    dividerColor: 'rgba(68, 64, 60, 0.06)',
+    lineWidth: '1px',
+  },
+  eventBlock: {
+    borderRadius: '14px',
+    border: '1px solid rgba(255, 253, 250, 0.8)',
+    shadow: '0 4px 16px rgba(120, 100, 80, 0.05), 0 1px 4px rgba(120, 100, 80, 0.02)',
+    padding: '10px',
+    marginX: '4px',
+    backgroundOpacity: 0.75,
+    titleColor: '#111827',
+    subtitleColor: '#1f2937',
+    detailsColor: '#374151',
+    titleFontWeight: '600',
+    hoverBrightness: 1.02,
+    hoverShadow: '0 8px 24px rgba(120, 100, 80, 0.08)',
+    backdropFilter: 'blur(8px)',
+  },
+  footer: {
+    textColor: 'rgba(120, 113, 108, 0.6)',
+    fontSize: '0.75rem',
+    opacity: 0.5,
+  },
+};
+
 export const THEME_ACRYLIC: ThemeFamily = {
   id: 'acrylic',
   name: 'Acrylic',
   description: 'Frosted glass effect with noise texture and blur',
   variants: {
-    light: ACRYLIC_LIGHT_FROST,
-    dark: ACRYLIC_DARK_SLATE,
+    light: ACRYLIC_THIN_LIGHT,
+    dark: ACRYLIC_THIN_DARK,
   },
   extendedVariants: [
-    { id: 'dark-slate', name: 'Thin Dark Slate', baseVariant: 'dark', theme: ACRYLIC_DARK_SLATE },
-    { id: 'ocean-mist', name: 'Thick Colored Ocean', baseVariant: 'dark', theme: ACRYLIC_OCEAN_MIST },
-    { id: 'light-frost', name: 'Thin Light Frost', baseVariant: 'light', theme: ACRYLIC_LIGHT_FROST },
-    { id: 'light-silk', name: 'Thick Colored Silk', baseVariant: 'light', theme: ACRYLIC_LIGHT_SILK },
+    { id: 'thin', name: 'Thin', baseVariant: 'dark', theme: ACRYLIC_THIN_DARK },
+    { id: 'thick', name: 'Thick', baseVariant: 'dark', theme: ACRYLIC_THICK_DARK },
+    { id: 'thin-light', name: 'Thin', baseVariant: 'light', theme: ACRYLIC_THIN_LIGHT },
+    { id: 'thick-light', name: 'Thick', baseVariant: 'light', theme: ACRYLIC_THICK_LIGHT },
   ],
-  colors: ACRYLIC_COLORS,
 };
 
 // =============================================================================
@@ -813,8 +701,6 @@ export const THEME_ACRYLIC: ThemeFamily = {
 export const THEME_FAMILIES: Record<string, ThemeFamily> = {
   default: THEME_DEFAULT,
   glass: THEME_GLASS,
-  'midnight-slate': THEME_MIDNIGHT_SLATE,
-  matt: THEME_MATT,
   acrylic: THEME_ACRYLIC,
 };
 
@@ -822,8 +708,6 @@ export const THEME_FAMILIES: Record<string, ThemeFamily> = {
 export const THEME_FAMILY_LIST: ThemeFamily[] = [
   THEME_DEFAULT,
   THEME_GLASS,
-  THEME_MIDNIGHT_SLATE,
-  THEME_MATT,
   THEME_ACRYLIC,
 ];
 
@@ -859,18 +743,18 @@ export const CANVAS_THEMES: Record<string, CalendarCanvasTheme> = {
   'default-dark': DEFAULT_DARK,
   'glass-light': GLASS_LIGHT,
   'glass-dark': GLASS_DARK,
-  'midnight-slate-light': MIDNIGHT_SLATE_DARK, // Dark only theme
-  'midnight-slate-dark': MIDNIGHT_SLATE_DARK,
-  'matt-light': MATT_LIGHT,
-  'matt-dark': MATT_DARK,
-  // Acrylic themes (primary light/dark)
-  'acrylic-light': ACRYLIC_LIGHT_FROST,
-  'acrylic-dark': ACRYLIC_DARK_SLATE,
-  // Acrylic variants
-  'acrylic-dark-slate': ACRYLIC_DARK_SLATE,
-  'acrylic-light-frost': ACRYLIC_LIGHT_FROST,
-  'acrylic-light-silk': ACRYLIC_LIGHT_SILK,
-  'acrylic-ocean-mist': ACRYLIC_OCEAN_MIST,
+  // Acrylic themes
+  'acrylic-light': ACRYLIC_THIN_LIGHT,
+  'acrylic-dark': ACRYLIC_THIN_DARK,
+  'acrylic-thin-dark': ACRYLIC_THIN_DARK,
+  'acrylic-thin-light': ACRYLIC_THIN_LIGHT,
+  'acrylic-thick-dark': ACRYLIC_THICK_DARK,
+  'acrylic-thick-light': ACRYLIC_THICK_LIGHT,
+  // Legacy acrylic variant names (for backward compatibility)
+  'acrylic-dark-slate': ACRYLIC_THIN_DARK,
+  'acrylic-light-frost': ACRYLIC_THIN_LIGHT,
+  'acrylic-light-silk': ACRYLIC_THICK_LIGHT,
+  'acrylic-ocean-mist': ACRYLIC_THICK_DARK,
 };
 
 /** Helper to get theme by ID with fallback */
@@ -878,15 +762,36 @@ export const getCanvasTheme = (themeId: string): CalendarCanvasTheme => {
   return CANVAS_THEMES[themeId] ?? DEFAULT_DARK;
 };
 
-/** Get colors for a theme family, with variant support for acrylic */
-export const getThemeColors = (familyId: string, variant?: ThemeVariant): string[] => {
-  // Special handling for acrylic theme - different colors for light/dark
-  if (familyId === 'acrylic') {
-    return variant === 'dark' ? ACRYLIC_COLORS_DARK : ACRYLIC_COLORS_LIGHT;
-  }
-  const family = THEME_FAMILIES[familyId];
-  return family?.colors ?? DEFAULT_COLORS;
+/** Get colors for a palette by ID */
+export const getPaletteColors = (paletteId: string): string[] => {
+  const palette = COLOR_PALETTES.find(p => p.id === paletteId);
+  return palette?.colors ?? PALETTE_SATURATED.colors;
 };
 
-/** Export color palettes for external use */
-export { DEFAULT_COLORS, GLASS_COLORS, MIDNIGHT_SLATE_COLORS, MATT_COLORS, ACRYLIC_COLORS, ACRYLIC_COLORS_LIGHT, ACRYLIC_COLORS_DARK };
+/**
+ * Get theme colors - now takes optional paletteId
+ * Falls back to default palette if not specified
+ */
+export const getThemeColors = (familyId: string, variant?: ThemeVariant, paletteId?: string): string[] => {
+  // If palette specified, use it
+  if (paletteId) {
+    return getPaletteColors(paletteId);
+  }
+  // Default palettes based on theme/variant
+  if (familyId === 'acrylic') {
+    return variant === 'dark' ? PALETTE_DARK_SLATE.colors : PALETTE_LIGHT_SILK.colors;
+  }
+  if (familyId === 'glass') {
+    return PALETTE_FRESH_TINT.colors;
+  }
+  return PALETTE_SATURATED.colors;
+};
+
+// Export individual palettes for direct access
+export const DEFAULT_COLORS = PALETTE_SATURATED.colors;
+export const GLASS_COLORS = PALETTE_FRESH_TINT.colors;
+export const MATT_COLORS = PALETTE_MORANDI.colors;
+export const MIDNIGHT_SLATE_COLORS = PALETTE_MIDNIGHT_SLATE.colors;
+export const ACRYLIC_COLORS = PALETTE_LIGHT_SILK.colors;
+export const ACRYLIC_COLORS_LIGHT = PALETTE_LIGHT_SILK.colors;
+export const ACRYLIC_COLORS_DARK = PALETTE_DARK_SLATE.colors;

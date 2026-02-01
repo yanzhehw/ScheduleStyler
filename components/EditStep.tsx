@@ -3,9 +3,8 @@ import { CalendarEvent, TemplateConfig, Category, ClassType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
-import { TimeInput } from './TimeInput';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus } from 'lucide-react';
 import { getThemeColors } from '../themes';
 
 interface EditStepProps {
@@ -119,6 +118,45 @@ export const EditStep: React.FC<EditStepProps> = ({
   // Time validation error message
   const [timeError, setTimeError] = useState<string | null>(null);
 
+  // Add Course section state
+  const [isAddCourseExpanded, setIsAddCourseExpanded] = useState(true);
+  const [addCourseDraft, setAddCourseDraft] = useState({
+    courseCode: '',
+    classType: 'Lecture' as ClassType,
+    customClassType: '',
+    location: '',
+    selectedDays: [false, false, false, false, false] as boolean[], // Mon-Fri
+    startTime: '09:00',
+    endTime: '10:00',
+  });
+
+  // AM/PM time format toggle (default off = 24h format)
+  const [useAmPmFormat, setUseAmPmFormat] = useState(false);
+
+  // Pending time changes for selected event (requires save)
+  const [pendingTimeChanges, setPendingTimeChanges] = useState<{
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+
+  // Add Course validation errors (shown when Add is clicked)
+  const [addCourseErrors, setAddCourseErrors] = useState<{
+    courseCode?: string;
+    days?: string;
+    time?: string;
+  }>({});
+
+  // Onboarding state for edit view
+  const [showEditOnboarding, setShowEditOnboarding] = useState(true);
+  const [onboardingEventId, setOnboardingEventId] = useState<string | null>(null);
+
+  // Pick a random event for onboarding highlight
+  const randomOnboardingEvent = useMemo(() => {
+    if (events.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * events.length);
+    return events[randomIndex];
+  }, [events.length > 0 ? events[0]?.id : null]); // Only recalculate when events first load
+
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
   // Check if any events have valid course sections (not NaN)
@@ -137,13 +175,9 @@ export const EditStep: React.FC<EditStepProps> = ({
   const hasOverlaps = overlappingEventIds.size > 0;
   const isSelectedEventOverlapping = selectedEvent ? overlappingEventIds.has(selectedEvent.id) : false;
 
-  const handleEventClick = (event: CalendarEvent) => {
-    setSelectedEventId(event.id);
-    setTimeError(null); // Clear any time validation error when selecting new event
-  };
-
   const handleBlankClick = () => {
     setSelectedEventId(null);
+    setPendingTimeChanges(null);
   };
 
   const handleUpdateEvent = (key: keyof CalendarEvent, value: any) => {
@@ -153,16 +187,28 @@ export const EditStep: React.FC<EditStepProps> = ({
       if (e.id === selectedEventId) {
         const newEvent = { ...e, [key]: value };
 
-        // If Title changed, also update displayTitle and color
+        // If Title changed, update displayTitle and assign color based on course code grouping
         if (key === 'title') {
            // Extract displayTitle from the new title (remove section number if present)
-           // Assuming format like "CS 101 - 001" -> "CS 101" or just use the title as-is
+           // Format like "CS 101 - 001" -> "CS 101" or just use the title as-is
            const titleParts = value.split(' - ');
-           newEvent.displayTitle = titleParts[0].trim();
+           const newDisplayTitle = titleParts[0].trim();
+           newEvent.displayTitle = newDisplayTitle;
 
-           const existingCatIndex = categories.findIndex(c => c.name === value);
-           if (existingCatIndex >= 0) {
-             newEvent.color = themeColors[existingCatIndex % themeColors.length];
+           // Find existing event with same displayTitle (course code) to reuse its color
+           const existingEventWithSameCode = events.find(
+             evt => evt.id !== selectedEventId && evt.displayTitle === newDisplayTitle
+           );
+
+           if (existingEventWithSameCode?.color) {
+             // Use the same color as existing events with this course code
+             newEvent.color = existingEventWithSameCode.color;
+           } else {
+             // Assign new color based on unique course codes count
+             const uniqueTitles = Array.from(new Set(
+               events.filter(evt => evt.id !== selectedEventId).map(evt => evt.displayTitle)
+             ));
+             newEvent.color = themeColors[uniqueTitles.length % themeColors.length];
            }
         }
 
@@ -177,24 +223,6 @@ export const EditStep: React.FC<EditStepProps> = ({
     if (!selectedEventId) return;
     onUpdateEvents(events.filter(e => e.id !== selectedEventId));
     setSelectedEventId(null);
-  };
-
-  // Validate and update event time (ensures end > start)
-  const handleTimeChange = (field: 'startTime' | 'endTime', value: string) => {
-    if (!selectedEvent) return;
-
-    const newStart = field === 'startTime' ? value : selectedEvent.startTime;
-    const newEnd = field === 'endTime' ? value : selectedEvent.endTime;
-
-    // Validate: end must be after start
-    if (parseTimeToHours(newEnd) <= parseTimeToHours(newStart)) {
-      setTimeError('End time must be after start time');
-      return;
-    }
-
-    // Valid - clear error and update
-    setTimeError(null);
-    handleUpdateEvent(field, value);
   };
 
   const handleEventTimeChange = (eventId: string, updates: { startTime: string; endTime: string; dayIndex: number }) => {
@@ -266,6 +294,172 @@ export const EditStep: React.FC<EditStepProps> = ({
     closeNewEventModal();
   };
 
+  // Format time for display (12h or 24h)
+  const formatTimeForDisplay = (time: string): string => {
+    if (!useAmPmFormat) return time; // 24h format (default)
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // Get color for a course code (find existing or assign new)
+  const getColorForCourseCode = (courseCode: string): string => {
+    const displayTitle = courseCode.split(' - ')[0].trim();
+    const existingEvent = events.find(e => e.displayTitle === displayTitle);
+    if (existingEvent?.color) return existingEvent.color;
+
+    const uniqueTitles = Array.from(new Set(events.map(e => e.displayTitle)));
+    return themeColors[uniqueTitles.length % themeColors.length];
+  };
+
+  // Handle bulk course creation with validation
+  const handleBulkCreateCoursesWithValidation = () => {
+    const { courseCode, selectedDays, startTime, endTime } = addCourseDraft;
+    const errors: typeof addCourseErrors = {};
+
+    // Validate course code
+    if (!courseCode.trim()) {
+      errors.courseCode = 'Please enter a course code';
+    }
+
+    // Validate days
+    if (!selectedDays.some(d => d)) {
+      errors.days = 'Please select at least one day';
+    }
+
+    // Validate time format and order
+    const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      errors.time = 'Please enter valid times (HH:MM)';
+    } else if (parseTimeToHours(endTime) <= parseTimeToHours(startTime)) {
+      errors.time = 'End time must be after start time';
+    }
+
+    // If any errors, show them and return
+    if (Object.keys(errors).length > 0) {
+      setAddCourseErrors(errors);
+      return;
+    }
+
+    // Clear errors and proceed
+    setAddCourseErrors({});
+    handleBulkCreateCourses();
+  };
+
+  // Handle bulk course creation (called after validation)
+  const handleBulkCreateCourses = () => {
+    const { courseCode, classType, customClassType, location, selectedDays, startTime, endTime } = addCourseDraft;
+
+    const selectedDayIndices = selectedDays
+      .map((selected, index) => selected ? index : -1)
+      .filter(index => index !== -1);
+
+    const title = courseCode.trim();
+    const displayTitle = title.split(' - ')[0].trim();
+    const color = getColorForCourseCode(title);
+
+    const newEvents: CalendarEvent[] = selectedDayIndices.map(dayIndex => ({
+      id: `evt-${Date.now()}-${dayIndex}-${Math.random().toString(16).slice(2, 8)}`,
+      title,
+      displayTitle,
+      classSection: null as unknown as number,
+      classType,
+      customClassType: classType === 'Custom' ? (customClassType.trim() || 'Class') : undefined,
+      startTime,
+      endTime,
+      dayIndex,
+      location: location.trim(),
+      metadata: [],
+      notes: '',
+      category: title,
+      color,
+      isConfidenceLow: false,
+    }));
+
+    onUpdateEvents([...events, ...newEvents]);
+
+    // Reset form
+    setAddCourseDraft({
+      courseCode: '',
+      classType: 'Lecture',
+      customClassType: '',
+      location: '',
+      selectedDays: [false, false, false, false, false],
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+  };
+
+  // Clear add course form
+  const handleClearAddCourseForm = () => {
+    setAddCourseDraft({
+      courseCode: '',
+      classType: 'Lecture',
+      customClassType: '',
+      location: '',
+      selectedDays: [false, false, false, false, false],
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+  };
+
+  // Handle time change with pending state (for selected event)
+  const handlePendingTimeChange = (field: 'startTime' | 'endTime', value: string) => {
+    if (!selectedEvent) return;
+
+    const current = pendingTimeChanges || {
+      startTime: selectedEvent.startTime,
+      endTime: selectedEvent.endTime,
+    };
+
+    setPendingTimeChanges({
+      ...current,
+      [field]: value,
+    });
+  };
+
+  // Save pending time changes
+  const handleSaveTimeChanges = () => {
+    if (!selectedEvent || !pendingTimeChanges) return;
+
+    const { startTime: newStart, endTime: newEnd } = pendingTimeChanges;
+
+    // Validate: end must be after start
+    if (parseTimeToHours(newEnd) <= parseTimeToHours(newStart)) {
+      setTimeError('End time must be after start time');
+      return;
+    }
+
+    // Valid - clear error and update
+    setTimeError(null);
+    const updated = events.map(e => {
+      if (e.id === selectedEventId) {
+        return { ...e, startTime: newStart, endTime: newEnd };
+      }
+      return e;
+    });
+    onUpdateEvents(updated);
+    setPendingTimeChanges(null);
+  };
+
+  // Check if there are unsaved time changes
+  const hasUnsavedTimeChanges = pendingTimeChanges !== null && selectedEvent && (
+    pendingTimeChanges.startTime !== selectedEvent.startTime ||
+    pendingTimeChanges.endTime !== selectedEvent.endTime
+  );
+
+  // Initialize pending time changes when selecting an event
+  const handleEventClickWithPending = (event: CalendarEvent) => {
+    setSelectedEventId(event.id);
+    setPendingTimeChanges(null); // Reset pending changes
+    setTimeError(null);
+    // Dismiss edit view onboarding when user clicks an event
+    if (showEditOnboarding) {
+      setShowEditOnboarding(false);
+    }
+  };
+
   return (
     <div className="flex h-full gap-6">
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
@@ -274,7 +468,7 @@ export const EditStep: React.FC<EditStepProps> = ({
           events={events}
           template={template}
           interactive={true}
-          onEventClick={handleEventClick}
+          onEventClick={handleEventClickWithPending}
           onBlankClick={handleBlankClick}
           showFullTitle={template.showCourseSection}
           selectedEventId={selectedEventId}
@@ -284,13 +478,21 @@ export const EditStep: React.FC<EditStepProps> = ({
           hideUnselectedBorders={true}
           overlappingEventIds={Array.from(overlappingEventIds)}
           minTimeRange={{ start: 8, end: 18 }}
+          onboardingComponents={showEditOnboarding && randomOnboardingEvent ? { eventBlock: true } : undefined}
+          onboardingEventId={showEditOnboarding ? randomOnboardingEvent?.id : null}
+          eventBlockOnboardingMessage={
+            <>
+              Click to <strong>Drag</strong> and <strong>edit details</strong>
+            </>
+          }
+          onOnboardingOk={() => setShowEditOnboarding(false)}
         />
       </div>
 
       {/* Right: Inspector Panel */}
       <div className="w-96 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl flex-shrink-0">
         <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900 z-10 rounded-t-2xl">
-          <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Class' : 'Edit Calendar'}</h3>
+          <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Block' : 'Edit Calendar'}</h3>
           <div className="flex gap-2">
             {!selectedEvent && (
               <button onClick={onReupload} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
@@ -327,14 +529,224 @@ export const EditStep: React.FC<EditStepProps> = ({
           {/* Global Toggles & Class Mapping */}
           {!selectedEvent && (
             <>
-              {/* User guidance note */}
-              {showGuidanceNote && (
-                <GuidanceNote
-                  message="Click on any event block in the calendar to edit its details and fine-tune the extracted data."
-                  onClose={() => setShowGuidanceNote(false)}
-                  type="info"
-                />
-              )}
+
+              {/* Add Course Section */}
+              <div className="p-4 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border border-blue-700/50">
+                <button
+                  onClick={() => setIsAddCourseExpanded(!isAddCourseExpanded)}
+                  className="flex items-center justify-between w-full text-sm text-blue-300 font-medium hover:text-blue-200 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <CirclePlus size={14} /> Add Course
+                  </div>
+                  {isAddCourseExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+
+                {isAddCourseExpanded && (
+                  <div className="space-y-4 mt-4">
+                    {/* Course Code & Class Type - Same Line */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">Course Code & Type</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={addCourseDraft.courseCode}
+                          onChange={(e) => {
+                            setAddCourseDraft({ ...addCourseDraft, courseCode: e.target.value });
+                            if (addCourseErrors.courseCode) setAddCourseErrors({ ...addCourseErrors, courseCode: undefined });
+                          }}
+                          className={`flex-1 bg-gray-800 border rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm ${
+                            addCourseErrors.courseCode ? 'border-red-500' : 'border-gray-700'
+                          }`}
+                          placeholder="e.g. CS 101"
+                        />
+                        <select
+                          value={addCourseDraft.classType}
+                          onChange={(e) => setAddCourseDraft({ ...addCourseDraft, classType: e.target.value as ClassType })}
+                          className="text-sm font-medium text-white bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+                        >
+                          {CLASS_TYPES.map((type) => (
+                            <option key={type} value={type} className="bg-gray-900 text-white">
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {addCourseErrors.courseCode && (
+                        <p className="text-xs text-red-400 mt-1">{addCourseErrors.courseCode}</p>
+                      )}
+                    </div>
+
+                    {/* Custom Class Type */}
+                    {addCourseDraft.classType === 'Custom' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Custom Type Name</label>
+                        <input
+                          type="text"
+                          value={addCourseDraft.customClassType}
+                          onChange={(e) => setAddCourseDraft({ ...addCourseDraft, customClassType: e.target.value })}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          placeholder="e.g. Workshop"
+                        />
+                      </div>
+                    )}
+
+                    {/* Days of Week with Gradient Glow */}
+                    <div>
+                      <label className={`block text-xs font-medium mb-2 ${addCourseErrors.days ? 'text-red-400' : 'text-gray-400'}`}>
+                        Days
+                      </label>
+                      <div className="flex gap-2">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => {
+                              const newSelectedDays = [...addCourseDraft.selectedDays];
+                              newSelectedDays[index] = !newSelectedDays[index];
+                              setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
+                              if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
+                            }}
+                            className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
+                          >
+                            {/* Gradient glow background when selected */}
+                            {addCourseDraft.selectedDays[index] && (
+                              <div
+                                className="absolute inset-0 rounded-lg opacity-80"
+                                style={{
+                                  background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                                }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-sm font-semibold transition-colors ${
+                              addCourseDraft.selectedDays[index]
+                                ? 'text-blue-300'
+                                : addCourseErrors.days
+                                  ? 'text-red-400/70'
+                                  : 'text-gray-500 hover:text-gray-300'
+                            }`}>
+                              {day}
+                            </span>
+                            {/* Checkbox indicator */}
+                            <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                              addCourseDraft.selectedDays[index]
+                                ? 'border-blue-400 bg-blue-500'
+                                : addCourseErrors.days
+                                  ? 'border-red-400/50'
+                                  : 'border-gray-600'
+                            }`}>
+                              {addCourseDraft.selectedDays[index] && (
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      {addCourseErrors.days && (
+                        <p className="text-xs text-red-400 mt-1">{addCourseErrors.days}</p>
+                      )}
+                    </div>
+
+                    {/* Start/End Time (24h format with text inputs) */}
+                    <div>
+                      <label className={`block text-xs font-medium mb-1 ${addCourseErrors.time ? 'text-red-400' : 'text-gray-400'}`}>
+                        Time (24h format)
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">Start</label>
+                          <input
+                            type="text"
+                            value={addCourseDraft.startTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              // Allow typing time in HH:MM format
+                              if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                                setAddCourseDraft({ ...addCourseDraft, startTime: val });
+                                if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+                              }
+                            }}
+                            onBlur={(e) => {
+                              // Format on blur if needed
+                              let val = e.target.value.replace(/[^0-9]/g, '');
+                              if (val.length >= 3 && val.length <= 4) {
+                                const hours = val.slice(0, -2).padStart(2, '0');
+                                const mins = val.slice(-2);
+                                setAddCourseDraft({ ...addCourseDraft, startTime: `${hours}:${mins}` });
+                              }
+                            }}
+                            placeholder="09:00"
+                            className={`w-full bg-gray-800 border rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono ${
+                              addCourseErrors.time ? 'border-red-500' : 'border-gray-700'
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">End</label>
+                          <input
+                            type="text"
+                            value={addCourseDraft.endTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                                setAddCourseDraft({ ...addCourseDraft, endTime: val });
+                                if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+                              }
+                            }}
+                            onBlur={(e) => {
+                              let val = e.target.value.replace(/[^0-9]/g, '');
+                              if (val.length >= 3 && val.length <= 4) {
+                                const hours = val.slice(0, -2).padStart(2, '0');
+                                const mins = val.slice(-2);
+                                setAddCourseDraft({ ...addCourseDraft, endTime: `${hours}:${mins}` });
+                              }
+                            }}
+                            placeholder="10:00"
+                            className={`w-full bg-gray-800 border rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono ${
+                              addCourseErrors.time ? 'border-red-500' : 'border-gray-700'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      {addCourseErrors.time && (
+                        <p className="text-xs text-red-400 mt-1">{addCourseErrors.time}</p>
+                      )}
+                    </div>
+
+                    {/* Location (optional) */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">Location (optional)</label>
+                      <input
+                        type="text"
+                        value={addCourseDraft.location}
+                        onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                        placeholder="Building/Room"
+                      />
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleClearAddCourseForm}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        <RotateCcw size={14} /> Clear
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBulkCreateCoursesWithValidation}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                      >
+                        <CirclePlus size={14} /> Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Content Display Options - Collapsible */}
               <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700">
@@ -360,6 +772,18 @@ export const EditStep: React.FC<EditStepProps> = ({
                         />
                       </div>
                     )}
+
+                    {/* AM/PM Time Format Toggle */}
+                    <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <ToggleSwitch
+                        enabled={useAmPmFormat}
+                        onToggle={() => setUseAmPmFormat(!useAmPmFormat)}
+                        label={<span className="flex items-center gap-2"><Clock size={12} /> AM/PM Format</span>}
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1 ml-6">
+                        {useAmPmFormat ? 'Showing times as 2:00 PM' : 'Showing times as 14:00'}
+                      </p>
+                    </div>
 
                     {/* Compact View at top - toggles off other options when enabled */}
                     <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors border border-gray-700">
@@ -548,22 +972,162 @@ export const EditStep: React.FC<EditStepProps> = ({
                 </div>
               )}
 
-              {/* Timing */}
-              <div className="space-y-1">
+              {/* Days Selection - Show current day and allow adding to other days */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">Days</label>
+                <div className="flex gap-2">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+                    const isCurrentDay = selectedEvent.dayIndex === index;
+                    // Check if this course already exists on this day
+                    const existsOnDay = events.some(
+                      e => e.id !== selectedEvent.id &&
+                           e.displayTitle === selectedEvent.displayTitle &&
+                           e.dayIndex === index
+                    );
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          if (isCurrentDay) return; // Can't remove current day
+                          if (existsOnDay) {
+                            // Remove course from this day
+                            const eventToRemove = events.find(
+                              e => e.id !== selectedEvent.id &&
+                                   e.displayTitle === selectedEvent.displayTitle &&
+                                   e.dayIndex === index
+                            );
+                            if (eventToRemove) {
+                              onUpdateEvents(events.filter(e => e.id !== eventToRemove.id));
+                            }
+                          } else {
+                            // Add course to this day (duplicate with new ID)
+                            const newEvent: CalendarEvent = {
+                              ...selectedEvent,
+                              id: `evt-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
+                              dayIndex: index,
+                            };
+                            onUpdateEvents([...events, newEvent]);
+                          }
+                        }}
+                        className={`flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1 ${
+                          isCurrentDay ? 'cursor-default' : 'cursor-pointer'
+                        }`}
+                        title={isCurrentDay ? 'Current day' : existsOnDay ? 'Click to remove from this day' : 'Click to add to this day'}
+                      >
+                        {/* Gradient glow background when selected */}
+                        {(isCurrentDay || existsOnDay) && (
+                          <div
+                            className="absolute inset-0 rounded-lg opacity-80"
+                            style={{
+                              background: isCurrentDay
+                                ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.5) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 70%)'
+                                : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                            }}
+                          />
+                        )}
+                        <span className={`relative z-10 text-sm font-semibold transition-colors ${
+                          isCurrentDay
+                            ? 'text-green-300'
+                            : existsOnDay
+                              ? 'text-blue-300'
+                              : 'text-gray-500 hover:text-gray-300'
+                        }`}>
+                          {day}
+                        </span>
+                        {/* Checkbox indicator */}
+                        <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                          isCurrentDay
+                            ? 'border-green-400 bg-green-500'
+                            : existsOnDay
+                              ? 'border-blue-400 bg-blue-500'
+                              : 'border-gray-600'
+                        }`}>
+                          {(isCurrentDay || existsOnDay) && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1.5">
+                  <span className="text-green-400">●</span> Current day &nbsp;
+                  <span className="text-blue-400">●</span> Click to add/remove from other days
+                </p>
+              </div>
+
+              {/* Timing with Save button */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-gray-400">Time</label>
+                  {useAmPmFormat && (
+                    <span className="text-[10px] text-gray-500">
+                      {formatTimeForDisplay(pendingTimeChanges?.startTime || selectedEvent.startTime)} - {formatTimeForDisplay(pendingTimeChanges?.endTime || selectedEvent.endTime)}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <TimeInput
-                    label="Start"
-                    value={selectedEvent.startTime}
-                    onChange={(value) => handleTimeChange('startTime', value)}
-                  />
-                  <TimeInput
-                    label="End"
-                    value={selectedEvent.endTime}
-                    onChange={(value) => handleTimeChange('endTime', value)}
-                  />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Start (24h)</label>
+                    <input
+                      type="text"
+                      value={pendingTimeChanges?.startTime ?? selectedEvent.startTime}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                          handlePendingTimeChange('startTime', val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        let val = e.target.value.replace(/[^0-9]/g, '');
+                        if (val.length >= 3 && val.length <= 4) {
+                          const hours = val.slice(0, -2).padStart(2, '0');
+                          const mins = val.slice(-2);
+                          handlePendingTimeChange('startTime', `${hours}:${mins}`);
+                        }
+                      }}
+                      placeholder="09:00"
+                      className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">End (24h)</label>
+                    <input
+                      type="text"
+                      value={pendingTimeChanges?.endTime ?? selectedEvent.endTime}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                          handlePendingTimeChange('endTime', val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        let val = e.target.value.replace(/[^0-9]/g, '');
+                        if (val.length >= 3 && val.length <= 4) {
+                          const hours = val.slice(0, -2).padStart(2, '0');
+                          const mins = val.slice(-2);
+                          handlePendingTimeChange('endTime', `${hours}:${mins}`);
+                        }
+                      }}
+                      placeholder="10:00"
+                      className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
                 </div>
                 {timeError && (
                   <p className="text-xs text-red-400">{timeError}</p>
+                )}
+                {hasUnsavedTimeChanges && (
+                  <button
+                    type="button"
+                    onClick={handleSaveTimeChanges}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors mt-2"
+                  >
+                    <Save size={14} /> Save Time Changes
+                  </button>
                 )}
               </div>
 
