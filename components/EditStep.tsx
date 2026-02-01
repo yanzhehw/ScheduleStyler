@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { CalendarEvent, TemplateConfig, Category, ClassType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2 } from 'lucide-react';
 import { getThemeColors } from '../themes';
 
 interface EditStepProps {
@@ -130,9 +130,6 @@ export const EditStep: React.FC<EditStepProps> = ({
     endTime: '10:00',
   });
 
-  // AM/PM time format toggle (default off = 24h format)
-  const [useAmPmFormat, setUseAmPmFormat] = useState(false);
-
   // Pending time changes for selected event (requires save)
   const [pendingTimeChanges, setPendingTimeChanges] = useState<{
     startTime: string;
@@ -149,6 +146,73 @@ export const EditStep: React.FC<EditStepProps> = ({
   // Onboarding state for edit view
   const [showEditOnboarding, setShowEditOnboarding] = useState(true);
   const [onboardingEventId, setOnboardingEventId] = useState<string | null>(null);
+
+  // Zoom state for edit view
+  const [zoom, setZoom] = useState(1);
+  const [isZoomToolbarOpen, setIsZoomToolbarOpen] = useState(true);
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 600, minCardWidth: 800, minCardHeight: 600 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const editSidebarRef = useRef<HTMLDivElement>(null);
+  const hasInitialized = useRef(false);
+
+  // Check if browser supports CSS zoom
+  const supportsZoom = typeof window !== 'undefined'
+    && typeof window.CSS?.supports === 'function'
+    && window.CSS.supports('zoom', '1');
+
+  // Calculate auto-fit zoom to contain the full calendar
+  const calculateAutoFitZoom = useCallback(() => {
+    if (!canvasContainerRef.current) return 1;
+    const container = canvasContainerRef.current;
+    const containerWidth = container.clientWidth - 48; // padding
+    const containerHeight = container.clientHeight - 48;
+
+    const scaleX = containerWidth / canvasDimensions.width;
+    const scaleY = containerHeight / canvasDimensions.height;
+
+    // Use the smaller scale to fit both dimensions, cap between 0.3 and 1.5
+    return Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
+  }, [canvasDimensions.width, canvasDimensions.height]);
+
+  // On mount: restore saved zoom if returning to edit view, otherwise auto-fit
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      const savedZoom = sessionStorage.getItem('editStepZoom');
+      const hasVisitedBefore = sessionStorage.getItem('editStepVisited');
+
+      if (savedZoom && hasVisitedBefore) {
+        // Returning to edit view - restore previous zoom
+        setZoom(parseFloat(savedZoom));
+      } else {
+        // First time entering edit view - auto-fit
+        const newZoom = calculateAutoFitZoom();
+        setZoom(newZoom);
+        sessionStorage.setItem('editStepVisited', 'true');
+      }
+      hasInitialized.current = true;
+    }
+  }, [calculateAutoFitZoom]);
+
+  // Save zoom to sessionStorage when it changes (for restoration when returning)
+  useEffect(() => {
+    if (hasInitialized.current) {
+      sessionStorage.setItem('editStepZoom', zoom.toString());
+    }
+  }, [zoom]);
+
+  // Recalculate zoom on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const newZoom = calculateAutoFitZoom();
+      setZoom(newZoom);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateAutoFitZoom]);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
+  const handleZoomReset = () => setZoom(calculateAutoFitZoom());
 
   // Pick a random event for onboarding highlight
   const randomOnboardingEvent = useMemo(() => {
@@ -205,6 +269,38 @@ export const EditStep: React.FC<EditStepProps> = ({
              newEvent.color = existingEventWithSameCode.color;
            } else {
              // Assign new color based on unique course codes count
+             const uniqueTitles = Array.from(new Set(
+               events.filter(evt => evt.id !== selectedEventId).map(evt => evt.displayTitle)
+             ));
+             newEvent.color = themeColors[uniqueTitles.length % themeColors.length];
+           }
+        }
+
+        // If displayTitle changed directly (when showCourseSection is OFF), also update title
+        if (key === 'displayTitle') {
+           const newDisplayTitle = value.trim();
+           newEvent.displayTitle = newDisplayTitle;
+
+           // Preserve section number if it exists, otherwise just use the new displayTitle
+           const oldTitle = e.title;
+           const oldDisplayTitle = e.displayTitle;
+           if (oldTitle !== oldDisplayTitle && oldTitle.startsWith(oldDisplayTitle)) {
+             // Has section - preserve it: "CS 101 - 001" -> "NEW CODE - 001"
+             const sectionPart = oldTitle.slice(oldDisplayTitle.length);
+             newEvent.title = newDisplayTitle + sectionPart;
+           } else {
+             // No section - just update title to match
+             newEvent.title = newDisplayTitle;
+           }
+
+           // Find existing event with same displayTitle (course code) to reuse its color
+           const existingEventWithSameCode = events.find(
+             evt => evt.id !== selectedEventId && evt.displayTitle === newDisplayTitle
+           );
+
+           if (existingEventWithSameCode?.color) {
+             newEvent.color = existingEventWithSameCode.color;
+           } else {
              const uniqueTitles = Array.from(new Set(
                events.filter(evt => evt.id !== selectedEventId).map(evt => evt.displayTitle)
              ));
@@ -292,15 +388,6 @@ export const EditStep: React.FC<EditStepProps> = ({
 
     onUpdateEvents([...events, newEvent]);
     closeNewEventModal();
-  };
-
-  // Format time for display (12h or 24h)
-  const formatTimeForDisplay = (time: string): string => {
-    if (!useAmPmFormat) return time; // 24h format (default)
-    const [hours, minutes] = time.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   // Get color for a course code (find existing or assign new)
@@ -461,36 +548,107 @@ export const EditStep: React.FC<EditStepProps> = ({
   };
 
   return (
-    <div className="flex h-full gap-6">
+    <div
+      className="flex h-full min-h-0 gap-6"
+    >
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
-      <div className="flex-1 bg-gray-800/30 rounded-2xl p-4 overflow-auto custom-scrollbar border border-gray-700/50 flex items-start justify-center">
-        <CalendarCanvas
-          events={events}
-          template={template}
-          interactive={true}
-          onEventClick={handleEventClickWithPending}
-          onBlankClick={handleBlankClick}
-          showFullTitle={template.showCourseSection}
-          selectedEventId={selectedEventId}
-          onEventTimeChange={handleEventTimeChange}
-          onEventDragEnd={handleEventDragEnd}
-          onEmptyBlockClick={openNewEventModal}
-          hideUnselectedBorders={true}
-          overlappingEventIds={Array.from(overlappingEventIds)}
-          minTimeRange={{ start: 8, end: 18 }}
-          onboardingComponents={showEditOnboarding && randomOnboardingEvent ? { eventBlock: true } : undefined}
-          onboardingEventId={showEditOnboarding ? randomOnboardingEvent?.id : null}
-          eventBlockOnboardingMessage={
-            <>
-              Click to <strong>Drag</strong> and <strong>edit details</strong>
-            </>
-          }
-          onOnboardingOk={() => setShowEditOnboarding(false)}
-        />
+      <div
+        ref={canvasContainerRef}
+        className="flex-1 min-h-0 bg-gray-800/30 rounded-2xl border border-gray-700/50 relative"
+      >
+        {/* Zoom Toolbar - positioned outside scrollable area */}
+        {isZoomToolbarOpen && (
+          <div className="absolute top-4 right-4 z-50">
+            <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
+              <button
+                onClick={handleZoomOut}
+                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Zoom Out"
+              >
+                <ZoomOut size={16} className="mx-auto text-gray-200" />
+              </button>
+              <button
+                onClick={handleZoomReset}
+                className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Fit to View"
+              >
+                <span className="text-xs font-mono text-gray-100">
+                  {Math.round(zoom * 100)}%
+                </span>
+              </button>
+              <button
+                onClick={handleZoomIn}
+                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                title="Zoom In"
+              >
+                <ZoomIn size={16} className="mx-auto text-gray-200" />
+              </button>
+              <button
+                onClick={() => setIsZoomToolbarOpen(false)}
+                className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
+                title="Hide zoom controls"
+              >
+                <Minimize2 size={12} className="text-gray-200" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Collapsed zoom button */}
+        {!isZoomToolbarOpen && (
+          <button
+            onClick={() => setIsZoomToolbarOpen(true)}
+            className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-lg backdrop-blur-md transition-all hover:bg-slate-800/90 active:scale-95"
+            title="Show zoom controls"
+          >
+            <ZoomIn size={16} className="mx-auto text-gray-200" />
+          </button>
+        )}
+
+        {/* Scrollable canvas area */}
+        <div
+          className="absolute inset-0 p-6 overflow-auto overscroll-contain flex flex-col items-center"
+        >
+          {/* Zoom wrapper */}
+          <div
+            className="transition-all duration-200 origin-top"
+            style={
+              (supportsZoom
+                ? { zoom }
+                : { transform: `scale(${zoom})` }) as React.CSSProperties
+            }
+          >
+            <CalendarCanvas
+            events={events}
+            template={template}
+            interactive={true}
+            onEventClick={handleEventClickWithPending}
+            onBlankClick={handleBlankClick}
+            showFullTitle={template.showCourseSection}
+            selectedEventId={selectedEventId}
+            onEventTimeChange={handleEventTimeChange}
+            onEventDragEnd={handleEventDragEnd}
+            onEmptyBlockClick={openNewEventModal}
+            hideUnselectedBorders={true}
+            overlappingEventIds={Array.from(overlappingEventIds)}
+            minTimeRange={{ start: 8, end: 18 }}
+            onboardingComponents={showEditOnboarding && randomOnboardingEvent ? { eventBlock: true } : undefined}
+            onboardingEventId={showEditOnboarding ? randomOnboardingEvent?.id : null}
+            eventBlockOnboardingMessage={
+              <>
+                Click to <strong>Drag</strong> and <strong>edit details</strong>
+              </>
+            }
+            onOnboardingOk={() => setShowEditOnboarding(false)}
+            visualScale={supportsZoom ? 1 : zoom}
+            onDimensionsComputed={setCanvasDimensions}
+          />
+          </div>
+        </div>
       </div>
 
       {/* Right: Inspector Panel */}
-      <div className="w-96 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl flex-shrink-0">
+      <div className="w-96 h-full min-h-0 overflow-hidden bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl flex-shrink-0">
         <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900 z-10 rounded-t-2xl">
           <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Block' : 'Edit Calendar'}</h3>
           <div className="flex gap-2">
@@ -524,8 +682,12 @@ export const EditStep: React.FC<EditStepProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-          
+        <div
+          data-component="EditSidebar"
+          className="flex-1 h-0 overflow-y-auto overscroll-contain p-4 space-y-6 custom-scrollbar"
+          ref={editSidebarRef}
+        >
+
           {/* Global Toggles & Class Mapping */}
           {!selectedEvent && (
             <>
@@ -544,6 +706,59 @@ export const EditStep: React.FC<EditStepProps> = ({
 
                 {isAddCourseExpanded && (
                   <div className="space-y-4 mt-4">
+                    {/* Days of Week with Gradient Glow */}
+                    <div>
+                      <div className="flex gap-2">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => {
+                              const newSelectedDays = [...addCourseDraft.selectedDays];
+                              newSelectedDays[index] = !newSelectedDays[index];
+                              setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
+                              if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
+                            }}
+                            className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
+                          >
+                            {/* Gradient glow background when selected */}
+                            {addCourseDraft.selectedDays[index] && (
+                              <div
+                                className="absolute inset-0 rounded-lg opacity-80"
+                                style={{
+                                  background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                                }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-sm font-semibold transition-colors ${addCourseDraft.selectedDays[index]
+                                ? 'text-blue-300'
+                                : addCourseErrors.days
+                                  ? 'text-red-400/70'
+                                  : 'text-gray-500 hover:text-gray-300'
+                              }`}>
+                              {day}
+                            </span>
+                            {/* Checkbox indicator */}
+                            <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${addCourseDraft.selectedDays[index]
+                                ? 'border-blue-400 bg-blue-500'
+                                : addCourseErrors.days
+                                  ? 'border-red-400/50'
+                                  : 'border-gray-600'
+                              }`}>
+                              {addCourseDraft.selectedDays[index] && (
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      {addCourseErrors.days && (
+                        <p className="text-xs text-red-400 mt-1">{addCourseErrors.days}</p>
+                      )}
+                    </div>
+
                     {/* Course Code & Class Type - Same Line */}
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-1">Course Code & Type</label>
@@ -591,63 +806,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                       </div>
                     )}
 
-                    {/* Days of Week with Gradient Glow */}
-                    <div>
-                      <label className={`block text-xs font-medium mb-2 ${addCourseErrors.days ? 'text-red-400' : 'text-gray-400'}`}>
-                        Days
-                      </label>
-                      <div className="flex gap-2">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
-                              const newSelectedDays = [...addCourseDraft.selectedDays];
-                              newSelectedDays[index] = !newSelectedDays[index];
-                              setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
-                              if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
-                            }}
-                            className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
-                          >
-                            {/* Gradient glow background when selected */}
-                            {addCourseDraft.selectedDays[index] && (
-                              <div
-                                className="absolute inset-0 rounded-lg opacity-80"
-                                style={{
-                                  background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
-                                }}
-                              />
-                            )}
-                            <span className={`relative z-10 text-sm font-semibold transition-colors ${
-                              addCourseDraft.selectedDays[index]
-                                ? 'text-blue-300'
-                                : addCourseErrors.days
-                                  ? 'text-red-400/70'
-                                  : 'text-gray-500 hover:text-gray-300'
-                            }`}>
-                              {day}
-                            </span>
-                            {/* Checkbox indicator */}
-                            <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-                              addCourseDraft.selectedDays[index]
-                                ? 'border-blue-400 bg-blue-500'
-                                : addCourseErrors.days
-                                  ? 'border-red-400/50'
-                                  : 'border-gray-600'
-                            }`}>
-                              {addCourseDraft.selectedDays[index] && (
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      {addCourseErrors.days && (
-                        <p className="text-xs text-red-400 mt-1">{addCourseErrors.days}</p>
-                      )}
-                    </div>
+
 
                     {/* Start/End Time (24h format with text inputs) */}
                     <div>
@@ -772,18 +931,6 @@ export const EditStep: React.FC<EditStepProps> = ({
                         />
                       </div>
                     )}
-
-                    {/* AM/PM Time Format Toggle */}
-                    <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
-                      <ToggleSwitch
-                        enabled={useAmPmFormat}
-                        onToggle={() => setUseAmPmFormat(!useAmPmFormat)}
-                        label={<span className="flex items-center gap-2"><Clock size={12} /> AM/PM Format</span>}
-                      />
-                      <p className="text-[10px] text-gray-500 mt-1 ml-6">
-                        {useAmPmFormat ? 'Showing times as 2:00 PM' : 'Showing times as 14:00'}
-                      </p>
-                    </div>
 
                     {/* Compact View at top - toggles off other options when enabled */}
                     <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors border border-gray-700">
@@ -933,14 +1080,102 @@ export const EditStep: React.FC<EditStepProps> = ({
                 </div>
               )}
 
+              {/* Days Selection - Show current day and allow adding to other days */}
+              <div>
+                <div className="flex gap-2">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+                    const isCurrentDay = selectedEvent.dayIndex === index;
+                    // Check if this course already exists on this day (same course code AND class type)
+                    const existsOnDay = events.some(
+                      e => e.id !== selectedEvent.id &&
+                        e.displayTitle === selectedEvent.displayTitle &&
+                        e.classType === selectedEvent.classType &&
+                        e.dayIndex === index
+                    );
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          if (isCurrentDay) return; // Can't remove current day
+                          if (existsOnDay) {
+                            // Remove course from this day (same course code AND class type)
+                            const eventToRemove = events.find(
+                              e => e.id !== selectedEvent.id &&
+                                e.displayTitle === selectedEvent.displayTitle &&
+                                e.classType === selectedEvent.classType &&
+                                e.dayIndex === index
+                            );
+                            if (eventToRemove) {
+                              onUpdateEvents(events.filter(e => e.id !== eventToRemove.id));
+                            }
+                          } else {
+                            // Add course to this day (duplicate with new ID)
+                            const newEvent: CalendarEvent = {
+                              ...selectedEvent,
+                              id: `evt-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
+                              dayIndex: index,
+                            };
+                            onUpdateEvents([...events, newEvent]);
+                          }
+                        }}
+                        className={`flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1 ${isCurrentDay ? 'cursor-default' : 'cursor-pointer'
+                          }`}
+                        title={isCurrentDay ? 'Current day' : existsOnDay ? 'Click to remove from this day' : 'Click to add to this day'}
+                      >
+                        {/* Gradient glow background when selected */}
+                        {(isCurrentDay || existsOnDay) && (
+                          <div
+                            className="absolute inset-0 rounded-lg opacity-80"
+                            style={{
+                              background: isCurrentDay
+                                ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.5) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 70%)'
+                                : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                            }}
+                          />
+                        )}
+                        <span className={`relative z-10 text-sm font-semibold transition-colors ${isCurrentDay
+                            ? 'text-green-300'
+                            : existsOnDay
+                              ? 'text-blue-300'
+                              : 'text-gray-500 hover:text-gray-300'
+                          }`}>
+                          {day}
+                        </span>
+                        {/* Checkbox indicator */}
+                        <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isCurrentDay
+                            ? 'border-green-400 bg-green-500'
+                            : existsOnDay
+                              ? 'border-blue-400 bg-blue-500'
+                              : 'border-gray-600'
+                          }`}>
+                          {(isCurrentDay || existsOnDay) && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1.5 text-center">
+                  <span className="text-green-400">●</span> Current day &nbsp;
+                  <span className="text-blue-400">●</span> Click to add/remove from other days
+                </p>
+              </div>
+              
               {/* Course Info - Course Code with Class Type dropdown */}
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Course Code</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={selectedEvent.title}
-                    onChange={(e) => handleUpdateEvent('title', e.target.value)}
+                    value={template.showCourseSection ? selectedEvent.title : selectedEvent.displayTitle}
+                    onChange={(e) => handleUpdateEvent(
+                      template.showCourseSection ? 'title' : 'displayTitle',
+                      e.target.value
+                    )}
                     className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
                     placeholder="e.g. CS 101"
                   />
@@ -972,103 +1207,9 @@ export const EditStep: React.FC<EditStepProps> = ({
                 </div>
               )}
 
-              {/* Days Selection - Show current day and allow adding to other days */}
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-2">Days</label>
-                <div className="flex gap-2">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
-                    const isCurrentDay = selectedEvent.dayIndex === index;
-                    // Check if this course already exists on this day
-                    const existsOnDay = events.some(
-                      e => e.id !== selectedEvent.id &&
-                           e.displayTitle === selectedEvent.displayTitle &&
-                           e.dayIndex === index
-                    );
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => {
-                          if (isCurrentDay) return; // Can't remove current day
-                          if (existsOnDay) {
-                            // Remove course from this day
-                            const eventToRemove = events.find(
-                              e => e.id !== selectedEvent.id &&
-                                   e.displayTitle === selectedEvent.displayTitle &&
-                                   e.dayIndex === index
-                            );
-                            if (eventToRemove) {
-                              onUpdateEvents(events.filter(e => e.id !== eventToRemove.id));
-                            }
-                          } else {
-                            // Add course to this day (duplicate with new ID)
-                            const newEvent: CalendarEvent = {
-                              ...selectedEvent,
-                              id: `evt-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
-                              dayIndex: index,
-                            };
-                            onUpdateEvents([...events, newEvent]);
-                          }
-                        }}
-                        className={`flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1 ${
-                          isCurrentDay ? 'cursor-default' : 'cursor-pointer'
-                        }`}
-                        title={isCurrentDay ? 'Current day' : existsOnDay ? 'Click to remove from this day' : 'Click to add to this day'}
-                      >
-                        {/* Gradient glow background when selected */}
-                        {(isCurrentDay || existsOnDay) && (
-                          <div
-                            className="absolute inset-0 rounded-lg opacity-80"
-                            style={{
-                              background: isCurrentDay
-                                ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.5) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 70%)'
-                                : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
-                            }}
-                          />
-                        )}
-                        <span className={`relative z-10 text-sm font-semibold transition-colors ${
-                          isCurrentDay
-                            ? 'text-green-300'
-                            : existsOnDay
-                              ? 'text-blue-300'
-                              : 'text-gray-500 hover:text-gray-300'
-                        }`}>
-                          {day}
-                        </span>
-                        {/* Checkbox indicator */}
-                        <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-                          isCurrentDay
-                            ? 'border-green-400 bg-green-500'
-                            : existsOnDay
-                              ? 'border-blue-400 bg-blue-500'
-                              : 'border-gray-600'
-                        }`}>
-                          {(isCurrentDay || existsOnDay) && (
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[10px] text-gray-500 mt-1.5">
-                  <span className="text-green-400">●</span> Current day &nbsp;
-                  <span className="text-blue-400">●</span> Click to add/remove from other days
-                </p>
-              </div>
-
               {/* Timing with Save button */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-gray-400">Time</label>
-                  {useAmPmFormat && (
-                    <span className="text-[10px] text-gray-500">
-                      {formatTimeForDisplay(pendingTimeChanges?.startTime || selectedEvent.startTime)} - {formatTimeForDisplay(pendingTimeChanges?.endTime || selectedEvent.endTime)}
-                    </span>
-                  )}
-                </div>
+                <label className="text-xs font-medium text-gray-400">Time</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Start (24h)</label>

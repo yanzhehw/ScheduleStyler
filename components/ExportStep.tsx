@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
+import { DETECT_IF_ON_BOARDED } from '../config';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
@@ -22,8 +23,6 @@ interface ExportStepProps {
 }
 
 export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onUpdateEvents, onBack }) => {
-  const DETECT_IF_ON_BOARDED = false;
-  
   // Backgrounds from R2 storage
   const { landscapes, portraits, isLoading: isBackgroundsLoading, error: backgroundsError } = useBackgrounds();
 
@@ -283,6 +282,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [timeEditorPosition, setTimeEditorPosition] = useState<CalloutPosition | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const previewPanelRef = useRef<HTMLDivElement>(null);
+  const exportSidebarContentRef = useRef<HTMLDivElement>(null);
+  const fontPanelScrollRef = useRef<HTMLDivElement>(null);
 
   // Track previous theme family to detect changes
   const prevThemeFamilyRef = useRef<ThemeFamilyId>(template.themeFamily);
@@ -859,7 +860,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('[data-component="FontSelectorPanel"]')) {
+      if (!target.closest('[data-component="TextFontPanel"]')) {
         setOpenFontDropdown(null);
       }
     };
@@ -923,13 +924,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   };
 
   return (
-    <div data-component="ExportLayout" className="flex h-full gap-6 relative">
+    <div
+      data-component="ExportLayout"
+      className="flex h-full min-h-0 gap-6 relative"
+    >
       
       {/* PREVIEW PANEL - The dark container that holds the calendar preview */}
       <div
         data-component="PreviewPanel"
         ref={previewPanelRef}
-        className="flex-1 overflow-auto relative"
+        className="flex-1 min-h-0 overflow-auto overscroll-contain relative"
         onMouseDown={(e) => {
           const target = e.target as HTMLElement;
           if (colorPickerRef.current?.contains(target)) return;
@@ -1729,8 +1733,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       {/* TEXT FONT/COLORS PANEL - Shows between canvas and sidebar when editing fonts */}
       {showFontSelector && selectedEvent && (
         <div
-          data-component="FontSelectorPanel"
-          className="w-72 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
+          data-component="TextFontPanel"
+          className="w-72 min-h-0 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
           style={{ pointerEvents: 'auto' }}
           onClick={(e) => {
             // Close dropdowns when clicking on blank areas within the panel
@@ -1833,7 +1837,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Font & Color Selectors */}
-          <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+          <div
+            className="p-4 space-y-4 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar flex-1"
+            ref={fontPanelScrollRef}
+          >
 
             {/* Template Font Pairs Dropdown */}
             <div className="space-y-2" data-dropdown>
@@ -2328,11 +2335,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
       {/* HEADER/TIME COLUMN EDITORS - Inline callouts rendered in preview */}
       {/* SETTINGS SIDEBAR - Right panel with all style controls */}
-      <div 
-        data-component="SettingsSidebar"
+      <div
+        data-component="ExportSidebar"
         className={`
-         bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl transition-all duration-300
-         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 overflow-hidden border-0 p-0'}
+         min-h-0 overflow-hidden bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl transition-all duration-300
+         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 border-0 p-0'}
       `}>
         {/* SIDEBAR HEADER - Navigation and title */}
         <div data-component="SidebarHeader" className="p-4 border-b border-gray-800 flex justify-between items-center whitespace-nowrap">
@@ -2346,7 +2353,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         </div>
 
         {/* SIDEBAR CONTENT - Scrollable settings area */}
-        <div data-component="SidebarContent" className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
+        <div
+          data-component="ExportSidebarContent"
+          className="flex-1 h-0 overflow-y-auto overscroll-contain p-4 space-y-8 custom-scrollbar"
+          ref={exportSidebarContentRef}
+        >
           
           {/* Theme Selection */}
           <div className="space-y-3">
@@ -2959,6 +2970,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       {showBackgroundGallery && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
           <div
+            data-component="BackgroundGallery"
             className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
@@ -2974,7 +2986,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
 
             {/* Gallery Content */}
-            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+            <div className="flex-1 h-0 overflow-y-auto overscroll-contain p-5 custom-scrollbar">
               {/* Loading state */}
               {isBackgroundsLoading && (
                 <div className="flex items-center justify-center py-12">

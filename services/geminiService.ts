@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { CalendarEvent, Category, CATEGORY_COLORS, ClassType } from "../types";
+import { LOG_RESPONSES } from "../config";
 
 // Default client using env API key (for invite code mode)
 const defaultAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -85,18 +86,22 @@ export async function extractCalendarFromImage(base64Image: string, apiKey?: str
     if (!text) throw new Error("No response from Gemini");
 
     const data = JSON.parse(text) as { events: any[] };
-    
+
     // Log raw API response
-    console.log('=== Gemini API Raw Response ===');
-    console.log(JSON.stringify(data, null, 2));
-    
+    if (LOG_RESPONSES) {
+      console.log('=== Gemini API Raw Response ===');
+      console.log(JSON.stringify(data, null, 2));
+    }
+
     // Process using shared function
     const result = processRawEvents(data);
-    
+
     // Log processed events
-    console.log('=== Processed Events ===');
-    console.log(JSON.stringify(result.events, null, 2));
-    console.log(`Total: ${result.events.length} events, ${result.categories.length} categories`);
+    if (LOG_RESPONSES) {
+      console.log('=== Processed Events ===');
+      console.log(JSON.stringify(result.events, null, 2));
+      console.log(`Total: ${result.events.length} events, ${result.categories.length} categories`);
+    }
 
     return result;
 

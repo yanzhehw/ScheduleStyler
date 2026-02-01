@@ -11,6 +11,7 @@ import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 import { getDefaultLandscapeId } from './assets/backgrounds';
+import { LOG_RESPONSES } from './config';
 
 const DEFAULT_TEMPLATE: TemplateConfig = {
   id: 'default',
@@ -127,16 +128,19 @@ const App: React.FC = () => {
   };
 
   const handleLoadMcGillSample = () => {
-    // Process raw API data through the same pipeline as real API calls
-    console.log('=== McGill Sample - Raw API Response ===');
-    console.log(JSON.stringify(MCGILL_RAW_API_RESPONSE, null, 2));
+    if (LOG_RESPONSES) {
+      // Process raw API data through the same pipeline as real API calls
+      console.log('=== McGill Sample - Raw API Response ===');
+      console.log(JSON.stringify(MCGILL_RAW_API_RESPONSE, null, 2));
+    }
 
     const processed = processRawEvents(MCGILL_RAW_API_RESPONSE);
 
-    console.log('=== McGill Sample - Processed Events ===');
-    console.log(JSON.stringify(processed.events, null, 2));
-    console.log(`Total: ${processed.events.length} events, ${processed.categories.length} categories`);
-
+    if (LOG_RESPONSES) {
+      console.log('=== McGill Sample - Processed Events ===');
+      console.log(JSON.stringify(processed.events, null, 2));
+      console.log(`Total: ${processed.events.length} events, ${processed.categories.length} categories`);
+    }
     setEvents(processed.events);
     setCategories(processed.categories);
     setStep(AppStep.EDIT);
@@ -151,7 +155,7 @@ const App: React.FC = () => {
 
   return (
     <BackgroundsProvider>
-    <div className="min-h-screen flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
+    <div className="h-screen overflow-hidden flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
       
       {/* Header */}
       <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
@@ -186,7 +190,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 overflow-hidden">
+      <main className="flex-1 min-h-0 p-6 overflow-hidden">
         {step === AppStep.UPLOAD && (
           <UploadStep
             onFileSelect={handleFileUpload}
