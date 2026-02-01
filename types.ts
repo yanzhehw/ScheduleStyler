@@ -306,6 +306,7 @@ export interface CalendarEvent {
   location?: string;
   notes?: string;
   color?: string;    // Hex code
+  opacity?: number;  // Per-event opacity (0-1, undefined = use template.eventOpacity)
   isConfidenceLow?: boolean;
   includeNotes?: boolean; // Per-event override for showing notes (undefined = use global setting)
 }
@@ -325,7 +326,7 @@ export enum AppStep {
 }
 
 /** Theme family type */
-export type ThemeFamilyId = 'default' | 'glass' | 'midnight-slate' | 'matt' | 'acrylic';
+export type ThemeFamilyId = 'default' | 'glass' | 'acrylic';
 
 /** Theme variant type */
 export type ThemeVariantId = 'light' | 'dark';
@@ -432,6 +433,30 @@ export interface TemplateConfig {
 
   /** Custom text color for event block details (optional) */
   detailsTextColor?: string;
+
+  /** Bold setting for title text */
+  titleBold: boolean;
+
+  /** Italic setting for title text */
+  titleItalic: boolean;
+
+  /** Bold setting for subtitle text */
+  subtitleBold: boolean;
+
+  /** Italic setting for subtitle text */
+  subtitleItalic: boolean;
+
+  /** Bold setting for details text */
+  detailsBold: boolean;
+
+  /** Italic setting for details text */
+  detailsItalic: boolean;
+
+  /** Horizontal text alignment for event blocks */
+  textAlignHorizontal: 'left' | 'center' | 'right';
+
+  /** Vertical text alignment for event blocks */
+  textAlignVertical: 'top' | 'center' | 'bottom';
 
   /** Day header backdrop blur amount in pixels (0-20) */
   headerBlurAmount: number;

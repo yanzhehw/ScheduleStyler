@@ -4,7 +4,7 @@ import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, Check } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus } from 'lucide-react';
 import { getThemeColors } from '../themes';
 
 interface EditStepProps {
@@ -537,7 +537,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                   className="flex items-center justify-between w-full text-sm text-blue-300 font-medium hover:text-blue-200 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Plus size={14} /> Add Course
+                    <CirclePlus size={14} /> Add Course
                   </div>
                   {isAddCourseExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </button>
@@ -591,12 +591,12 @@ export const EditStep: React.FC<EditStepProps> = ({
                       </div>
                     )}
 
-                    {/* Days of Week with Checkboxes */}
+                    {/* Days of Week with Gradient Glow */}
                     <div>
                       <label className={`block text-xs font-medium mb-2 ${addCourseErrors.days ? 'text-red-400' : 'text-gray-400'}`}>
                         Days
                       </label>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
                           <button
                             key={day}
@@ -607,24 +607,40 @@ export const EditStep: React.FC<EditStepProps> = ({
                               setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
                               if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
                             }}
-                            className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-lg transition-all border ${
-                              addCourseDraft.selectedDays[index]
-                                ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
-                                : addCourseErrors.days
-                                  ? 'bg-gray-800 border-red-500/50 text-gray-400 hover:bg-gray-700'
-                                  : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-                            }`}
+                            className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
                           >
-                            <span className="text-xs font-medium">{day}</span>
-                            <span className={`w-4 h-4 rounded border flex items-center justify-center ${
+                            {/* Gradient glow background when selected */}
+                            {addCourseDraft.selectedDays[index] && (
+                              <div
+                                className="absolute inset-0 rounded-lg opacity-80"
+                                style={{
+                                  background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                                }}
+                              />
+                            )}
+                            <span className={`relative z-10 text-sm font-semibold transition-colors ${
                               addCourseDraft.selectedDays[index]
-                                ? 'bg-white border-white'
-                                : 'border-gray-500 bg-transparent'
+                                ? 'text-blue-300'
+                                : addCourseErrors.days
+                                  ? 'text-red-400/70'
+                                  : 'text-gray-500 hover:text-gray-300'
+                            }`}>
+                              {day}
+                            </span>
+                            {/* Checkbox indicator */}
+                            <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                              addCourseDraft.selectedDays[index]
+                                ? 'border-blue-400 bg-blue-500'
+                                : addCourseErrors.days
+                                  ? 'border-red-400/50'
+                                  : 'border-gray-600'
                             }`}>
                               {addCourseDraft.selectedDays[index] && (
-                                <Check size={12} className="text-blue-600" strokeWidth={3} />
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
                               )}
-                            </span>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -725,7 +741,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         onClick={handleBulkCreateCoursesWithValidation}
                         className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
                       >
-                        <Plus size={14} /> Add
+                        <CirclePlus size={14} /> Add
                       </button>
                     </div>
                   </div>
@@ -955,6 +971,93 @@ export const EditStep: React.FC<EditStepProps> = ({
                   />
                 </div>
               )}
+
+              {/* Days Selection - Show current day and allow adding to other days */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-2">Days</label>
+                <div className="flex gap-2">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+                    const isCurrentDay = selectedEvent.dayIndex === index;
+                    // Check if this course already exists on this day
+                    const existsOnDay = events.some(
+                      e => e.id !== selectedEvent.id &&
+                           e.displayTitle === selectedEvent.displayTitle &&
+                           e.dayIndex === index
+                    );
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          if (isCurrentDay) return; // Can't remove current day
+                          if (existsOnDay) {
+                            // Remove course from this day
+                            const eventToRemove = events.find(
+                              e => e.id !== selectedEvent.id &&
+                                   e.displayTitle === selectedEvent.displayTitle &&
+                                   e.dayIndex === index
+                            );
+                            if (eventToRemove) {
+                              onUpdateEvents(events.filter(e => e.id !== eventToRemove.id));
+                            }
+                          } else {
+                            // Add course to this day (duplicate with new ID)
+                            const newEvent: CalendarEvent = {
+                              ...selectedEvent,
+                              id: `evt-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
+                              dayIndex: index,
+                            };
+                            onUpdateEvents([...events, newEvent]);
+                          }
+                        }}
+                        className={`flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1 ${
+                          isCurrentDay ? 'cursor-default' : 'cursor-pointer'
+                        }`}
+                        title={isCurrentDay ? 'Current day' : existsOnDay ? 'Click to remove from this day' : 'Click to add to this day'}
+                      >
+                        {/* Gradient glow background when selected */}
+                        {(isCurrentDay || existsOnDay) && (
+                          <div
+                            className="absolute inset-0 rounded-lg opacity-80"
+                            style={{
+                              background: isCurrentDay
+                                ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.5) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 70%)'
+                                : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                            }}
+                          />
+                        )}
+                        <span className={`relative z-10 text-sm font-semibold transition-colors ${
+                          isCurrentDay
+                            ? 'text-green-300'
+                            : existsOnDay
+                              ? 'text-blue-300'
+                              : 'text-gray-500 hover:text-gray-300'
+                        }`}>
+                          {day}
+                        </span>
+                        {/* Checkbox indicator */}
+                        <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                          isCurrentDay
+                            ? 'border-green-400 bg-green-500'
+                            : existsOnDay
+                              ? 'border-blue-400 bg-blue-500'
+                              : 'border-gray-600'
+                        }`}>
+                          {(isCurrentDay || existsOnDay) && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1.5">
+                  <span className="text-green-400">●</span> Current day &nbsp;
+                  <span className="text-blue-400">●</span> Click to add/remove from other days
+                </p>
+              </div>
 
               {/* Timing with Save button */}
               <div className="space-y-2">

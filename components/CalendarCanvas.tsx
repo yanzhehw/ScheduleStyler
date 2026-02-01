@@ -1608,6 +1608,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         onClick={() => interactive && onEventClick && onEventClick(event)}
                         onMouseDown={(e) => handleEventMouseDown(event, e)}
                         className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
+                          ${template.textAlignVertical === 'center' ? 'justify-center' : template.textAlignVertical === 'bottom' ? 'justify-end' : 'justify-start'}
                           ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
                           ${canDrag ? 'cursor-grab' : ''}
                           ${isDragging ? 'cursor-grabbing' : ''}
@@ -1617,24 +1618,30 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                           top: `${topPercent}%`,
                           height: `${heightPercent}%`,
                           // Apply acrylic effect for acrylic theme
-                          ...(template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground
-                            ? {
+                          // Use per-event opacity if set, otherwise fall back to template.eventOpacity
+                          ...((() => {
+                            const eventOpacity = event.opacity ?? template.eventOpacity;
+                            if (template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground) {
+                              return {
                                 // Use event color with opacity based on eventOpacity setting
-                                background: `${event.color}${Math.round(template.eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
+                                background: `${event.color}${Math.round(eventOpacity * 0.35 * 255).toString(16).padStart(2, '0')}`,
                                 boxShadow: currentTheme.eventBlock.shadow,
                                 border: template.eventBlockNoBorders ? 'none' : currentTheme.eventBlock.border,
                                 overflow: 'hidden',
-                              }
-                            : template.themeFamily === 'glass'
-                            ? {
-                                backgroundColor: `${event.color}${Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0')}`,
+                              };
+                            } else if (template.themeFamily === 'glass') {
+                              return {
+                                backgroundColor: `${event.color}${Math.round(eventOpacity * 255).toString(16).padStart(2, '0')}`,
                                 borderColor: template.eventBlockNoBorders ? 'transparent' : 'rgba(255,255,255,0.2)',
                                 overflow: 'hidden',
-                              }
-                            : {
-                                backgroundColor: event.color + Math.round(template.eventOpacity * 255).toString(16).padStart(2, '0'),
+                              };
+                            } else {
+                              return {
+                                backgroundColor: event.color + Math.round(eventOpacity * 255).toString(16).padStart(2, '0'),
                                 borderColor: 'rgba(0,0,0,0.1)',
-                              }),
+                              };
+                            }
+                          })()),
                           ...(isOverlapping
                             ? {
                                 borderColor: 'rgba(239, 68, 68, 0.95)',
@@ -1698,12 +1705,17 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                           />
                         )}
                         {!hideTextContent && (
-                          <div className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10">
+                          <div
+                            className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10"
+                            style={{ textAlign: template.textAlignHorizontal }}
+                          >
                             <div
-                              className="font-bold leading-none uppercase tracking-wide break-words"
+                              className="leading-none uppercase tracking-wide break-words"
                               style={{
                                 fontSize: `${template.titleFontSize}px`,
                                 fontFamily: template.titleFont,
+                                fontWeight: template.titleBold ? 700 : 400,
+                                fontStyle: template.titleItalic ? 'italic' : 'normal',
                                 color: template.titleTextColor || (template.themeFamily === 'acrylic'
                                   ? currentTheme.eventBlock.titleColor
                                   : '#1f2937')
@@ -1716,10 +1728,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             {/* Class Type Label */}
                             {template.showClassType && (
                               <div
-                                className="font-semibold opacity-90"
+                                className="opacity-90"
                                 style={{
                                   fontSize: `${template.subtitleFontSize}px`,
                                   fontFamily: template.subtitleFont,
+                                  fontWeight: template.subtitleBold ? 600 : 400,
+                                  fontStyle: template.subtitleItalic ? 'italic' : 'normal',
                                   color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
                                     ? currentTheme.eventBlock.subtitleColor
                                     : '#1f2937'),
@@ -1738,27 +1752,30 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             style={{
                               fontSize: `${template.detailsFontSize}px`,
                               fontFamily: template.detailsFont,
+                              fontWeight: template.detailsBold ? 600 : 400,
+                              fontStyle: template.detailsItalic ? 'italic' : 'normal',
                               color: template.detailsTextColor || (template.themeFamily === 'acrylic'
                                 ? currentTheme.eventBlock.detailsColor
                                 : '#374151'),
-                              marginTop: '2px'
+                              marginTop: '2px',
+                              textAlign: template.textAlignHorizontal,
                             }}
                           >
                             {template.showTime && (
-                              <div className="flex items-center gap-1 font-mono opacity-80">
+                              <div className={`flex items-center gap-1 font-mono opacity-80 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
                                  <span>{event.startTime} - {event.endTime}</span>
                               </div>
                             )}
 
                             {template.showLocation && event.location && (
-                              <div className="flex items-start gap-1 opacity-75">
+                              <div className={`flex items-start gap-1 opacity-75 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
                                 <MapPin size={10} className="mt-0.5 shrink-0" />
                                 <span className="break-words">{event.location}</span>
                               </div>
                             )}
 
                             {(event.includeNotes ?? template.showNotes) && event.notes && (
-                               <div className="flex items-start gap-1 opacity-75 border-t border-black/10" style={{ marginTop: '2px', paddingTop: '2px' }}>
+                               <div className={`flex items-start gap-1 opacity-75 border-t border-black/10 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`} style={{ marginTop: '2px', paddingTop: '2px' }}>
                                  <AlignLeft size={10} className="mt-0.5 shrink-0" />
                                  <span className="line-clamp-4 leading-tight break-words">{event.notes}</span>
                                </div>
