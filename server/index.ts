@@ -3,12 +3,13 @@ import { env } from "./env";
 
 import express from "express";
 import cors from "cors";
-import { adaptVercelHandler } from "./vercel-adapter";
+import { adaptVercelHandler, adaptVercelHandlerWithParams } from "./vercel-adapter";
 
 // Import Vercel API handlers (centralized source of truth)
 import * as redeem from "../api/redeem";
 import * as markUsed from "../api/mark-used";
 import * as backgroundsIndex from "../api/backgrounds/index";
+import * as backgroundsFile from "../api/backgrounds/[type]/[filename]";
 import * as trackDownload from "../api/track/download";
 import * as trackUser from "../api/track/user";
 import * as trackStats from "../api/track/stats";
@@ -28,6 +29,7 @@ app.use(express.json());
 app.all("/api/redeem", adaptVercelHandler(redeem));
 app.all("/api/mark-used", adaptVercelHandler(markUsed));
 app.all("/api/backgrounds", adaptVercelHandler(backgroundsIndex));
+app.all("/api/backgrounds/:type/:filename", adaptVercelHandlerWithParams(backgroundsFile));
 app.all("/api/track/download", adaptVercelHandler(trackDownload));
 app.all("/api/track/user", adaptVercelHandler(trackUser));
 app.all("/api/track/stats", adaptVercelHandler(trackStats));
