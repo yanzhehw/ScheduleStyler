@@ -3,11 +3,16 @@ import { env } from "./env";
 
 import express from "express";
 import cors from "cors";
-import { redeemRouter } from "./routes/redeem";
-import { markUsedRouter } from "./routes/mark-used";
-import { backgroundsRouter } from "./routes/backgrounds";
-import { trackRouter } from "./routes/track";
-import { githubWebhookRouter } from "./routes/github-webhook";
+import { adaptVercelHandler } from "./vercel-adapter";
+
+// Import Vercel API handlers (centralized source of truth)
+import * as redeem from "../api/redeem";
+import * as markUsed from "../api/mark-used";
+import * as backgroundsIndex from "../api/backgrounds/index";
+import * as trackDownload from "../api/track/download";
+import * as trackUser from "../api/track/user";
+import * as trackStats from "../api/track/stats";
+import * as githubWebhook from "../api/webhooks/github";
 
 const app = express();
 const PORT = env.SERVER_PORT;
@@ -19,12 +24,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Routes
-app.use("/api/redeem", redeemRouter);
-app.use("/api/mark-used", markUsedRouter);
-app.use("/api/backgrounds", backgroundsRouter);
-app.use("/api/track", trackRouter);
-app.use("/api/webhooks/github", githubWebhookRouter);
+// Routes - adapted from Vercel serverless functions
+app.all("/api/redeem", adaptVercelHandler(redeem));
+app.all("/api/mark-used", adaptVercelHandler(markUsed));
+app.all("/api/backgrounds", adaptVercelHandler(backgroundsIndex));
+app.all("/api/track/download", adaptVercelHandler(trackDownload));
+app.all("/api/track/user", adaptVercelHandler(trackUser));
+app.all("/api/track/stats", adaptVercelHandler(trackStats));
+app.all("/api/webhooks/github", adaptVercelHandler(githubWebhook));
 
 // Health check
 app.get("/api/health", (_req, res) => {

@@ -51,7 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  console.log(`[webhooks/github] Received event: ${event}, action: ${req.body.action}`);
+  const senderLogin = req.body.sender?.login as string | undefined;
+  console.log(`[webhooks/github] Received event: ${event}, action: ${req.body.action}, sender: ${senderLogin}`);
+  console.log('[webhooks/github] Full sender object:', JSON.stringify(req.body.sender, null, 2));
 
   // Handle star events - must complete BEFORE responding (Vercel terminates after response)
   if (event === 'star') {
@@ -61,18 +63,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const supabase = getSupabase();
 
       if (action === 'created') {
-        const { error } = await supabase.rpc('increment_counter', { counter_id: 'stars' });
-        if (error) {
-          console.error('[webhooks/github] Failed to increment stars:', error.message);
+        // Increment star counter
+        console.log('[webhooks/github] Processing star created event...');
+        const { error: counterError } = await supabase.rpc('increment_counter', { counter_id: 'stars' });
+        if (counterError) {
+          console.error('[webhooks/github] Failed to increment stars:', counterError.message, counterError);
         } else {
-          console.log('[webhooks/github] ⭐ Star added successfully');
+          console.log('[webhooks/github] ⭐ Star counter incremented');
+        }
+
+        // Add GitHub username as invitation code
+        console.log(`[webhooks/github] senderLogin value: "${senderLogin}", type: ${typeof senderLogin}`);
+        if (senderLogin) {
+          console.log(`[webhooks/github] Attempting to upsert passcode for: ${senderLogin}`);
+          const { data: passcodeData, error: passcodeError } = await supabase
+            .from('passcodes')
+            .upsert(
+              { code: senderLogin, status: 'READY' },
+              { onConflict: 'code', ignoreDuplicates: true }
+            )
+            .select();
+
+          console.log('[webhooks/github] Upsert result:', { data: passcodeData, error: passcodeError });
+
+          if (passcodeError) {
+            console.error('[webhooks/github] Failed to create passcode:', passcodeError.message, passcodeError);
+          } else {
+            console.log(`[webhooks/github] ✅ Passcode upsert completed for ${senderLogin}, data:`, passcodeData);
+          }
+        } else {
+          console.warn('[webhooks/github] senderLogin is empty/undefined, skipping passcode creation');
         }
       } else if (action === 'deleted') {
-        const { error } = await supabase.rpc('decrement_counter', { counter_id: 'stars' });
-        if (error) {
-          console.error('[webhooks/github] Failed to decrement stars:', error.message);
+        // Decrement star counter
+        const { error: counterError } = await supabase.rpc('decrement_counter', { counter_id: 'stars' });
+        if (counterError) {
+          console.error('[webhooks/github] Failed to decrement stars:', counterError.message);
         } else {
-          console.log('[webhooks/github] Star removed successfully');
+          console.log('[webhooks/github] Star counter decremented');
+        }
+
+        // Mark passcode as USED (don't delete)
+        if (senderLogin) {
+          const { error: passcodeError } = await supabase
+            .from('passcodes')
+            .update({ status: 'USED' })
+            .eq('code', senderLogin);
+
+          if (passcodeError) {
+            console.error('[webhooks/github] Failed to mark passcode as used:', passcodeError.message);
+          } else {
+            console.log(`[webhooks/github] Passcode marked as USED for ${senderLogin}`);
+          }
         }
       }
     } catch (err) {

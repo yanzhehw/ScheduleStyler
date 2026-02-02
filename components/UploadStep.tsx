@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer } from 'lucide-react';
+import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer, Star } from 'lucide-react';
 import { TextShimmer } from './ui/text-shimmer';
 import { ElectricBorder } from './ui/electric-border';
 
@@ -295,6 +295,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                     {activationError && (
                       <p className="text-xs text-rose-400">{activationError}</p>
                     )}
+                    {/* GitHub star hint */}
+                    <a
+                      href="https://github.com/yanzhehw/ScheduleStyler"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs text-slate-400 hover:text-blue-400 transition-colors mt-1"
+                    >
+                      <Star size={14} className="text-yellow-400" />
+                      <span>Star on GitHub to use your username invitation code</span>
+                    </a>
                   </div>
                 ) : (
                   <div className="space-y-2">
