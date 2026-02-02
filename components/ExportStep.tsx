@@ -932,6 +932,9 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const handleZoomReset = () => setZoom(1);
 
   const handleDownload = async () => {
+    // Fire-and-forget download tracking
+    fetch('/api/track/download', { method: 'POST' });
+
     setIsExporting(true);
     // Allow React to render the hidden export canvas with exportMode=true
     // Longer timeout to ensure fonts are loaded
