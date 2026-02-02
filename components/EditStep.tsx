@@ -148,12 +148,17 @@ export const EditStep: React.FC<EditStepProps> = ({
   const [showEditOnboarding, setShowEditOnboarding] = useState(true);
   const [onboardingEventId, setOnboardingEventId] = useState<string | null>(null);
 
+  // Re-upload confirmation state
+  const [showReuploadConfirm, setShowReuploadConfirm] = useState(false);
+
   // Zoom state for edit view
   const [zoom, setZoom] = useState(1);
+  const [isZoomReady, setIsZoomReady] = useState(false); // Prevents initial zoom glitch
   const [isZoomToolbarOpen, setIsZoomToolbarOpen] = useState(true);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 600, minCardWidth: 800, minCardHeight: 600 });
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
+  const hasAppliedInitialZoom = useRef(false);
 
   // Bounce effect for canvas and sidebar using shared hook
   const canvasBounce = useOverscrollBounce();
@@ -166,7 +171,10 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   // Calculate auto-fit zoom to contain the full calendar
   const calculateAutoFitZoom = useCallback(() => {
-    if (!canvasContainerRef.current) return 1;
+    if (!canvasContainerRef.current) {
+      console.log('[EditStep] calculateAutoFitZoom: container not ready');
+      return 1;
+    }
     const container = canvasContainerRef.current;
     const containerWidth = container.clientWidth - 48; // padding
     const containerHeight = container.clientHeight - 48;
@@ -174,8 +182,14 @@ export const EditStep: React.FC<EditStepProps> = ({
     const scaleX = containerWidth / canvasDimensions.width;
     const scaleY = containerHeight / canvasDimensions.height;
 
-    // Use the smaller scale to fit both dimensions, cap between 0.3 and 1.5
-    return Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
+    const result = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
+    console.log('[EditStep] calculateAutoFitZoom:', {
+      containerWidth, containerHeight,
+      canvasWidth: canvasDimensions.width,
+      canvasHeight: canvasDimensions.height,
+      scaleX, scaleY, result
+    });
+    return result;
   }, [canvasDimensions.width, canvasDimensions.height]);
 
   // Calculate optimal aspect ratio based on container dimensions to best fit
@@ -210,51 +224,65 @@ export const EditStep: React.FC<EditStepProps> = ({
   const templateRef = useRef(template);
   templateRef.current = template;
 
-  // Track if we need to recalculate zoom after aspect ratio change
-  const needsZoomRecalc = useRef(false);
+  // Track the last computed dimensions to detect real changes
+  const lastComputedDimensions = useRef({ width: 0, height: 0 });
 
-  // On mount: first set optimal aspect ratio, zoom will be calculated after canvas updates
+  // On mount: set optimal aspect ratio
   useEffect(() => {
     if (!hasInitialized.current) {
-      // Always recalculate and set optimal aspect ratio first when entering edit view
       const optimalAR = calculateOptimalAspectRatio();
+      console.log('[EditStep] Mount - optimal AR:', optimalAR);
       if (optimalAR !== null) {
         onUpdateTemplate({ ...templateRef.current, aspectRatio: optimalAR });
       }
-
-      // Mark that we need to calculate zoom after canvas dimensions update
-      needsZoomRecalc.current = true;
       hasInitialized.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // After canvas dimensions update (due to aspect ratio change), calculate zoom
+  // Apply auto-fit zoom when canvas dimensions actually change from CalendarCanvas
   useEffect(() => {
-    if (needsZoomRecalc.current && canvasDimensions.width > 0 && canvasDimensions.height > 0) {
-      const savedZoom = sessionStorage.getItem('editStepZoom');
-      const hasVisitedBefore = sessionStorage.getItem('editStepVisited');
+    const { width, height } = canvasDimensions;
+    const lastWidth = lastComputedDimensions.current.width;
+    const lastHeight = lastComputedDimensions.current.height;
 
-      if (savedZoom && hasVisitedBefore) {
-        // Returning to edit view - restore previous zoom
-        setZoom(parseFloat(savedZoom));
-      } else {
-        // First time entering edit view - auto-fit zoom based on new canvas dimensions
-        const newZoom = calculateAutoFitZoom();
-        setZoom(newZoom);
-        sessionStorage.setItem('editStepVisited', 'true');
-      }
+    // Only proceed if dimensions actually changed (not initial default values)
+    const dimensionsChanged = width !== lastWidth || height !== lastHeight;
+    const isValidDimensions = width > 0 && height > 0;
 
-      needsZoomRecalc.current = false;
+    console.log('[EditStep] Dimensions effect:', {
+      width, height, lastWidth, lastHeight,
+      dimensionsChanged, isValidDimensions,
+      hasAppliedInitialZoom: hasAppliedInitialZoom.current,
+      containerReady: !!canvasContainerRef.current
+    });
+
+    if (dimensionsChanged && isValidDimensions) {
+      lastComputedDimensions.current = { width, height };
+
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        if (canvasContainerRef.current) {
+          const newZoom = calculateAutoFitZoom();
+          console.log('[EditStep] Applying zoom:', newZoom);
+          setZoom(newZoom);
+          hasAppliedInitialZoom.current = true;
+          // Wait for React to apply the zoom before revealing canvas
+          // Use requestAnimationFrame to ensure render cycle completes
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (!isZoomReady) {
+                setIsZoomReady(true);
+              }
+            });
+          });
+        } else {
+          console.log('[EditStep] Container ref not ready');
+        }
+      }, 50);
     }
   }, [canvasDimensions.width, canvasDimensions.height, calculateAutoFitZoom]);
 
-  // Save zoom to sessionStorage when it changes (for restoration when returning)
-  useEffect(() => {
-    if (hasInitialized.current) {
-      sessionStorage.setItem('editStepZoom', zoom.toString());
-    }
-  }, [zoom]);
 
   // Recalculate zoom on window resize (aspect ratio stays as user-set)
   useEffect(() => {
@@ -685,14 +713,16 @@ export const EditStep: React.FC<EditStepProps> = ({
         >
           {/* Bounce wrapper */}
           <div style={getBounceStyle(canvasBounce.bounceOffset, canvasBounce.isReleasing)}>
-            {/* Zoom wrapper */}
+            {/* Zoom wrapper - hidden until initial zoom is calculated to prevent glitch */}
             <div
-              className="transition-all duration-200 origin-top"
-              style={
-                (supportsZoom
+              className="origin-top"
+              style={{
+                ...(supportsZoom
                   ? { zoom }
-                  : { transform: `scale(${zoom})` }) as React.CSSProperties
-              }
+                  : { transform: `scale(${zoom})` }),
+                opacity: isZoomReady ? 1 : 0,
+                transition: 'opacity 150ms ease-out',
+              } as React.CSSProperties}
             >
             <CalendarCanvas
             events={events}
@@ -730,7 +760,7 @@ export const EditStep: React.FC<EditStepProps> = ({
           <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Block' : 'Edit Calendar'}</h3>
           <div className="flex gap-2">
             {!selectedEvent && (
-              <button onClick={onReupload} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
+              <button onClick={() => setShowReuploadConfirm(true)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
                 <Upload size={14} />
                 Re-upload
               </button>
@@ -1469,6 +1499,38 @@ export const EditStep: React.FC<EditStepProps> = ({
                 className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
               >
                 Proceed with Overlap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReuploadConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-white font-semibold">Re-upload schedule?</h4>
+                <p className="text-sm text-gray-400 mt-1">
+                  Your current progress will be lost. Are you sure you want to continue?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-5">
+              <button
+                onClick={() => setShowReuploadConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowReuploadConfirm(false);
+                  onReupload();
+                }}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+              >
+                Proceed
               </button>
             </div>
           </div>

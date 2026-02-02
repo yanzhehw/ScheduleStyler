@@ -509,8 +509,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     const family = template.themeFamily;
     const hasCustomBg = template.backgroundType !== 'none';
 
-    // For acrylic, we'll handle background via inline styles
-    if (family === 'acrylic') {
+    // For acrylic and solid-grain, we'll handle background via inline styles
+    if (family === 'acrylic' || family === 'solid-grain') {
       return variant === 'light'
         ? 'text-gray-900 border-gray-200'
         : 'text-gray-100 border-gray-700';
@@ -689,21 +689,23 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       height: `${cardDimensions.height}px`,
     };
 
-    // When custom background is set, make canvas transparent
-    if (template.backgroundType !== 'none') {
-      return {
-        ...baseStyles,
-        background: 'transparent',
-      };
-    }
-
-    // Apply acrylic canvas background
-    if (template.themeFamily === 'acrylic') {
+    // Solid-grain has its own colored canvas background with grain texture
+    if (template.themeFamily === 'solid-grain') {
       return {
         ...baseStyles,
         background: currentTheme.canvas.background,
-        backgroundSize: currentTheme.canvas.backgroundSize || 'cover',
+        backgroundSize: currentTheme.canvas.backgroundSize || 'auto',
         backgroundPosition: currentTheme.canvas.backgroundPosition || 'center',
+        backgroundBlendMode: currentTheme.canvas.backgroundBlendMode,
+      };
+    }
+
+    // When custom background is set, or using acrylic/solid-grain theme, make canvas transparent
+    // (both themes apply grain texture to event blocks, not canvas)
+    if (template.backgroundType !== 'none' || template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') {
+      return {
+        ...baseStyles,
+        background: 'transparent',
       };
     }
 
@@ -1621,6 +1623,19 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                           // Use per-event opacity if set, otherwise fall back to template.eventOpacity
                           ...((() => {
                             const eventOpacity = event.opacity ?? template.eventOpacity;
+                            // Solid-grain: uses backgroundOpacity + optional gradient, NO acrylicBackground
+                            if (template.themeFamily === 'solid-grain') {
+                              const bgOpacity = currentTheme.eventBlock.backgroundOpacity ?? 0.7;
+                              return {
+                                background: currentTheme.eventBlock.gradient
+                                  ? `${currentTheme.eventBlock.gradient}, ${event.color}${Math.round(eventOpacity * bgOpacity * 255).toString(16).padStart(2, '0')}`
+                                  : `${event.color}${Math.round(eventOpacity * bgOpacity * 255).toString(16).padStart(2, '0')}`,
+                                boxShadow: currentTheme.eventBlock.shadow,
+                                border: template.eventBlockNoBorders ? 'none' : currentTheme.eventBlock.border,
+                                overflow: 'hidden',
+                              };
+                            }
+                            // Acrylic: uses acrylicBackground overlay approach
                             if (template.themeFamily === 'acrylic' && currentTheme.eventBlock.acrylicBackground) {
                               return {
                                 // Use event color with opacity based on eventOpacity setting
@@ -1667,8 +1682,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                           userSelect: isDragging ? 'none' : 'auto',
                         }}
                       >
-                        {/* Backdrop blur layer for acrylic/glass themes */}
-                        {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+                        {/* Backdrop blur layer for acrylic/solid-grain/glass themes */}
+                        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
                           <div
                             style={{
                               position: 'absolute',
@@ -1680,8 +1695,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                   ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.3) 100%)'
                                   : 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)',
                               } : {
-                                backdropFilter: `blur(${12 * blurScale}px)`,
-                                WebkitBackdropFilter: `blur(${12 * blurScale}px)`,
+                                // Solid-grain uses lighter blur (8px) since canvas provides presence
+                                // Acrylic uses heavier blur (30px) for frosted effect
+                                backdropFilter: template.themeFamily === 'solid-grain'
+                                  ? `blur(${8 * blurScale}px)`
+                                  : `blur(${12 * blurScale}px)`,
+                                WebkitBackdropFilter: template.themeFamily === 'solid-grain'
+                                  ? `blur(${8 * blurScale}px)`
+                                  : `blur(${12 * blurScale}px)`,
                               }),
                               pointerEvents: 'none',
                               borderRadius: 'inherit',
@@ -1689,8 +1710,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             }}
                           />
                         )}
-                        {/* Grain texture overlay for acrylic theme */}
-                        {template.themeFamily === 'acrylic' && (
+                        {/* Grain texture overlay for acrylic and solid-grain themes (grain on blocks only) */}
+                        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && (
                           <div
                             style={{
                               position: 'absolute',
@@ -1716,7 +1737,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                 fontFamily: template.titleFont,
                                 fontWeight: template.titleBold ? 700 : 400,
                                 fontStyle: template.titleItalic ? 'italic' : 'normal',
-                                color: template.titleTextColor || (template.themeFamily === 'acrylic'
+                                color: template.titleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
                                   ? currentTheme.eventBlock.titleColor
                                   : '#1f2937')
                               }}
@@ -1734,7 +1755,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                   fontFamily: template.subtitleFont,
                                   fontWeight: template.subtitleBold ? 600 : 400,
                                   fontStyle: template.subtitleItalic ? 'italic' : 'normal',
-                                  color: template.subtitleTextColor || (template.themeFamily === 'acrylic'
+                                  color: template.subtitleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
                                     ? currentTheme.eventBlock.subtitleColor
                                     : '#1f2937'),
                                   marginTop: '2px'
@@ -1754,7 +1775,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                               fontFamily: template.detailsFont,
                               fontWeight: template.detailsBold ? 600 : 400,
                               fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                              color: template.detailsTextColor || (template.themeFamily === 'acrylic'
+                              color: template.detailsTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
                                 ? currentTheme.eventBlock.detailsColor
                                 : '#374151'),
                               marginTop: '2px',
@@ -1762,20 +1783,20 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             }}
                           >
                             {template.showTime && (
-                              <div className={`flex items-center gap-1 font-mono opacity-80 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
+                              <div className={`flex items-center gap-1 font-mono opacity-80 w-full ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
                                  <span>{event.startTime} - {event.endTime}</span>
                               </div>
                             )}
 
                             {template.showLocation && event.location && (
-                              <div className={`flex items-start gap-1 opacity-75 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
+                              <div className={`flex items-start gap-1 opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
                                 <MapPin size={10} className="mt-0.5 shrink-0" />
                                 <span className="break-words">{event.location}</span>
                               </div>
                             )}
 
                             {(event.includeNotes ?? template.showNotes) && event.notes && (
-                               <div className={`flex items-start gap-1 opacity-75 border-t border-black/10 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`} style={{ marginTop: '2px', paddingTop: '2px' }}>
+                               <div className={`flex items-start gap-1 opacity-75 border-t border-black/10 w-full ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`} style={{ marginTop: '2px', paddingTop: '2px' }}>
                                  <AlignLeft size={10} className="mt-0.5 shrink-0" />
                                  <span className="line-clamp-4 leading-tight break-words">{event.notes}</span>
                                </div>
@@ -1810,7 +1831,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             />
                             <div className="relative group bg-cyan-500/20 border border-cyan-500/35 rounded-lg p-2.5 text-xs text-cyan-200/90 backdrop-blur-md max-w-[350px]">
                               {eventBlockOnboardingMessage ? (
-                                <p className="break-words">
+                                <p className="whitespace-nowrap">
                                   <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
                                   {eventBlockOnboardingMessage}
                                 </p>

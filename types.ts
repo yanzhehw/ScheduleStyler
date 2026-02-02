@@ -28,6 +28,8 @@ export interface CanvasTheme {
   backgroundSize?: string;
   /** Optional background position (e.g., "center", "top left") */
   backgroundPosition?: string;
+  /** Optional background blend mode (e.g., "overlay", "multiply") */
+  backgroundBlendMode?: string;
   border: CSSBorder;
   borderRadius: CSSBorderRadius;
   shadow: CSSBoxShadow;
@@ -326,7 +328,7 @@ export enum AppStep {
 }
 
 /** Theme family type */
-export type ThemeFamilyId = 'default' | 'glass' | 'acrylic';
+export type ThemeFamilyId = 'default' | 'glass' | 'acrylic' | 'solid-grain';
 
 /** Theme variant type */
 export type ThemeVariantId = 'light' | 'dark';

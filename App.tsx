@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Star } from 'lucide-react';
 import { AppStep, CalendarEvent, Category, TemplateConfig, CATEGORY_COLORS } from './types';
 import { extractCalendarFromImage } from './services/geminiService';
 import { convertFileToBase64 } from './services/imageUtils';
@@ -12,6 +13,10 @@ import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 import { getDefaultLandscapeId } from './assets/backgrounds';
 import { LOG_RESPONSES } from './config';
+
+// Placeholder star count - will be replaced with real API
+const GITHUB_STAR_COUNT = '2';
+const GITHUB_REPO_URL = 'https://github.com/yanzhehw/ScheduleStyler';
 
 const DEFAULT_TEMPLATE: TemplateConfig = {
   id: 'default',
@@ -153,6 +158,13 @@ const App: React.FC = () => {
     setStep(AppStep.EDIT);
   };
 
+  // DEV: Mock waiting state for testing the loading UI
+  const handleMockWaiting = () => {
+    setIsProcessing(true);
+    // Auto-reset after 15 seconds (or manually navigate away)
+    setTimeout(() => setIsProcessing(false), 15000);
+  };
+
   return (
     <BackgroundsProvider>
     <div className="h-screen overflow-hidden flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
@@ -177,7 +189,7 @@ const App: React.FC = () => {
                <div key={s} className="flex items-center gap-2">
                  <div className={`
                     px-3 py-1 rounded-full text-xs font-semibold transition-all
-                    ${isActive ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' : 
+                    ${isActive ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' :
                       isPast ? 'bg-gray-800 text-gray-400' : 'text-gray-600'}
                  `}>
                    {idx + 1}. {s.charAt(0) + s.slice(1).toLowerCase()}
@@ -187,6 +199,22 @@ const App: React.FC = () => {
              )
           })}
         </div>
+
+        {/* GitHub Star Button */}
+        <a
+          href={GITHUB_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-0 rounded-full border border-blue-500/50 bg-gradient-to-r from-blue-600/90 to-blue-700/90 hover:from-blue-500/90 hover:to-blue-600/90 transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-800/30 hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-2 px-4 py-2">
+            <span className="text-sm font-semibold text-white">Star On GitHub</span>
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 bg-slate-900/80 rounded-r-full border-l border-blue-500/30">
+            <Star size={16} className="text-white fill-white" />
+            <span className="text-sm font-medium text-slate-200">{GITHUB_STAR_COUNT}</span>
+          </div>
+        </a>
       </header>
 
       {/* Main Content */}
@@ -197,6 +225,7 @@ const App: React.FC = () => {
             onLoadSample={handleLoadSample}
             onLoadMcGillSample={handleLoadMcGillSample}
             onEnterManually={handleEnterManually}
+            onMockWaiting={handleMockWaiting}
             isProcessing={isProcessing}
             apiKeyError={apiKeyError}
             onDismissApiKeyError={() => setApiKeyError(null)}

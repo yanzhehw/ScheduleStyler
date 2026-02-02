@@ -44,7 +44,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   // Header/Time column text editing
   const [headerTextEditorOpen, setHeaderTextEditorOpen] = useState(false);
   const [timeColumnEditorOpen, setTimeColumnEditorOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  // Initialize zoom from sessionStorage if available (for persistence when navigating back)
+  const [zoom, setZoom] = useState(() => {
+    const savedZoom = sessionStorage.getItem('exportStepZoom');
+    return savedZoom ? parseFloat(savedZoom) : 1;
+  });
   const [isZoomToolbarOpen, setIsZoomToolbarOpen] = useState(true);
   
   // Selected event for color picking
@@ -120,6 +124,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [onboardingEventId, setOnboardingEventId] = useState<string | null>(null);
   const eventOnboardingTouchedRef = useRef(false);
 
+  // Persist zoom to sessionStorage when it changes
+  useEffect(() => {
+    sessionStorage.setItem('exportStepZoom', zoom.toString());
+  }, [zoom]);
+
   useEffect(() => {
     const previous = previousSelectedRef.current;
     if (previous !== 'none' && previous !== selectedComponent) {
@@ -169,9 +178,9 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     );
   }, [onboardingSeen]);
 
-  // When theme changes to Acrylic or Glass, unify colors with random selection (if apply-to-all is enabled)
+  // When theme changes to Acrylic, Solid Grain, or Glass, unify colors with random selection (if apply-to-all is enabled)
   useEffect(() => {
-    const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'glass';
+    const isGlassOrAcrylic = template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass';
     if (isGlassOrAcrylic && applyColorToAll && events.length > 0) {
       // Apply uniform random color to all blocks only if apply-to-all is enabled
       const themeColorPalette = getThemeColors(template.themeFamily, template.themeVariant);
@@ -319,7 +328,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       return getPalette(activePaletteId);
     }
     // Find default palette for current theme
-    const defaultPaletteId = template.themeFamily === 'acrylic'
+    const defaultPaletteId = (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain')
       ? (template.themeVariant === 'dark' ? 'dark-slate' : 'light-silk')
       : template.themeFamily === 'glass'
         ? 'fresh-tint'
@@ -887,8 +896,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     setActivePaletteId(null);
     const newThemeColors = getThemeColors(newThemeFamily, variant);
 
-    // For Acrylic and Glass themes with applyColorToAll, use a single random color
-    const isGlassOrAcrylic = newThemeFamily === 'acrylic' || newThemeFamily === 'glass';
+    // For Acrylic, Solid Grain, and Glass themes with applyColorToAll, use a single random color
+    const isGlassOrAcrylic = newThemeFamily === 'acrylic' || newThemeFamily === 'solid-grain' || newThemeFamily === 'glass';
     if (isGlassOrAcrylic && applyColorToAll) {
       const randomColor = newThemeColors[Math.floor(Math.random() * newThemeColors.length)];
       const updatedEvents = events.map(event => ({
@@ -937,7 +946,46 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       data-component="ExportLayout"
       className="flex h-full min-h-0 gap-6 relative"
     >
-      
+
+      {/* ZOOM TOOLBAR - Fixed position relative to ExportLayout, doesn't scroll */}
+      {isZoomToolbarOpen && (
+        <div data-component="ZoomToolbar" className="absolute top-4 right-[340px] z-50">
+          <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
+            <button
+              onClick={handleZoomOut}
+              className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              title="Zoom Out"
+            >
+              <ZoomOut size={16} className="mx-auto text-gray-200" />
+            </button>
+            <button
+              onClick={handleZoomReset}
+              className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              title="Reset to 100%"
+            >
+              <span className="text-xs font-mono text-gray-100">
+                {Math.round(zoom * 100)}%
+              </span>
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              title="Zoom In"
+            >
+              <ZoomIn size={16} className="mx-auto text-gray-200" />
+            </button>
+            <button
+              onClick={() => setIsZoomToolbarOpen(false)}
+              className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
+              title="Hide zoom controls"
+              aria-label="Hide zoom controls"
+            >
+              <Minimize2 size={12} className="text-gray-200" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* PREVIEW PANEL - The dark container that holds the calendar preview */}
       <div
         data-component="PreviewPanel"
@@ -955,45 +1003,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           handleBlankClick();
         }}
       >
-        
-        {/* ZOOM TOOLBAR - Absolute positioned, overlays on calendar */}
-        {isZoomToolbarOpen && (
-          <div data-component="ZoomToolbar" className="absolute top-4 right-4 z-50">
-            <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
-              <button
-                onClick={handleZoomOut}
-                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
-                title="Zoom Out"
-              >
-                <ZoomOut size={16} className="mx-auto text-gray-200" />
-              </button>
-              <button
-                onClick={handleZoomReset}
-                className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
-                title="Reset to 100%"
-              >
-                <span className="text-xs font-mono text-gray-100">
-                  {Math.round(zoom * 100)}%
-                </span>
-              </button>
-              <button
-                onClick={handleZoomIn}
-                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
-                title="Zoom In"
-              >
-                <ZoomIn size={16} className="mx-auto text-gray-200" />
-              </button>
-              <button
-                onClick={() => setIsZoomToolbarOpen(false)}
-                className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
-                title="Hide zoom controls"
-                aria-label="Hide zoom controls"
-              >
-                <Minimize2 size={12} className="text-gray-200" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* PREVIEW VIEWPORT - Centers the calendar */}
         <div
@@ -1289,8 +1298,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         : 'border-transparent hover:border-gray-500'
                     }`}
                     style={{
-                      // For acrylic: neutral gray base + color layers
-                      backgroundColor: template.themeFamily === 'acrylic' ? '#6b7280' : color,
+                      // For acrylic: neutral gray base + color layers; solid-grain: direct color with opacity
+                      backgroundColor: template.themeFamily === 'acrylic' ? '#6b7280' : template.themeFamily === 'solid-grain' ? color : color,
                     }}
                     title={color}
                   >
@@ -1305,7 +1314,18 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         }}
                       />
                     )}
-                    {/* Grain texture overlay for acrylic theme */}
+                    {/* Solid-grain: show color at 70% opacity to match theme */}
+                    {template.themeFamily === 'solid-grain' && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundColor: `${color}b3`, // b3 hex = ~70% opacity
+                          borderRadius: 'inherit',
+                        }}
+                      />
+                    )}
+                    {/* Grain texture overlay for acrylic theme only */}
                     {template.themeFamily === 'acrylic' && (
                       <div
                         style={{
@@ -1320,7 +1340,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         }}
                       />
                     )}
-                    {/* White overlay for acrylic theme */}
+                    {/* White overlay for acrylic theme only */}
                     {template.themeFamily === 'acrylic' && (
                       <div
                         style={{
@@ -1409,8 +1429,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 )}
               </div>
 
-              {/* Color Opacity Slider - Only for acrylic and glass themes */}
-              {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+              {/* Color Opacity Slider - Only for acrylic, solid-grain, and glass themes */}
+              {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
                 <div className="pt-2 border-t border-gray-700/50">
                   <div className="px-1 py-1.5">
                     <div className="flex items-center justify-between mb-1">
@@ -1448,8 +1468,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
               )}
 
-              {/* No Borders Toggle - Only for Acrylic/Glass themes */}
-              {(template.themeFamily === 'acrylic' || template.themeFamily === 'glass') && (
+              {/* No Borders Toggle - Only for Acrylic/Solid Grain/Glass themes */}
+              {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
                 <div className="pt-2 border-t border-gray-700/50">
                   <div className="flex items-center justify-between gap-3 px-1 py-1.5 bg-gray-800/50 rounded-lg">
                     <span className="text-xs text-gray-300 font-medium whitespace-nowrap">No Borders</span>
@@ -1795,7 +1815,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     fontSize: `${template.fontScale * 0.75}rem`,
                     fontWeight: template.titleBold ? 700 : 400,
                     fontStyle: template.titleItalic ? 'italic' : 'normal',
-                    color: template.titleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? '#fff' : '#1f2937'),
+                    color: template.titleTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? '#fff' : '#1f2937'),
                   }}
                 >
                   {selectedEvent.displayTitle}
@@ -1808,7 +1828,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       fontSize: `${template.fontScale * 0.6}rem`,
                       fontWeight: template.subtitleBold ? 600 : 400,
                       fontStyle: template.subtitleItalic ? 'italic' : 'normal',
-                      color: template.subtitleTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937'),
+                      color: template.subtitleTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937'),
                     }}
                   >
                     {selectedEvent.classType === 'Custom' ? selectedEvent.customClassType : selectedEvent.classType}
@@ -1822,7 +1842,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       fontSize: `${template.fontScale * 0.6}rem`,
                       fontWeight: template.detailsBold ? 600 : 400,
                       fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                      color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151'),
+                      color: template.detailsTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151'),
                     }}
                   >
                     {selectedEvent.startTime} - {selectedEvent.endTime}
@@ -1836,7 +1856,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       fontSize: `${template.fontScale * 0.6}rem`,
                       fontWeight: template.detailsBold ? 600 : 400,
                       fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                      color: template.detailsTextColor || (template.themeFamily === 'acrylic' && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.75)' : '#374151'),
+                      color: template.detailsTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.75)' : '#374151'),
                     }}
                   >
                     <MapPin size={10} className="shrink-0" />
@@ -2395,7 +2415,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 value={template.themeFamily}
                 onChange={(e) => {
                   const newFamily = e.target.value as ThemeFamilyId;
-                  const isGlassOrAcrylicNew = newFamily === 'acrylic' || newFamily === 'glass';
+                  // Acrylic/Glass need image background; Solid-grain has its own colored canvas
+                  const needsImageBg = newFamily === 'acrylic' || newFamily === 'glass';
                   const newFamilyObj = THEME_FAMILIES[newFamily];
                   // Set default sub-variant for families with extended variants
                   const defaultSubVariant = newFamilyObj?.extendedVariants?.[0];
@@ -2406,10 +2427,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     theme: `${newFamily}-${newVariant}` as any,
                     themeVariant: newVariant,
                     themeSubVariant: defaultSubVariant?.id,
-                    // Set image background for Acrylic/Glass, none for others
-                    backgroundType: isGlassOrAcrylicNew ? 'image' : 'none',
+                    // Set image background for Acrylic/Glass; solid-grain has its own background
+                    backgroundType: needsImageBg ? 'image' : 'none',
                     // Set a default image if switching to Acrylic/Glass and no image selected
-                    backgroundImage: isGlassOrAcrylicNew && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage,
+                    backgroundImage: needsImageBg && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage,
                     eventOpacity: 1,
                   });
                   // Apply theme colors when switching themes (except default)

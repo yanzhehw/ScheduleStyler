@@ -18,6 +18,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   themeFamily = 'default'
 }) => {
   const isAcrylic = themeFamily === 'acrylic';
+  const isSolidGrain = themeFamily === 'solid-grain';
 
   return (
     <div>
@@ -33,7 +34,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 : 'border-transparent'
             }`}
             style={{
-              // For acrylic: neutral gray base + color at 68% opacity (more visible in picker)
+              // Acrylic: gray base + layers; Solid-grain: direct color at 70% opacity
               backgroundColor: isAcrylic ? '#6b7280' : color,
             }}
           >
@@ -48,7 +49,18 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 }}
               />
             )}
-            {/* Grain texture overlay for acrylic theme */}
+            {/* Solid-grain: show color at 70% opacity to match theme */}
+            {isSolidGrain && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundColor: `${color}b3`, // b3 hex = ~70% opacity
+                  borderRadius: 'inherit',
+                }}
+              />
+            )}
+            {/* Grain texture overlay for acrylic theme only */}
             {isAcrylic && (
               <div
                 style={{
@@ -63,7 +75,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 }}
               />
             )}
-            {/* White overlay for acrylic theme */}
+            {/* White overlay for acrylic theme only */}
             {isAcrylic && (
               <div
                 style={{

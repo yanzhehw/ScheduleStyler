@@ -1,11 +1,14 @@
-import React, { useCallback, useState } from 'react';
-import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X } from 'lucide-react';
+import React, { useCallback, useState, useEffect } from 'react';
+import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer } from 'lucide-react';
+import { TextShimmer } from './ui/text-shimmer';
+import { ElectricBorder } from './ui/electric-border';
 
 interface UploadStepProps {
   onFileSelect: (file: File, apiKey?: string, activationToken?: string) => void;
   onLoadSample: () => void;
   onLoadMcGillSample: () => void;
   onEnterManually: () => void;
+  onMockWaiting?: () => void; // DEV: Mock waiting state for testing
   isProcessing: boolean;
   apiKeyError?: string | null;
   onDismissApiKeyError?: () => void;
@@ -17,13 +20,36 @@ interface UploadStepProps {
 
 const GEMINI_API_KEY_REGEX = /^AIza[A-Za-z0-9_-]{35}$/;
 
-export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
+const EXTRACTION_MESSAGES = [
+  "Extracting Course Title",
+  "Extracting Course Type",
+  "Extracting Times",
+  "Extracting Location",
+  "Initializing canvas",
+];
+
+export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, onMockWaiting, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [activationToken, setActivationToken] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [apiKeyValidationError, setApiKeyValidationError] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  // Cycle through extraction messages every 2.2 seconds
+  useEffect(() => {
+    if (!isProcessing) {
+      setMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % EXTRACTION_MESSAGES.length);
+    }, 2200);
+
+    return () => clearInterval(interval);
+  }, [isProcessing]);
 
   const isActivated = Boolean(activationToken);
   const isByokMode = keyMode === 'byok';
@@ -115,49 +141,67 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
         {/* Upload + Manual options */}
         <div className="grid gap-6 lg:items-stretch lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col gap-4 h-full">
-            <div
-              className={`
-                relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300
-                ${isProcessing ? 'border-blue-500 bg-blue-500/10 cursor-wait' : 'border-gray-600 hover:border-blue-400 hover:bg-gray-800 bg-gray-900'}
-                ${isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
-              `}
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <input
-                type="file"
-                id="fileUpload"
-                className="hidden"
-                accept="image/*"
-                onChange={handleChange}
-                disabled={isProcessing || isUploadLocked}
-              />
-              <label
-                htmlFor="fileUpload"
-                className={`flex flex-col items-center gap-5 ${
-                  isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'
-                }`}
+            {isProcessing ? (
+              /* Processing state with ElectricBorder */
+              <ElectricBorder
+                className="h-full min-h-[300px]"
               >
-                <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-6`}>
-                  <div className={`mx-auto w-fit p-5 rounded-full ${isProcessing ? 'bg-blue-500/20 animate-pulse' : 'bg-gray-800'}`}>
-                    {isProcessing ? (
+                <div className="p-10 rounded-[22px] text-center bg-[#0f172a] flex-1 flex flex-col items-center justify-center cursor-wait">
+                  <div className="space-y-6">
+                    <div className="mx-auto w-fit p-5 rounded-full bg-blue-500/20 animate-pulse">
                       <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Upload className="w-10 h-10 text-blue-400" />
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-semibold text-white">
-                      {isProcessing ? 'Analyzing Schedule...' : 'Upload Screenshot'}
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                      {isProcessing
-                        ? 'We are extracting your events.'
-                        : <>Drag & drop or click to select a PNG/JPG<br />Our AI automatically extracts your schedule from a screenshot.</>}
-                    </p>
+                    </div>
+                    <div className="space-y-3">
+                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule...</h2>
+                      <div className="h-6 flex items-center justify-center">
+                        <TextShimmer
+                          duration={1.2}
+                          className="text-sm font-medium [--base-color:theme(colors.cyan.400)] [--base-gradient-color:theme(colors.cyan.100)]"
+                        >
+                          {EXTRACTION_MESSAGES[messageIndex]}
+                        </TextShimmer>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </label>
+              </ElectricBorder>
+            ) : (
+              /* Normal upload state */
+              <div
+                className={`
+                  relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300
+                  border-gray-600 hover:border-blue-400 hover:bg-gray-800 bg-gray-900
+                  ${isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
+                `}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+              >
+                <input
+                  type="file"
+                  id="fileUpload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleChange}
+                  disabled={isUploadLocked}
+                />
+                <label
+                  htmlFor="fileUpload"
+                  className={`flex flex-col items-center gap-5 ${
+                    isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
+                  <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-6`}>
+                    <div className="mx-auto w-fit p-5 rounded-full bg-gray-800">
+                      <Upload className="w-10 h-10 text-blue-400" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-semibold text-white">Upload Screenshot</h2>
+                      <p className="text-gray-400 text-sm">
+                        Drag & drop or click to select a PNG/JPG<br />Our AI automatically extracts your schedule from a screenshot.
+                      </p>
+                    </div>
+                  </div>
+                </label>
 
               {isUploadLocked && !isByokMode && (
                 <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[175px] text-center leading-tight">
@@ -165,19 +209,20 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                   <span>Activate your code to unlock AI detection</span>
                 </div>
               )}
-              {isByokMode && !isProcessing && !isByokApplied && (
+              {isByokMode && !isByokApplied && (
                 <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-700/50 bg-amber-900/60 text-amber-200 text-xs font-medium">
                   <KeyRound className="w-4 h-4 text-amber-300 shrink-0" />
                   <span>Please apply a valid API key</span>
                 </div>
               )}
-              {isByokApplied && !isProcessing && (
+              {isByokApplied && (
                 <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-700/50 bg-blue-900/60 text-blue-200 text-xs font-medium">
                   <KeyRound className="w-4 h-4 text-blue-300 shrink-0" />
                   <span>Using your personal API key</span>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {!isProcessing && (
               <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-4">
@@ -300,7 +345,15 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
             )}
           </div>
 
-          {!isProcessing && (
+          {isProcessing ? (
+            /* Inspiration Preview - empty placeholder during processing */
+            <div
+              id="inspirationPreview"
+              className="h-full min-h-[300px] rounded-3xl border-2 border-dashed border-slate-700 bg-slate-900/50"
+            >
+              {/* Reserved for future inspiration preview content */}
+            </div>
+          ) : (
             <button
               onClick={onEnterManually}
               className="h-full min-h-[400px] p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 border-gray-600 hover:border-emerald-400 hover:bg-gray-800 bg-gray-900 cursor-pointer"
@@ -348,6 +401,14 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
           >
             <Play size={14} /> McGill Schedule
           </button>
+          {onMockWaiting && (
+            <button
+              onClick={onMockWaiting}
+              className="px-4 py-2 text-sm text-amber-400 hover:text-amber-300 border border-amber-700/50 hover:border-amber-600 rounded-lg transition-colors flex items-center gap-2 bg-amber-900/20"
+            >
+              <Timer size={14} /> Mock Waiting
+            </button>
+          )}
         </div>
       )}
 

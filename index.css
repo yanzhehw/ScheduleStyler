@@ -73,3 +73,17 @@
   }
 }
 
+/* Text Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 250% 50%;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer var(--shimmer-duration, 2s) linear infinite;
+}
+
