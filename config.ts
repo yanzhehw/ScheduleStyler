@@ -7,3 +7,45 @@ export const LOG_RESPONSES = false;
  * When true, onboarding respects localStorage and only shows once.
  */
 export const DETECT_IF_ON_BOARDED = false;
+
+// ============================================================================
+// OVERSCROLL BOUNCE EFFECT CONFIGURATION
+
+export const BOUNCE_CONFIG = {
+  // Enable debug logging for overscroll bounce
+  debug: false,
+
+  // Minimum scroll delta required to trigger overscroll bounce.
+  // Filters out low-velocity trackpad inertia residue.
+  minDelta: 5,
+
+  //Multiplier that controls how much the content moves per scroll delta. 0.05 - 0.25
+  sensitivity: 0.12,
+
+  //Maximum pixels the content can be pulled before stopped.
+  maxDistance: 80,
+
+  //how much bounce becomes harder. 
+  resistanceFactor: 1,
+
+  //Maximum resistance cap (0-1).
+  maxResistance: 0.8,
+
+  releaseDelay: 0,
+
+  //Duration (in milliseconds) of the spring-back animation.
+  springDuration: 400,
+
+  /**
+   * CSS cubic-bezier easing for the spring-back animation.
+   * Uses ease-out curve: visible deceleration from fast to slow.
+   * y2=1 ensures zero velocity at end (no bounce/twitch).
+   * Format: cubic-bezier(x1, y1, x2, y2)
+   */
+  springEasing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+
+  // Cooldown period (ms) after release starts to ignore new wheel events
+  // Prevents trackpad inertia from re-triggering bounce
+  // Should be >= springDuration + inertia tail (~500ms) to fully prevent re-triggering
+  releaseCooldown: 600,
+};

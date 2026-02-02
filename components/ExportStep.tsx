@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
 import { DETECT_IF_ON_BOARDED } from '../config';
+import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
@@ -281,9 +282,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [headerEditorPosition, setHeaderEditorPosition] = useState<CalloutPosition | null>(null);
   const [timeEditorPosition, setTimeEditorPosition] = useState<CalloutPosition | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
-  const previewPanelRef = useRef<HTMLDivElement>(null);
-  const exportSidebarContentRef = useRef<HTMLDivElement>(null);
-  const fontPanelScrollRef = useRef<HTMLDivElement>(null);
+
+  // Overscroll bounce effects for scrollable areas
+  const previewPanelBounce = useOverscrollBounce();
+  const exportSidebarBounce = useOverscrollBounce();
+  const fontPanelBounce = useOverscrollBounce();
+  const backgroundGalleryBounce = useOverscrollBounce();
+
+  // Legacy refs (kept for compatibility with existing code that queries these)
+  const previewPanelRef = previewPanelBounce.scrollRef;
+  const exportSidebarContentRef = exportSidebarBounce.scrollRef;
+  const fontPanelScrollRef = fontPanelBounce.scrollRef;
 
   // Track previous theme family to detect changes
   const prevThemeFamilyRef = useRef<ThemeFamilyId>(template.themeFamily);
@@ -934,6 +943,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         data-component="PreviewPanel"
         ref={previewPanelRef}
         className="flex-1 min-h-0 overflow-auto overscroll-contain relative"
+        onWheel={previewPanelBounce.handleWheel}
         onMouseDown={(e) => {
           const target = e.target as HTMLElement;
           if (colorPickerRef.current?.contains(target)) return;
@@ -989,6 +999,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         <div
           data-component="PreviewViewport"
           className="min-h-full p-6 flex items-start justify-center"
+          style={getBounceStyle(previewPanelBounce.bounceOffset, previewPanelBounce.isReleasing)}
         >
           {/* ZOOM WRAPPER - Applies zoom transform */}
           <div
@@ -1838,9 +1849,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
           {/* Font & Color Selectors */}
           <div
-            className="p-4 space-y-4 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar flex-1"
+            className="min-h-0 overflow-y-auto overscroll-contain custom-scrollbar flex-1"
             ref={fontPanelScrollRef}
+            onWheel={fontPanelBounce.handleWheel}
           >
+            {/* Bounce wrapper */}
+            <div
+              className="p-4 space-y-4"
+              style={getBounceStyle(fontPanelBounce.bounceOffset, fontPanelBounce.isReleasing)}
+            >
 
             {/* Template Font Pairs Dropdown */}
             <div className="space-y-2" data-dropdown>
@@ -2321,6 +2338,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
               )}
             </div>
+            </div>
 
             {/* Done Button */}
             <button
@@ -2355,9 +2373,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         {/* SIDEBAR CONTENT - Scrollable settings area */}
         <div
           data-component="ExportSidebarContent"
-          className="flex-1 h-0 overflow-y-auto overscroll-contain p-4 space-y-8 custom-scrollbar"
+          className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
           ref={exportSidebarContentRef}
+          onWheel={exportSidebarBounce.handleWheel}
         >
+          {/* Bounce wrapper for sidebar content */}
+          <div
+            className="p-4 space-y-8"
+            style={getBounceStyle(exportSidebarBounce.bounceOffset, exportSidebarBounce.isReleasing)}
+          >
           
           {/* Theme Selection */}
           <div className="space-y-3">
@@ -2963,6 +2987,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </button>
           </div>
 
+          </div>
         </div>
       </div>
 
@@ -2986,7 +3011,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
 
             {/* Gallery Content */}
-            <div className="flex-1 h-0 overflow-y-auto overscroll-contain p-5 custom-scrollbar">
+            <div
+              className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
+              ref={backgroundGalleryBounce.scrollRef}
+              onWheel={backgroundGalleryBounce.handleWheel}
+            >
+              {/* Bounce wrapper */}
+              <div className="p-5" style={getBounceStyle(backgroundGalleryBounce.bounceOffset, backgroundGalleryBounce.isReleasing)}>
               {/* Loading state */}
               {isBackgroundsLoading && (
                 <div className="flex items-center justify-center py-12">
@@ -3050,6 +3081,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
               </div>
               )}
+              </div>
             </div>
           </div>
         </div>

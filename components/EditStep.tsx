@@ -6,6 +6,7 @@ import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
 import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2 } from 'lucide-react';
 import { getThemeColors } from '../themes';
+import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
 
 interface EditStepProps {
   events: CalendarEvent[];
@@ -152,8 +153,11 @@ export const EditStep: React.FC<EditStepProps> = ({
   const [isZoomToolbarOpen, setIsZoomToolbarOpen] = useState(true);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 600, minCardWidth: 800, minCardHeight: 600 });
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const editSidebarRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
+
+  // Bounce effect for canvas and sidebar using shared hook
+  const canvasBounce = useOverscrollBounce();
+  const sidebarBounce = useOverscrollBounce();
 
   // Check if browser supports CSS zoom
   const supportsZoom = typeof window !== 'undefined'
@@ -174,9 +178,60 @@ export const EditStep: React.FC<EditStepProps> = ({
     return Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
   }, [canvasDimensions.width, canvasDimensions.height]);
 
-  // On mount: restore saved zoom if returning to edit view, otherwise auto-fit
+  // Calculate optimal aspect ratio based on container dimensions to best fit
+  const calculateOptimalAspectRatio = useCallback(() => {
+    if (!canvasContainerRef.current) return null;
+    const container = canvasContainerRef.current;
+    const containerWidth = container.clientWidth - 48; // padding
+    const containerHeight = container.clientHeight - 48;
+
+    // Container aspect ratio: width/height
+    const containerAR = containerWidth / containerHeight;
+
+    // Map container AR to template aspect ratio for best fit
+    // containerAR > 1.6 (wide) -> 0 (landscape 16:9)
+    // containerAR < 0.6 (tall) -> 1 (portrait 9:16)
+    // Linear interpolation between these extremes
+    const minAR = 0.6;  // Below this -> full portrait
+    const maxAR = 1.6;  // Above this -> full landscape
+
+    if (containerAR >= maxAR) {
+      return 0; // Full landscape
+    } else if (containerAR <= minAR) {
+      return 1; // Full portrait
+    } else {
+      // Linear interpolation: map [0.6, 1.6] -> [1, 0]
+      const normalized = (containerAR - minAR) / (maxAR - minAR); // 0 to 1
+      return 1 - normalized; // Invert: wide container -> low aspectRatio (landscape)
+    }
+  }, []);
+
+  // Store template ref for initial setup to avoid dependency issues
+  const templateRef = useRef(template);
+  templateRef.current = template;
+
+  // Track if we need to recalculate zoom after aspect ratio change
+  const needsZoomRecalc = useRef(false);
+
+  // On mount: first set optimal aspect ratio, zoom will be calculated after canvas updates
   useEffect(() => {
     if (!hasInitialized.current) {
+      // Always recalculate and set optimal aspect ratio first when entering edit view
+      const optimalAR = calculateOptimalAspectRatio();
+      if (optimalAR !== null) {
+        onUpdateTemplate({ ...templateRef.current, aspectRatio: optimalAR });
+      }
+
+      // Mark that we need to calculate zoom after canvas dimensions update
+      needsZoomRecalc.current = true;
+      hasInitialized.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // After canvas dimensions update (due to aspect ratio change), calculate zoom
+  useEffect(() => {
+    if (needsZoomRecalc.current && canvasDimensions.width > 0 && canvasDimensions.height > 0) {
       const savedZoom = sessionStorage.getItem('editStepZoom');
       const hasVisitedBefore = sessionStorage.getItem('editStepVisited');
 
@@ -184,14 +239,15 @@ export const EditStep: React.FC<EditStepProps> = ({
         // Returning to edit view - restore previous zoom
         setZoom(parseFloat(savedZoom));
       } else {
-        // First time entering edit view - auto-fit
+        // First time entering edit view - auto-fit zoom based on new canvas dimensions
         const newZoom = calculateAutoFitZoom();
         setZoom(newZoom);
         sessionStorage.setItem('editStepVisited', 'true');
       }
-      hasInitialized.current = true;
+
+      needsZoomRecalc.current = false;
     }
-  }, [calculateAutoFitZoom]);
+  }, [canvasDimensions.width, canvasDimensions.height, calculateAutoFitZoom]);
 
   // Save zoom to sessionStorage when it changes (for restoration when returning)
   useEffect(() => {
@@ -200,7 +256,7 @@ export const EditStep: React.FC<EditStepProps> = ({
     }
   }, [zoom]);
 
-  // Recalculate zoom on window resize
+  // Recalculate zoom on window resize (aspect ratio stays as user-set)
   useEffect(() => {
     const handleResize = () => {
       const newZoom = calculateAutoFitZoom();
@@ -214,11 +270,27 @@ export const EditStep: React.FC<EditStepProps> = ({
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
   const handleZoomReset = () => setZoom(calculateAutoFitZoom());
 
-  // Pick a random event for onboarding highlight
-  const randomOnboardingEvent = useMemo(() => {
+  // Pick the earliest event for onboarding highlight (random if tie)
+  const onboardingEvent = useMemo(() => {
     if (events.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * events.length);
-    return events[randomIndex];
+
+    // Find the earliest start time
+    let earliestTime = Infinity;
+    for (const event of events) {
+      const time = parseTimeToHours(event.startTime);
+      if (time < earliestTime) {
+        earliestTime = time;
+      }
+    }
+
+    // Get all events with the earliest start time
+    const earliestEvents = events.filter(
+      event => parseTimeToHours(event.startTime) === earliestTime
+    );
+
+    // Pick randomly from the earliest events
+    const randomIndex = Math.floor(Math.random() * earliestEvents.length);
+    return earliestEvents[randomIndex];
   }, [events.length > 0 ? events[0]?.id : null]); // Only recalculate when events first load
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
@@ -607,17 +679,21 @@ export const EditStep: React.FC<EditStepProps> = ({
 
         {/* Scrollable canvas area */}
         <div
+          ref={canvasBounce.scrollRef}
           className="absolute inset-0 p-6 overflow-auto overscroll-contain flex flex-col items-center"
+          onWheel={canvasBounce.handleWheel}
         >
-          {/* Zoom wrapper */}
-          <div
-            className="transition-all duration-200 origin-top"
-            style={
-              (supportsZoom
-                ? { zoom }
-                : { transform: `scale(${zoom})` }) as React.CSSProperties
-            }
-          >
+          {/* Bounce wrapper */}
+          <div style={getBounceStyle(canvasBounce.bounceOffset, canvasBounce.isReleasing)}>
+            {/* Zoom wrapper */}
+            <div
+              className="transition-all duration-200 origin-top"
+              style={
+                (supportsZoom
+                  ? { zoom }
+                  : { transform: `scale(${zoom})` }) as React.CSSProperties
+              }
+            >
             <CalendarCanvas
             events={events}
             template={template}
@@ -632,8 +708,8 @@ export const EditStep: React.FC<EditStepProps> = ({
             hideUnselectedBorders={true}
             overlappingEventIds={Array.from(overlappingEventIds)}
             minTimeRange={{ start: 8, end: 18 }}
-            onboardingComponents={showEditOnboarding && randomOnboardingEvent ? { eventBlock: true } : undefined}
-            onboardingEventId={showEditOnboarding ? randomOnboardingEvent?.id : null}
+            onboardingComponents={showEditOnboarding && onboardingEvent ? { eventBlock: true } : undefined}
+            onboardingEventId={showEditOnboarding ? onboardingEvent?.id : null}
             eventBlockOnboardingMessage={
               <>
                 Click to <strong>Drag</strong> and <strong>edit details</strong>
@@ -643,6 +719,7 @@ export const EditStep: React.FC<EditStepProps> = ({
             visualScale={supportsZoom ? 1 : zoom}
             onDimensionsComputed={setCanvasDimensions}
           />
+            </div>
           </div>
         </div>
       </div>
@@ -684,9 +761,15 @@ export const EditStep: React.FC<EditStepProps> = ({
 
         <div
           data-component="EditSidebar"
-          className="flex-1 h-0 overflow-y-auto overscroll-contain p-4 space-y-6 custom-scrollbar"
-          ref={editSidebarRef}
+          className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
+          ref={sidebarBounce.scrollRef}
+          onWheel={sidebarBounce.handleWheel}
         >
+          {/* Bounce wrapper for sidebar content */}
+          <div
+            className="p-4 space-y-6"
+            style={getBounceStyle(sidebarBounce.bounceOffset, sidebarBounce.isReleasing)}
+          >
 
           {/* Global Toggles & Class Mapping */}
           {!selectedEvent && (
@@ -882,7 +965,6 @@ export const EditStep: React.FC<EditStepProps> = ({
                         value={addCourseDraft.location}
                         onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
                         className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                        placeholder="Building/Room"
                       />
                     </div>
 
@@ -1280,7 +1362,6 @@ export const EditStep: React.FC<EditStepProps> = ({
                   value={selectedEvent.location}
                   onChange={(e) => handleUpdateEvent('location', e.target.value)}
                   className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none"
-                  placeholder="Building/Room"
                 />
               </div>
 
@@ -1358,6 +1439,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
             </div>
           ) : null}
+          </div>
         </div>
       </div>
 
@@ -1472,7 +1554,6 @@ export const EditStep: React.FC<EditStepProps> = ({
                   value={newEventDraft.location}
                   onChange={(e) => setNewEventDraft({ ...newEventDraft, location: e.target.value })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  placeholder="Building/Room"
                 />
               </div>
 
