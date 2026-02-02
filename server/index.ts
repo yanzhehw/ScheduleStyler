@@ -6,6 +6,8 @@ import cors from "cors";
 import { redeemRouter } from "./routes/redeem";
 import { markUsedRouter } from "./routes/mark-used";
 import { backgroundsRouter } from "./routes/backgrounds";
+import { trackRouter } from "./routes/track";
+import { githubWebhookRouter } from "./routes/github-webhook";
 
 const app = express();
 const PORT = env.SERVER_PORT;
@@ -21,6 +23,8 @@ app.use(express.json());
 app.use("/api/redeem", redeemRouter);
 app.use("/api/mark-used", markUsedRouter);
 app.use("/api/backgrounds", backgroundsRouter);
+app.use("/api/track", trackRouter);
+app.use("/api/webhooks/github", githubWebhookRouter);
 
 // Health check
 app.get("/api/health", (_req, res) => {

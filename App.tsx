@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { AppStep, CalendarEvent, Category, TemplateConfig, CATEGORY_COLORS } from './types';
 import { extractCalendarFromImage } from './services/geminiService';
@@ -76,6 +76,14 @@ const App: React.FC = () => {
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
   const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
+
+  // Track unique users (once per browser)
+  useEffect(() => {
+    if (!localStorage.getItem('tracked_user')) {
+      fetch('/api/track/user', { method: 'POST' });
+      localStorage.setItem('tracked_user', 'true');
+    }
+  }, []);
 
   const handleFileUpload = async (file: File, apiKey?: string, activationToken?: string) => {
     setIsProcessing(true);
