@@ -68,6 +68,12 @@ interface CalendarCanvasProps {
   showResetToFill?: boolean;
   /** Callback to reset calendar card insets */
   onResetToFill?: () => void;
+  /** Border radius for mockup mode clipping (clips content but not selection overlay) */
+  mockupClipBorderRadius?: string;
+  /** Override the template's border radius for the background container */
+  overrideBorderRadius?: string;
+  /** Mockup overlay to render between events and callouts/selection (for proper z-layering) */
+  mockupOverlay?: React.ReactNode;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -343,6 +349,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   hoverResetToken,
   showResetToFill = false,
   onResetToFill,
+  mockupClipBorderRadius,
+  overrideBorderRadius,
+  mockupOverlay,
 }) => {
   // Get background image map from context
   const { imageMap } = useBackgrounds();
@@ -931,7 +940,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         style={{
           width: `${backgroundDimensions.width}px`,
           height: `${backgroundDimensions.height}px`,
-          borderRadius: template.borderRadius,
+          borderRadius: overrideBorderRadius || template.borderRadius,
           ...outerBgStyle,
         }}
         onClick={(e: React.MouseEvent) => {
@@ -949,9 +958,21 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           }
         }}
       >
-        {/* Background fills the outer container (only when there's an image or color background) */}
-        {template.backgroundType !== 'none' && renderBackgroundLayer()}
-        {/* Calendar card positioned within */}
+        {/* Background clipper - ONLY clips the background layer, not content or callouts */}
+        <div
+          data-component="BackgroundClipper"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: mockupClipBorderRadius || 'inherit',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Background fills the outer container (only when there's an image or color background) */}
+          {template.backgroundType !== 'none' && renderBackgroundLayer()}
+        </div>
+        {/* Calendar card positioned within - NOT inside clipper so callouts can escape */}
         <div
           data-component="CalendarCardWrapper"
           className={`transition-all duration-200 ease-in relative ${
@@ -983,6 +1004,42 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           )}
           {children}
         </div>
+        {/* Mockup overlay - renders between events and callouts/selection for proper z-layering */}
+        {mockupOverlay}
+        {/* Time column onboarding callout - positioned at top level to escape stacking contexts */}
+        {isOnboardingActive('timeColumn') && (
+          <div
+            data-component="OnboardingCallout-timeColumn"
+            style={{
+              position: 'absolute',
+              left: cardDimensions.x + 32 + 48, // card padding (32px) + time column width (48px) = right edge
+              top: cardTop + 46 + cardDimensions.gridHeight / 2, // header area (~46px) + half grid height
+              transform: 'translateY(-50%)',
+              zIndex: 200,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-0">
+              {/* Arrow pointing left */}
+              <div
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderTop: '6px solid transparent',
+                  borderBottom: '6px solid transparent',
+                  borderRight: '8px solid rgba(245, 158, 11, 0.4)',
+                }}
+              />
+              <div className="relative group bg-amber-500/20 border border-amber-500/35 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md max-w-[350px]">
+                <p className="break-words">
+                  <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />
+                  Click to edit time labels
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Selection overlay for CC resizing - dotted lines with corner extensions and arrows */}
         {isCalendarCardSelected && (() => {
           const cardLeft = cardDimensions.x;
@@ -1019,7 +1076,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-x',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1032,7 +1089,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-x',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1045,7 +1102,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-y',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1058,7 +1115,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-y',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
 
@@ -1069,7 +1126,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   left: arrowLeft,
                   top: topArrowTop,
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               >
                 <MoveUp size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
@@ -1080,7 +1137,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   left: arrowLeft,
                   top: bottomArrowTop,
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               >
                 <MoveDown size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
@@ -1183,7 +1240,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               border: '3px dotted rgba(168, 85, 247, 0.6)',
               borderRadius: template.borderRadius,
               pointerEvents: 'none',
-              zIndex: 50,
+              zIndex: 200,
             }}
           />
         )}
@@ -1202,7 +1259,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               border: '2px solid rgba(59, 130, 246, 0.55)',
               borderRadius: template.borderRadius,
               pointerEvents: 'none',
-              zIndex: 70,
+              zIndex: 200,
             }}
           />
         )}
@@ -1486,34 +1543,6 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               </div>
             );
           })}
-          {/* Onboarding callout for time column */}
-          {isOnboardingActive('timeColumn') && (
-            <div
-              data-component="OnboardingCallout-timeColumn"
-              className="absolute -left-2 top-1/2 -translate-y-1/2 -translate-x-full z-[200]"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-0">
-                <div className="relative group bg-amber-500/20 border border-amber-500/35 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md max-w-[350px]">
-                  <p className="break-words">
-                    <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />
-                    Click to edit time labels
-                  </p>
-                </div>
-                {/* Arrow pointing right */}
-                <div
-                  style={{
-                    width: 0,
-                    height: 0,
-                    borderTop: '6px solid transparent',
-                    borderBottom: '6px solid transparent',
-                    borderLeft: '8px solid rgba(245, 158, 11, 0.4)',
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* DAY COLUMNS CONTAINER - Contains grid lines and event blocks */}
@@ -1611,7 +1640,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         onMouseDown={(e) => handleEventMouseDown(event, e)}
                         className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
                           ${template.textAlignVertical === 'center' ? 'justify-center' : template.textAlignVertical === 'bottom' ? 'justify-end' : 'justify-start'}
-                          ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
+                          ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-[200] transition-all' : ''}
                           ${canDrag ? 'cursor-grab' : ''}
                           ${isDragging ? 'cursor-grabbing' : ''}
                           ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
@@ -1728,7 +1757,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         {!hideTextContent && (
                           <div
                             className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10"
-                            style={{ textAlign: template.textAlignHorizontal }}
+                            style={{
+                              textAlign: template.textAlignHorizontal,
+                              // Add padding for italic text overhang, especially when right-aligned
+                              paddingRight: (template.titleItalic || template.subtitleItalic) && template.textAlignHorizontal === 'right' ? '0.15em' : undefined,
+                            }}
                           >
                             <div
                               className="leading-none uppercase tracking-wide break-words"
@@ -1780,6 +1813,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                 : '#374151'),
                               marginTop: '2px',
                               textAlign: template.textAlignHorizontal,
+                              // Add padding for italic text overhang, especially when right-aligned
+                              paddingRight: template.detailsItalic && template.textAlignHorizontal === 'right' ? '0.15em' : undefined,
                             }}
                           >
                             {template.showTime && (
@@ -1789,10 +1824,17 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             )}
 
                             {template.showLocation && event.location && (
-                              <div className={`flex items-start gap-1 opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
-                                <MapPin size={10} className="mt-0.5 shrink-0" />
-                                <span className="break-words">{event.location}</span>
-                              </div>
+                              template.textAlignHorizontal === 'left' ? (
+                                <div className="flex items-start gap-1 opacity-75 w-full">
+                                  <MapPin size={10} className="mt-0.5 shrink-0" />
+                                  <span className="break-words">{event.location}</span>
+                                </div>
+                              ) : (
+                                <div className={`opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'text-center' : 'text-right'}`}>
+                                  <MapPin size={10} className="inline-block align-middle mr-1" />
+                                  <span className="break-words">{event.location}</span>
+                                </div>
+                              )
                             )}
 
                             {(event.includeNotes ?? template.showNotes) && event.notes && (

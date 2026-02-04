@@ -129,6 +129,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     sessionStorage.setItem('exportStepZoom', zoom.toString());
   }, [zoom]);
 
+  // Persist aspect ratio to sessionStorage when it changes in export mode
+  useEffect(() => {
+    sessionStorage.setItem('exportStepAspectRatio', template.aspectRatio.toString());
+  }, [template.aspectRatio]);
+
+  // Restore aspect ratio from sessionStorage on mount (when returning to export step)
+  useEffect(() => {
+    const savedAspectRatio = sessionStorage.getItem('exportStepAspectRatio');
+    if (savedAspectRatio !== null) {
+      const ratio = parseFloat(savedAspectRatio);
+      if (!isNaN(ratio) && ratio !== template.aspectRatio) {
+        onUpdateTemplate({ ...template, aspectRatio: ratio });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
   useEffect(() => {
     const previous = previousSelectedRef.current;
     if (previous !== 'none' && previous !== selectedComponent) {
@@ -1026,24 +1043,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             {/* LOCKSCREEN MOCKUP WRAPPER - When enabled, shows iPhone frame border around canvas */}
             {template.lockscreenMockup ? (
               <div data-component="LockscreenMockup" className="relative">
-                {/* iPhone frame border - wraps around the canvas */}
+                {/* EXPORT NODE - with border-radius to match phone screen shape */}
+                {/* z-40 ensures callouts/highlights appear above mockup (z-30) */}
+                {/* overflow: visible allows callouts to escape, ContentClipper handles background clipping */}
                 <div
-                  className="absolute pointer-events-none z-10"
+                  data-component="ExportNode"
+                  id="calendar-export-node"
+                  className="relative z-40"
                   style={{
-                    // Frame extends outside the canvas by ~3% on each side
-                    inset: '-3%',
-                    width: '106%',
-                    height: '106%',
+                    borderRadius: '8%',
                   }}
                 >
-                  <img
-                    src={lockscreenMockupImg}
-                    alt="iPhone Lockscreen Frame"
-                    className="w-full h-full object-fill"
-                  />
-                </div>
-                {/* EXPORT NODE */}
-                <div data-component="ExportNode" id="calendar-export-node">
                   <CalendarCanvas
                     events={events}
                     template={template}
@@ -1052,6 +1062,25 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     onBlankClick={handleBlankClick}
                     visualScale={supportsZoom ? 1 : zoom}
                     showFullTitle={template.showCourseSection}
+                    mockupClipBorderRadius="8%"
+                    mockupOverlay={
+                      <div
+                        className="absolute pointer-events-none"
+                        style={{
+                          width: `${(3772 / 3345) * 100}%`,
+                          left: '50%',
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          zIndex: 30,
+                        }}
+                      >
+                        <img
+                          src={lockscreenMockupImg}
+                          alt="iPhone Lockscreen Frame"
+                          className="w-full h-auto"
+                        />
+                      </div>
+                    }
                       onHeaderClick={() => {
                         setHeaderTextEditorOpen(true);
                         setTimeColumnEditorOpen(false);
@@ -2432,8 +2461,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     themeSubVariant: defaultSubVariant?.id,
                     // Set image background for Acrylic/Glass; solid-grain has its own background
                     backgroundType: needsImageBg ? 'image' : 'none',
-                    // Set a default image if switching to Acrylic/Glass and no image selected
-                    backgroundImage: needsImageBg && !template.backgroundImage ? (getDefaultLandscapeId() || 'l1') : template.backgroundImage,
+                    // Only clear background when switching to Default theme
+                    // For other themes (acrylic, glass, solid-grain): keep existing or use default
+                    backgroundImage: newFamily === 'default'
+                      ? undefined
+                      : (template.backgroundImage || getDefaultLandscapeId() || 'l1'),
+                    customBackgroundImage: newFamily === 'default' ? undefined : template.customBackgroundImage,
                     eventOpacity: 1,
                   });
                   // Apply theme colors when switching themes (except default)
@@ -2799,12 +2832,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </button>
             <div className={`overflow-hidden transition-all duration-300 ease-out ${isScaleRatioExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="space-y-4 pt-2">
-                {/* Background Aspect Ratio */}
-                <div className="space-y-2">
+                {/* Background Aspect Ratio - disabled when lockscreen mockup is enabled */}
+                <div className={`space-y-2 ${template.lockscreenMockup ? 'opacity-40 pointer-events-none' : ''}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Background Ratio</span>
                     <span className="text-xs text-gray-500">
-                      {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
+                      {template.lockscreenMockup ? 'Locked (Portrait)' : template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -2817,6 +2850,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       value={template.aspectRatio}
                       onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
                       className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      disabled={template.lockscreenMockup}
                     />
                     <span className="text-xs text-gray-500">9:19.5</span>
                   </div>
@@ -2825,12 +2859,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <button
                       onClick={() => onUpdateTemplate({ ...template, aspectRatio: 0 })}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      disabled={template.lockscreenMockup}
                     >
                       <Monitor size={14} /> Desktop
                     </button>
                     <button
                       onClick={() => onUpdateTemplate({ ...template, aspectRatio: 1 })}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      disabled={template.lockscreenMockup}
                     >
                       <Smartphone size={14} /> Mobile
                     </button>
@@ -3061,7 +3097,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 {/* Landscape section */}
                 <div className="w-[55%] space-y-3">
                   <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Landscape</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {landscapes.map((bg) => (
                       <button
                         key={bg.id}

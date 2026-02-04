@@ -75,6 +75,11 @@ const App: React.FC = () => {
   const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
   const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
   const [starCount, setStarCount] = useState<number>(0);
+  // Saved export settings (aspectRatio + calendarCardInsets) to restore when returning to Export
+  const [savedExportSettings, setSavedExportSettings] = useState<{
+    aspectRatio: number;
+    calendarCardInsets: { top: number; bottom: number; left: number; right: number };
+  } | null>(null);
 
   // Track unique users (once per browser) and fetch stats
   useEffect(() => {
@@ -285,6 +290,13 @@ const App: React.FC = () => {
                   backgroundType: 'image',
                   backgroundImage: prev.backgroundImage || defaultBg,
                 }));
+              } else if (savedExportSettings) {
+                // Restore saved export settings (aspectRatio + insets) when returning to Export
+                setTemplate((prev: TemplateConfig) => ({
+                  ...prev,
+                  aspectRatio: savedExportSettings.aspectRatio,
+                  calendarCardInsets: { ...savedExportSettings.calendarCardInsets },
+                }));
               }
               setHasVisitedExport(true);
               setStep(AppStep.EXPORT);
@@ -294,12 +306,24 @@ const App: React.FC = () => {
         )}
 
         {step === AppStep.EXPORT && (
-          <ExportStep 
+          <ExportStep
             events={events}
             template={template}
             onUpdateTemplate={setTemplate}
             onUpdateEvents={setEvents}
-            onBack={() => setStep(AppStep.EDIT)}
+            onBack={() => {
+              // Save export settings before going back to Edit
+              setSavedExportSettings({
+                aspectRatio: template.aspectRatio,
+                calendarCardInsets: { ...template.calendarCardInsets },
+              });
+              // Reset calendar card insets so CC fills canvas in Edit mode
+              setTemplate((prev: TemplateConfig) => ({
+                ...prev,
+                calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 },
+              }));
+              setStep(AppStep.EDIT);
+            }}
           />
         )}
       </main>

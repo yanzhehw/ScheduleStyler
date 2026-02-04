@@ -207,10 +207,10 @@ export const EditStep: React.FC<EditStepProps> = ({
     // containerAR < 0.6 (tall) -> 1 (portrait 9:16)
     // Linear interpolation between these extremes
     const minAR = 0.6;  // Below this -> full portrait
-    const maxAR = 1.6;  // Above this -> full landscape
+    const maxAR = 1.23;  // Above this -> full landscape
 
     if (containerAR >= maxAR) {
-      return 0; // Full landscape
+      return 0.45; // Full landscape
     } else if (containerAR <= minAR) {
       return 1; // Full portrait
     } else {
