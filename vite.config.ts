@@ -17,6 +17,8 @@ export default defineConfig(() => {
           },
         },
       },
+      // SPA fallback - ensures all routes serve index.html for client-side routing
+      appType: 'spa' as const,
       plugins: [react(), tailwindcss(), imagetools()],
       // API keys are kept server-side only - never exposed to frontend
       resolve: {
