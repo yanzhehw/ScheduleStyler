@@ -5,6 +5,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
 import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2 } from 'lucide-react';
+import { GlassRadioGroup } from './ui/glass-radio-group';
 import { getThemeColors } from '../themes';
 import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
 
@@ -750,7 +751,7 @@ export const EditStep: React.FC<EditStepProps> = ({
             {selectedEvent ? (
               <button
                 onClick={() => setSelectedEventId(null)}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
               >
                 Done
               </button>
@@ -763,7 +764,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                   }
                   onNext();
                 }}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
               >
                 Next
               </button>
@@ -992,7 +993,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                       <button
                         type="button"
                         onClick={handleBulkCreateCoursesWithValidation}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium btn-accent text-white rounded-lg"
                       >
                         <CirclePlus size={14} /> Add
                       </button>
@@ -1140,20 +1141,15 @@ export const EditStep: React.FC<EditStepProps> = ({
                 </div>
 
                 {/* Quick Presets */}
-                <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, aspectRatio: 0 })}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${template.aspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                  >
-                    <Monitor size={12} /> Desktop
-                  </button>
-                  <button
-                    onClick={() => onUpdateTemplate({ ...template, aspectRatio: 1 })}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${template.aspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                  >
-                    <Smartphone size={12} /> Mobile
-                  </button>
-                </div>
+                <GlassRadioGroup
+                  name="edit-aspect-ratio"
+                  options={[
+                    { id: 'desktop', label: <><Monitor size={12} /> Desktop</>, value: 'desktop' as const },
+                    { id: 'mobile', label: <><Smartphone size={12} /> Mobile</>, value: 'mobile' as const },
+                  ]}
+                  value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
+                  onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
+                />
               </div>
 
             </>
@@ -1611,7 +1607,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium btn-accent text-white rounded-lg"
                 >
                   Done
                 </button>

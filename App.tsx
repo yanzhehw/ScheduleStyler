@@ -315,7 +315,7 @@ const App: React.FC = () => {
                <div key={step.path} className="flex items-center gap-2">
                  <div className={`
                     px-3 py-1 rounded-full text-xs font-semibold transition-all
-                    ${isActive ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' :
+                    ${isActive ? 'step-indicator-active text-white' :
                       isPast ? 'bg-gray-800 text-gray-400' : 'text-gray-600'}
                  `}>
                    {idx + 1}. {step.label}
@@ -331,7 +331,7 @@ const App: React.FC = () => {
           href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-0 rounded-full border border-blue-500/50 bg-gradient-to-r from-blue-600/90 to-blue-700/90 hover:from-blue-500/90 hover:to-blue-600/90 transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-800/30 hover:scale-[1.02] active:scale-[0.98]"
+          className="github-star-btn flex items-center gap-0 rounded-full"
         >
           <div className="flex items-center gap-2 px-4 py-2">
             <span className="text-sm font-semibold text-white">Star On GitHub</span>

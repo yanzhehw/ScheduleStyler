@@ -7,6 +7,8 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
 import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Bold, Italic } from 'lucide-react';
+import { GlowButton } from './ui/glow-button';
+import { GlassRadioGroup } from './ui/glass-radio-group';
 import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors, COLOR_PALETTES, getPalette, ColorPalette } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
@@ -1302,7 +1304,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       shuffleColorsForEvents(template.differentiateTypes);
                     }
                   }}
-                  className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${applyColorToAll ? 'bg-blue-600' : 'bg-gray-700'}`}
+                  className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${applyColorToAll ? 'toggle-accent-bg' : 'bg-gray-700'}`}
                 >
                   <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-6' : 'left-1'}`} />
                 </div>
@@ -1507,7 +1509,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <span className="text-xs text-gray-300 font-medium whitespace-nowrap">No Borders</span>
                     <div
                       onClick={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
-                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.eventBlockNoBorders ? 'bg-blue-600' : 'bg-gray-700'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.eventBlockNoBorders ? 'toggle-accent-bg' : 'bg-gray-700'}`}
                     >
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.eventBlockNoBorders ? 'left-6' : 'left-1'}`} />
                     </div>
@@ -1521,7 +1523,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   <span className="text-xs text-gray-300 font-medium whitespace-nowrap">Different Lab/Tutorial Colors</span>
                   <div
                     onClick={() => triggerColorUpdate(!template.differentiateTypes)}
-                    className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.differentiateTypes ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.differentiateTypes ? 'toggle-accent-bg' : 'bg-gray-700'}`}
                   >
                     <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.differentiateTypes ? 'left-6' : 'left-1'}`} />
                   </div>
@@ -2395,7 +2397,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             {/* Done Button */}
             <button
               onClick={() => setShowFontSelector(false)}
-              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors flex-shrink-0"
+              className="w-full px-4 py-2 btn-accent text-white font-medium rounded-lg flex-shrink-0"
             >
               Done
             </button>
@@ -2855,22 +2857,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <span className="text-xs text-gray-500">9:19.5</span>
                   </div>
                   {/* Quick Presets */}
-                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, aspectRatio: 0 })}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio <= 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                      disabled={template.lockscreenMockup}
-                    >
-                      <Monitor size={14} /> Desktop
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, aspectRatio: 1 })}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.aspectRatio > 0.5 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                      disabled={template.lockscreenMockup}
-                    >
-                      <Smartphone size={14} /> Mobile
-                    </button>
-                  </div>
+                  <GlassRadioGroup
+                    name="aspect-ratio"
+                    options={[
+                      { id: 'desktop', label: <><Monitor size={14} /> Desktop</>, value: 'desktop' as const },
+                      { id: 'mobile', label: <><Smartphone size={14} /> Mobile</>, value: 'mobile' as const },
+                    ]}
+                    value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
+                    onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
+                    disabled={template.lockscreenMockup}
+                  />
                 </div>
 
                 {/* Lockscreen Mockup */}
@@ -2898,7 +2894,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           setColorPickerPosition(null);
                         }
                       }}
-                      className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'bg-blue-600' : 'bg-gray-700'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'toggle-accent-bg' : 'bg-gray-700'}`}
                     >
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
                     </div>
@@ -3012,39 +3008,36 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
               <div
                 onClick={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
-                className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex-shrink-0 ${template.showGrid ? 'bg-blue-600' : 'bg-gray-700'}`}
+                className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.showGrid ? 'toggle-accent-bg' : 'bg-gray-700'}`}
               >
                 <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.showGrid ? 'left-6' : 'left-1'}`} />
               </div>
             </div>
             {/* Grid Line Style Toggle - only shown when grid is visible */}
             <div className={`overflow-hidden transition-all duration-300 ease-out ${template.showGrid ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                <button
-                  onClick={() => onUpdateTemplate({ ...template, gridLineStyle: 'bright' })}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.gridLineStyle === 'bright' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  <Sun size={14} /> Bright
-                </button>
-                <button
-                  onClick={() => onUpdateTemplate({ ...template, gridLineStyle: 'dark' })}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs transition-colors ${template.gridLineStyle === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  <Moon size={14} /> Dark
-                </button>
-              </div>
+              <GlassRadioGroup
+                name="grid-line-style"
+                options={[
+                  { id: 'bright', label: <><Sun size={14} /> Bright</>, value: 'bright' as const },
+                  { id: 'dark', label: <><Moon size={14} /> Dark</>, value: 'dark' as const },
+                ]}
+                value={template.gridLineStyle}
+                onChange={(val) => onUpdateTemplate({ ...template, gridLineStyle: val })}
+              />
             </div>
           </div>
 
           {/* Download Button - Standalone */}
           <div className="pt-2">
-            <button
+            <GlowButton
               onClick={handleDownload}
               disabled={isExporting}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+              label={isExporting ? 'Exporting...' : 'Download'}
+              className="w-full"
             >
-              {isExporting ? 'Exporting...' : <><Download size={18} /> Download</>}
-            </button>
+              <Download size={18} />
+              {isExporting ? 'Exporting...' : 'Download'}
+            </GlowButton>
           </div>
 
           </div>
