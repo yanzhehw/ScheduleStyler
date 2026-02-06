@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer, Star } from 'lucide-react';
 import { TextShimmer } from './ui/text-shimmer';
 import { ElectricBorder } from './ui/electric-border';
+import { fetchExamples, type ExampleImage } from '../services/examplesApi';
 
 interface UploadStepProps {
   onFileSelect: (file: File, apiKey?: string, activationToken?: string) => void;
@@ -21,11 +22,11 @@ interface UploadStepProps {
 const GEMINI_API_KEY_REGEX = /^AIza[A-Za-z0-9_-]{35}$/;
 
 const EXTRACTION_MESSAGES = [
-  "Extracting Course Title",
-  "Extracting Course Type",
-  "Extracting Times",
-  "Extracting Location",
-  "Initializing canvas",
+  "Extracting Course Title ...",
+  "Extracting Course Type ...",
+  "Extracting Times ...",
+  "Extracting Location ...",
+  "Initializing canvas ...",
 ];
 
 export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, onMockWaiting, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
@@ -36,6 +37,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
   const [apiKeyValidationError, setApiKeyValidationError] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
+  const [textureImages, setTextureImages] = useState<ExampleImage[]>([]);
+  const [currentTextureIndex, setCurrentTextureIndex] = useState(0);
 
   // Cycle through extraction messages every 2.2 seconds
   useEffect(() => {
@@ -50,6 +53,30 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
 
     return () => clearInterval(interval);
   }, [isProcessing]);
+
+  // Fetch texture images on mount
+  useEffect(() => {
+    fetchExamples()
+      .then((data) => {
+        setTextureImages(data.texture);
+      })
+      .catch((err) => {
+        console.error('Failed to load texture examples:', err);
+      });
+  }, []);
+
+  // Cycle through texture images every 3 seconds during processing
+  useEffect(() => {
+    if (!isProcessing || textureImages.length === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentTextureIndex((prev) => (prev + 1) % textureImages.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isProcessing, textureImages.length]);
 
   const isActivated = Boolean(activationToken);
   const isByokMode = keyMode === 'byok';
@@ -152,7 +179,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                     <div className="space-y-3">
-                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule...</h2>
+                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule</h2>
                       <div className="h-6 flex items-center justify-center">
                         <TextShimmer
                           duration={1.2}
@@ -356,12 +383,41 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
           </div>
 
           {isProcessing ? (
-            /* Inspiration Preview - empty placeholder during processing */
+            /* Inspiration Preview - texture slideshow during processing */
             <div
               id="inspirationPreview"
-              className="h-full min-h-[300px] rounded-3xl border-2 border-dashed border-slate-700 bg-slate-900/50"
+              className="relative h-full min-h-[300px] rounded-3xl border-2 border-slate-700 bg-slate-900/50 overflow-hidden"
             >
-              {/* Reserved for future inspiration preview content */}
+              {textureImages.length > 0 && (
+                <>
+                  {textureImages.map((img, index) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt={img.name}
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                        index === currentTextureIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+                  ))}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-slate-900/40" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                    <span className="text-xs text-slate-300 font-medium bg-slate-900/60 px-3 py-1 rounded-full backdrop-blur-sm">
+                      Available Styles
+                    </span>
+                    <div className="flex gap-1.5">
+                      {textureImages.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                            index === currentTextureIndex ? 'bg-blue-400' : 'bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <button
@@ -403,22 +459,14 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
             onClick={onLoadSample}
             className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors flex items-center gap-2"
           >
-            <Play size={14} /> Sample Schedule
+            <Play size={14} /> Sample Schedule 1
           </button>
           <button
             onClick={onLoadMcGillSample}
             className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors flex items-center gap-2"
           >
-            <Play size={14} /> McGill Schedule
+            <Play size={14} /> Sample Schedule 2
           </button>
-          {onMockWaiting && (
-            <button
-              onClick={onMockWaiting}
-              className="px-4 py-2 text-sm text-amber-400 hover:text-amber-300 border border-amber-700/50 hover:border-amber-600 rounded-lg transition-colors flex items-center gap-2 bg-amber-900/20"
-            >
-              <Timer size={14} /> Mock Waiting
-            </button>
-          )}
         </div>
       )}
 

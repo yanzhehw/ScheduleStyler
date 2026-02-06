@@ -10,8 +10,8 @@ Transform ugly ahh calendar screenshots into good looking Ones.
 <td align="center"><strong>After</strong></td>
 </tr>
 <tr>
-<td><img src="assets/Old_1.png" alt="Original messy calendar" width="400"/></td>
-<td><img src="assets/Modern_1.png" alt="Styled modern calendar" width="400"/></td>
+<td><img src="assets/examples/before.png" alt="Original messy calendar" width="400"/></td>
+<td><img src="assets/examples/after.png" alt="Styled modern calendar" width="400"/></td>
 </tr>
 </table>
 <!-- 
@@ -23,12 +23,10 @@ Transform ugly ahh calendar screenshots into good looking Ones.
 
 ## How It Works
 
-1. **Upload** - Drop in a screenshot of your calendar 
-2. **Edit** - Review extracted events and styling options
-3. **Export** - Download your styled schedule with selected template
+1. **Upload** - Drop in a screenshot of your calendar/Manual Input
+2. **Edit** - Review extracted events and fine tune details
+3. **Export** - Select Styling and download your upper upper schedule thats ready to plug and play. (High resolution)
 ---
-
-## Getting Started
 
 ### Prerequisites
 

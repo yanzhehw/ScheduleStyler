@@ -172,7 +172,6 @@ export const EditStep: React.FC<EditStepProps> = ({
   // Calculate auto-fit zoom to contain the full calendar
   const calculateAutoFitZoom = useCallback(() => {
     if (!canvasContainerRef.current) {
-      console.log('[EditStep] calculateAutoFitZoom: container not ready');
       return 1;
     }
     const container = canvasContainerRef.current;
@@ -183,12 +182,6 @@ export const EditStep: React.FC<EditStepProps> = ({
     const scaleY = containerHeight / canvasDimensions.height;
 
     const result = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
-    console.log('[EditStep] calculateAutoFitZoom:', {
-      containerWidth, containerHeight,
-      canvasWidth: canvasDimensions.width,
-      canvasHeight: canvasDimensions.height,
-      scaleX, scaleY, result
-    });
     return result;
   }, [canvasDimensions.width, canvasDimensions.height]);
 
@@ -231,7 +224,6 @@ export const EditStep: React.FC<EditStepProps> = ({
   useEffect(() => {
     if (!hasInitialized.current) {
       const optimalAR = calculateOptimalAspectRatio();
-      console.log('[EditStep] Mount - optimal AR:', optimalAR);
       if (optimalAR !== null) {
         onUpdateTemplate({ ...templateRef.current, aspectRatio: optimalAR });
       }
@@ -250,13 +242,6 @@ export const EditStep: React.FC<EditStepProps> = ({
     const dimensionsChanged = width !== lastWidth || height !== lastHeight;
     const isValidDimensions = width > 0 && height > 0;
 
-    console.log('[EditStep] Dimensions effect:', {
-      width, height, lastWidth, lastHeight,
-      dimensionsChanged, isValidDimensions,
-      hasAppliedInitialZoom: hasAppliedInitialZoom.current,
-      containerReady: !!canvasContainerRef.current
-    });
-
     if (dimensionsChanged && isValidDimensions) {
       lastComputedDimensions.current = { width, height };
 
@@ -264,7 +249,6 @@ export const EditStep: React.FC<EditStepProps> = ({
       setTimeout(() => {
         if (canvasContainerRef.current) {
           const newZoom = calculateAutoFitZoom();
-          console.log('[EditStep] Applying zoom:', newZoom);
           setZoom(newZoom);
           hasAppliedInitialZoom.current = true;
           // Wait for React to apply the zoom before revealing canvas
@@ -276,8 +260,6 @@ export const EditStep: React.FC<EditStepProps> = ({
               }
             });
           });
-        } else {
-          console.log('[EditStep] Container ref not ready');
         }
       }, 50);
     }

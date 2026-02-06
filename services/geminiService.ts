@@ -1,91 +1,29 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { CalendarEvent, Category, CATEGORY_COLORS, ClassType } from "../types";
 import { LOG_RESPONSES } from "../config";
 
-// Default client using env API key (for invite code mode)
-const defaultAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-// Create client with custom API key (for BYOK mode)
-function getAiClient(apiKey?: string): GoogleGenAI {
-  if (apiKey) {
-    return new GoogleGenAI({ apiKey });
-  }
-  return defaultAi;
-}
-
-const SYSTEM_INSTRUCTION = `
-You are an expert OCR and course schedule extraction assistant. 
-Your goal is to extract university class schedules from a screenshot.
-Analyze the image layout carefully.
-- Columns usually represent days (Monday to Sunday).
-- Rows represent time.
-- Extract the **Course Code** (e.g., "MATH 101", "CS 202", "BIOL 100") as the 'title'.
-- Identify the **Class Type** (Lecture, Tutorial, Lab, Seminar). 
-  - Look for keywords like "Lec", "Tut", "Lab".
-  - If a section number is present (e.g., L01, T02), infer the type (L=Lecture, T=Tutorial).
-  - If unsure, use "Lecture" as default or "Custom".
-- Extract **Metadata** into a list. This includes:
-  - CRN (Course Registration Number, usually a 4-5 digit number like "2082").
-  - Duration/Frequency strings (e.g., "2 times 1.5 hrs/wk").
-  - Instructor names if visible.
-- Extract **Location** (Room numbers, Building names, Addresses). Note that the address is often the last line.
-- If the exact time is not written, ESTIMATE it based on position.
-- Return strictly structured JSON.
-`;
-
+/**
+ * Extract calendar events from an image via the backend API
+ * The API key is securely stored on the server
+ */
 export async function extractCalendarFromImage(base64Image: string, apiKey?: string): Promise<{ events: CalendarEvent[]; categories: Category[] }> {
   try {
-    const ai = getAiClient(apiKey);
-    const model = "gemini-3-flash-preview";
-
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: "image/png",
-              data: base64Image,
-            },
-          },
-          {
-            text: "Extract all class events from this schedule image. Separate Course Code, Class Type, and Metadata. If the course type is not clear, use 'Unknown'.",
-          },
-        ],
+    const response = await fetch('/api/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            events: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  courseCode: { type: Type.STRING, description: "The course identifier, e.g. CS 101" },
-                  classType: { type: Type.STRING, enum: ["Unknown", "Lecture", "Tutorial", "Lab", "Seminar", "Custom"] },
-                  customClassType: { type: Type.STRING },
-                  startTime: { type: Type.STRING, description: "HH:MM 24h" },
-                  endTime: { type: Type.STRING, description: "HH:MM 24h" },
-                  dayIndex: { type: Type.INTEGER },
-                  location: { type: Type.STRING },
-                  metadata: { type: Type.ARRAY, items: { type: Type.STRING }, description: "CRN, frequency, extra info" },
-                  isConfidenceLow: { type: Type.BOOLEAN },
-                },
-                required: ["courseCode", "startTime", "endTime", "dayIndex"],
-              },
-            },
-          },
-        },
-      },
+      body: JSON.stringify({
+        base64Image,
+        apiKey, // Only sent for BYOK mode
+      }),
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from Gemini");
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Extraction failed');
+    }
 
-    const data = JSON.parse(text) as { events: any[] };
+    const data = await response.json() as { events: any[] };
 
     // Log raw API response
     if (LOG_RESPONSES) {
@@ -131,11 +69,11 @@ export function processRawEvents(rawData: { events: any[] }): { events: Calendar
     let cType: ClassType = e.classType || 'Unknown';
     let eDisplayTitle: string;
     let eClassSection: string | undefined;
-    
+
     if (!['Lecture', 'Tutorial', 'Lab', 'Seminar', 'Unknown'].includes(cType)) {
       cType = 'Custom';
     }
-    
+
     if (cType === 'Unknown' && e.courseCode.includes("-")) {
       [eDisplayTitle, eClassSection] = e.courseCode.split("-").map((element: string) => element.trim());
     } else {
