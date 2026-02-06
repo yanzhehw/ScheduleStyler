@@ -6,6 +6,7 @@ import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
 import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2 } from 'lucide-react';
 import { GlassRadioGroup } from './ui/glass-radio-group';
+import { ThemedDropdown } from './ui/themed-dropdown';
 import { getThemeColors } from '../themes';
 import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
 
@@ -637,22 +638,23 @@ export const EditStep: React.FC<EditStepProps> = ({
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
       <div
         ref={canvasContainerRef}
-        className="flex-1 min-h-0 bg-gray-800/30 rounded-2xl border border-gray-700/50 relative"
+        className="flex-1 min-h-0 rounded-2xl border relative"
+        style={{ backgroundColor: 'rgba(var(--accent-primary-rgb), 0.05)', borderColor: 'var(--border-muted)' }}
       >
         {/* Zoom Toolbar - positioned outside scrollable area */}
         {isZoomToolbarOpen && (
           <div className="absolute top-4 right-4 z-50">
-            <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
+            <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
               <button
                 onClick={handleZoomOut}
-                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
                 title="Zoom Out"
               >
                 <ZoomOut size={16} className="mx-auto text-gray-200" />
               </button>
               <button
                 onClick={handleZoomReset}
-                className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
                 title="Fit to View"
               >
                 <span className="text-xs font-mono text-gray-100">
@@ -661,14 +663,14 @@ export const EditStep: React.FC<EditStepProps> = ({
               </button>
               <button
                 onClick={handleZoomIn}
-                className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+                className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
                 title="Zoom In"
               >
                 <ZoomIn size={16} className="mx-auto text-gray-200" />
               </button>
               <button
                 onClick={() => setIsZoomToolbarOpen(false)}
-                className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
+                className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed"
                 title="Hide zoom controls"
               >
                 <Minimize2 size={12} className="text-gray-200" />
@@ -681,7 +683,7 @@ export const EditStep: React.FC<EditStepProps> = ({
         {!isZoomToolbarOpen && (
           <button
             onClick={() => setIsZoomToolbarOpen(true)}
-            className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-lg backdrop-blur-md transition-all hover:bg-slate-800/90 active:scale-95"
+            className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border shadow-lg transition-all active:scale-95 toolbar-themed"
             title="Show zoom controls"
           >
             <ZoomIn size={16} className="mx-auto text-gray-200" />
@@ -738,12 +740,12 @@ export const EditStep: React.FC<EditStepProps> = ({
       </div>
 
       {/* Right: Inspector Panel */}
-      <div className="w-96 h-full min-h-0 overflow-hidden bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl flex-shrink-0">
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900 z-10 rounded-t-2xl">
+      <div className="w-[336px] h-full min-h-0 overflow-hidden rounded-2xl border flex flex-col shadow-xl flex-shrink-0" style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}>
+        <div className="p-4 border-b flex justify-between items-center z-10 rounded-t-2xl" style={{ borderColor: 'var(--panel-border)', backgroundColor: 'var(--panel-header-bg)' }}>
           <h3 className="font-semibold text-white">{selectedEvent ? 'Editing Block' : 'Edit Calendar'}</h3>
           <div className="flex gap-2">
             {!selectedEvent && (
-              <button onClick={() => setShowReuploadConfirm(true)} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
+              <button onClick={() => setShowReuploadConfirm(true)} className="px-3 py-1.5 button-ghost-themed hover:opacity-90 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5">
                 <Upload size={14} />
                 Re-upload
               </button>
@@ -789,7 +791,7 @@ export const EditStep: React.FC<EditStepProps> = ({
             <>
 
               {/* Add Course Section */}
-              <div className="p-4 bg-gradient-to-br from-blue-900/30 to-blue-800/20 rounded-xl border border-blue-700/50">
+              <div className="p-4 rounded-xl border card-section-themed">
                 <button
                   onClick={() => setIsAddCourseExpanded(!isAddCourseExpanded)}
                   className="flex items-center justify-between w-full text-sm text-blue-300 font-medium hover:text-blue-200 transition-colors"
@@ -839,7 +841,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                                 ? 'border-blue-400 bg-blue-500'
                                 : addCourseErrors.days
                                   ? 'border-red-400/50'
-                                  : 'border-gray-600'
+                                  : 'border-[var(--border-default)]'
                               }`}>
                               {addCourseDraft.selectedDays[index] && (
                                 <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -858,7 +860,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                     {/* Course Code & Class Type - Same Line */}
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-1">Course Code & Type</label>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 min-w-0">
                         <input
                           type="text"
                           value={addCourseDraft.courseCode}
@@ -866,22 +868,21 @@ export const EditStep: React.FC<EditStepProps> = ({
                             setAddCourseDraft({ ...addCourseDraft, courseCode: e.target.value });
                             if (addCourseErrors.courseCode) setAddCourseErrors({ ...addCourseErrors, courseCode: undefined });
                           }}
-                          className={`flex-1 bg-gray-800 border rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm ${
-                            addCourseErrors.courseCode ? 'border-red-500' : 'border-gray-700'
+                          className={`w-37 shrink-0 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
+                            addCourseErrors.courseCode ? 'border-red-500' : ''
                           }`}
                           placeholder="e.g. CS 101"
                         />
-                        <select
+                        <ThemedDropdown
+                          options={CLASS_TYPES.map((type) => ({
+                            id: type,
+                            label: type,
+                            value: type,
+                          }))}
                           value={addCourseDraft.classType}
-                          onChange={(e) => setAddCourseDraft({ ...addCourseDraft, classType: e.target.value as ClassType })}
-                          className="text-sm font-medium text-white bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-                        >
-                          {CLASS_TYPES.map((type) => (
-                            <option key={type} value={type} className="bg-gray-900 text-white">
-                              {type}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => setAddCourseDraft({ ...addCourseDraft, classType: val as ClassType })}
+                          className="flex-1 min-w-0"
+                        />
                       </div>
                       {addCourseErrors.courseCode && (
                         <p className="text-xs text-red-400 mt-1">{addCourseErrors.courseCode}</p>
@@ -896,7 +897,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                           type="text"
                           value={addCourseDraft.customClassType}
                           onChange={(e) => setAddCourseDraft({ ...addCourseDraft, customClassType: e.target.value })}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                           placeholder="e.g. Workshop"
                         />
                       </div>
@@ -933,8 +934,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                               }
                             }}
                             placeholder="09:00"
-                            className={`w-full bg-gray-800 border rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono ${
-                              addCourseErrors.time ? 'border-red-500' : 'border-gray-700'
+                            className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
+                              addCourseErrors.time ? 'border-red-500' : ''
                             }`}
                           />
                         </div>
@@ -959,8 +960,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                               }
                             }}
                             placeholder="10:00"
-                            className={`w-full bg-gray-800 border rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono ${
-                              addCourseErrors.time ? 'border-red-500' : 'border-gray-700'
+                            className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
+                              addCourseErrors.time ? 'border-red-500' : ''
                             }`}
                           />
                         </div>
@@ -977,7 +978,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         type="text"
                         value={addCourseDraft.location}
                         onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                        className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                       />
                     </div>
 
@@ -986,7 +987,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                       <button
                         type="button"
                         onClick={handleClearAddCourseForm}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm hover:text-white rounded-lg transition-colors button-ghost-themed"
+                        style={{ color: 'var(--text-secondary)' }}
                       >
                         <RotateCcw size={14} /> Clear
                       </button>
@@ -1003,7 +1005,7 @@ export const EditStep: React.FC<EditStepProps> = ({
               </div>
 
               {/* Content Display Options - Collapsible */}
-              <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+              <div className="p-4 rounded-xl border card-section-themed">
                 <button
                   onClick={() => setIsContentDisplayExpanded(!isContentDisplayExpanded)}
                   className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
@@ -1018,7 +1020,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                   <div className="space-y-2 mt-4">
                     {/* Include Course Section toggle */}
                     {hasValidCourseSections && (
-                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
                         <ToggleSwitch
                           enabled={template.showCourseSection}
                           onToggle={() => onUpdateTemplate({ ...template, showCourseSection: !template.showCourseSection })}
@@ -1028,7 +1030,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                     )}
 
                     {/* Compact View at top - toggles off other options when enabled */}
-                    <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors border border-gray-700">
+                    <div className="p-2 hover:opacity-80 rounded-lg transition-colors border" style={{ borderColor: 'var(--border-default)' }}>
                       <ToggleSwitch
                         enabled={template.compact}
                         onToggle={() => {
@@ -1069,7 +1071,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
                     {/* Other content options - disabled when compact is on */}
                     <div className={`space-y-2 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
-                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
                         <ToggleSwitch
                           enabled={template.showClassType}
                           onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
@@ -1078,7 +1080,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         />
                       </div>
 
-                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
                         <ToggleSwitch
                           enabled={template.showTime}
                           onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
@@ -1087,7 +1089,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         />
                       </div>
 
-                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
                         <ToggleSwitch
                           enabled={template.showLocation}
                           onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
@@ -1096,7 +1098,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         />
                       </div>
 
-                      <div className="p-2 hover:bg-gray-700/30 rounded-lg transition-colors">
+                      <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
                         <ToggleSwitch
                           enabled={template.showNotes}
                           onToggle={() => {
@@ -1115,7 +1117,7 @@ export const EditStep: React.FC<EditStepProps> = ({
               </div>
 
               {/* Aspect Ratio Section */}
-              <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700 space-y-4">
+              <div className="p-4 rounded-xl border space-y-4 card-section-themed">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-300 font-medium flex items-center gap-2">
                     <Maximize2 size={14} /> Aspect Ratio
@@ -1135,7 +1137,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                     step="0.05" 
                     value={template.aspectRatio}
                     onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
-                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                   />
                   <span className="text-[10px] text-gray-500">9:16</span>
                 </div>
@@ -1237,7 +1239,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                             ? 'border-green-400 bg-green-500'
                             : existsOnDay
                               ? 'border-blue-400 bg-blue-500'
-                              : 'border-gray-600'
+                              : 'border-[var(--border-default)]'
                           }`}>
                           {(isCurrentDay || existsOnDay) && (
                             <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -1266,20 +1268,19 @@ export const EditStep: React.FC<EditStepProps> = ({
                       template.showCourseSection ? 'title' : 'displayTitle',
                       e.target.value
                     )}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+                    className="flex-1 rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
                     placeholder="e.g. CS 101"
                   />
-                  <select
+                  <ThemedDropdown
+                    options={CLASS_TYPES.map((type) => ({
+                      id: type,
+                      label: type,
+                      value: type,
+                    }))}
                     value={selectedEvent.classType}
-                    onChange={(e) => handleUpdateEvent('classType', e.target.value as ClassType)}
-                    className="text-sm font-bold text-white bg-gray-900 border border-gray-700 px-4 py-2.5 rounded-lg whitespace-nowrap shadow-md uppercase tracking-wide cursor-pointer hover:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-                  >
-                    {CLASS_TYPES.map((type) => (
-                      <option key={type} value={type} className="bg-gray-900 text-white">
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleUpdateEvent('classType', val as ClassType)}
+                    className="w-28"
+                  />
                 </div>
               </div>
 
@@ -1291,7 +1292,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                     type="text"
                     value={selectedEvent.customClassType || ''}
                     onChange={(e) => handleUpdateEvent('customClassType', e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                     placeholder="e.g. Workshop, Office Hours"
                   />
                 </div>
@@ -1321,7 +1322,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         }
                       }}
                       placeholder="09:00"
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
+                      className="w-full rounded-md input-themed p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
                     />
                   </div>
                   <div>
@@ -1344,7 +1345,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                         }
                       }}
                       placeholder="10:00"
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
+                      className="w-full rounded-md input-themed p-2 text-white text-sm outline-none focus:border-blue-500 font-mono"
                     />
                   </div>
                 </div>
@@ -1369,12 +1370,12 @@ export const EditStep: React.FC<EditStepProps> = ({
                   type="text"
                   value={selectedEvent.location}
                   onChange={(e) => handleUpdateEvent('location', e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none"
+                  className="w-full rounded-md input-themed p-2 text-white text-sm outline-none"
                 />
               </div>
 
               {/* Notes - Checkboxes with include/exclude toggle (per-event) */}
-              <div className="bg-gray-800/40 rounded-lg p-3 border border-gray-700/50 space-y-3">
+              <div className="rounded-lg p-3 border space-y-3 card-section-themed">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium text-gray-400 flex items-center gap-1">
                     <ListPlus size={12} /> Notes
@@ -1397,7 +1398,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                           const currentNotes = selectedEvent.notes || '';
                           const isChecked = currentNotes.includes(meta);
                           return (
-                            <label key={idx} className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:bg-gray-700/50 p-1.5 rounded">
+                            <label key={idx} className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:opacity-80 p-1.5 rounded">
                               <input
                                 type="checkbox"
                                 checked={isChecked}
@@ -1413,7 +1414,8 @@ export const EditStep: React.FC<EditStepProps> = ({
                                   }
                                   handleUpdateEvent('notes', newNotes);
                                 }}
-                                className="w-3.5 h-3.5 text-blue-500 focus:ring-0 bg-gray-700 border-gray-600 rounded"
+                                className="w-3.5 h-3.5 text-blue-500 focus:ring-0 rounded"
+                                style={{ backgroundColor: 'var(--surface-elevated)', borderColor: 'var(--border-default)' }}
                               />
                               <span className="opacity-90">{meta}</span>
                             </label>
@@ -1423,12 +1425,12 @@ export const EditStep: React.FC<EditStepProps> = ({
                     )}
 
                     {/* Additional content textarea */}
-                    <div className="border-t border-gray-700 pt-2">
+                    <div className="border-t pt-2" style={{ borderColor: 'var(--border-default)' }}>
                       <label className="text-[10px] text-gray-500 mb-1 block">Additional notes</label>
                       <textarea
                         value={selectedEvent.notes || ''}
                         onChange={(e) => handleUpdateEvent('notes', e.target.value)}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-white text-sm outline-none h-16 resize-none custom-scrollbar"
+                        className="w-full rounded-md input-themed p-2 text-white text-sm outline-none h-16 resize-none custom-scrollbar"
                         placeholder="Custom notes..."
                       />
                     </div>
@@ -1436,7 +1438,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                 )}
               </div>
 
-              <div className="pt-4 border-t border-gray-800">
+              <div className="pt-4 border-t" style={{ borderColor: 'var(--border-muted)' }}>
                 <button 
                   onClick={handleDeleteEvent}
                   className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-2 rounded-md transition-colors text-sm"
@@ -1453,7 +1455,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
       {showOverlapWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-white font-semibold">Overlaps detected</h4>
@@ -1485,7 +1487,7 @@ export const EditStep: React.FC<EditStepProps> = ({
 
       {showReuploadConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-white font-semibold">Re-upload schedule?</h4>
@@ -1524,7 +1526,7 @@ export const EditStep: React.FC<EditStepProps> = ({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-5">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-white font-semibold">Add Class</h4>
@@ -1554,24 +1556,23 @@ export const EditStep: React.FC<EditStepProps> = ({
                   type="text"
                   value={newEventDraft.title}
                   onChange={(e) => setNewEventDraft({ ...newEventDraft, title: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                   placeholder="e.g. CS 101"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Class Type</label>
-                <select
+                <ThemedDropdown
+                  options={CLASS_TYPES.map((type) => ({
+                    id: type,
+                    label: type,
+                    value: type,
+                  }))}
                   value={newEventDraft.classType}
-                  onChange={(e) => setNewEventDraft({ ...newEventDraft, classType: e.target.value as ClassType })}
-                  className="w-full text-sm font-bold text-white bg-gray-900 border border-gray-700 px-4 py-2.5 rounded-lg shadow-md uppercase tracking-wide cursor-pointer hover:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-                >
-                  {CLASS_TYPES.map((type) => (
-                    <option key={type} value={type} className="bg-gray-900 text-white">
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setNewEventDraft({ ...newEventDraft, classType: val as ClassType })}
+                  className="w-full"
+                />
               </div>
 
               {newEventDraft.classType === 'Custom' && (
@@ -1581,7 +1582,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                     type="text"
                     value={newEventDraft.customClassType}
                     onChange={(e) => setNewEventDraft({ ...newEventDraft, customClassType: e.target.value })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                     placeholder="e.g. Workshop"
                   />
                 </div>
@@ -1593,7 +1594,7 @@ export const EditStep: React.FC<EditStepProps> = ({
                   type="text"
                   value={newEventDraft.location}
                   onChange={(e) => setNewEventDraft({ ...newEventDraft, location: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
 

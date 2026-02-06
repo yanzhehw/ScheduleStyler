@@ -293,7 +293,7 @@ const App: React.FC = () => {
 
   return (
     <BackgroundsProvider>
-    <div className="h-screen overflow-hidden flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
+    <div className="h-screen overflow-hidden flex flex-col text-slate-100 font-sans" style={{ backgroundColor: 'var(--surface-app)' }}>
 
       {/* Header */}
       <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">

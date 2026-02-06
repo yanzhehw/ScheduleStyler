@@ -4,6 +4,7 @@ import { MapPin, AlignLeft, Plus, MousePointerClick, MoveUp, MoveDown } from 'lu
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
+import { currentTheme as siteTheme } from '../lib/site_themes';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -96,7 +97,7 @@ const LANDSCAPE_RATIO = 16 / 9;  // ~1.778 (slider = 0)
 const PORTRAIT_RATIO = 9 / 16;   // ~0.5625 (slider = 1)
 
 /** Event block internal padding (left-1 right-1 + p-1.5 = 4px + 6px each side) */
-const EVENT_BLOCK_PADDING = 20;
+const EVENT_BLOCK_PADDING = 30; // Account for block padding, margins, and tracking-wide letter-spacing
 
 /**
  * Calculate minimum width per column needed to keep text to max 2 lines.
@@ -110,45 +111,52 @@ const calculateMinBlockWidth = (
   showFullTitle: boolean
 ): number => {
   if (events.length === 0) return ABSOLUTE_MIN_BLOCK_WIDTH;
-  
+
   // Use individual font sizes for character width calculations
   const titleFontSize = template.titleFontSize;
   const detailFontSize = template.detailsFontSize;
-  
+
   // Average char width is roughly 0.55x font size for proportional fonts
-  const titleCharWidth = titleFontSize * 0.55;
+  // Use 0.8 for uppercase (titles are uppercase) as they're wider, plus letter-spacing
+  const titleCharWidth = titleFontSize * 0.8;
   const detailCharWidth = detailFontSize * 0.55;
-  
+
   let maxRequiredWidth = ABSOLUTE_MIN_BLOCK_WIDTH;
-  
+
   events.forEach(event => {
-    // Title text
+    // Title text - find the longest word to ensure no word wrapping
     const title = showFullTitle ? event.title : event.displayTitle;
-    // Width needed for title to fit in 2 lines: (chars * charWidth) / 2
-    const titleWidth = (title.length * titleCharWidth) / 2;
-    
-    // Class type text
+    const words = title.split(/\s+/);
+    const longestWordLength = Math.max(...words.map(w => w.length));
+    // Width needed for the longest word to fit without wrapping
+    const titleWidth = longestWordLength * titleCharWidth;
+
+    // Class type text - also find longest word
     let classTypeWidth = 0;
     if (template.showClassType) {
       const classTypeText = event.classType === 'Custom' ? (event.customClassType || '') : event.classType;
-      classTypeWidth = (classTypeText.length * detailCharWidth) / 2;
+      const classTypeWords = classTypeText.split(/\s+/);
+      const longestClassWord = Math.max(...classTypeWords.map(w => w.length), 0);
+      classTypeWidth = longestClassWord * detailCharWidth;
     }
-    
-    // Location text
+
+    // Location text - find longest word
     let locationWidth = 0;
     if (template.showLocation && event.location && !template.compact) {
+      const locationWords = event.location.split(/\s+/);
+      const longestLocationWord = Math.max(...locationWords.map(w => w.length), 0);
       // Account for icon width (~14px)
-      locationWidth = ((event.location.length * detailCharWidth) / 2) + 14;
+      locationWidth = (longestLocationWord * detailCharWidth) + 14;
     }
-    
+
     // Time is usually fixed length "HH:MM - HH:MM" = 13 chars, rarely wraps
     // Notes can be multi-line so we don't constrain based on notes
-    
+
     // Required block width = max of all fields + padding
     const requiredWidth = Math.max(titleWidth, classTypeWidth, locationWidth) + EVENT_BLOCK_PADDING;
     maxRequiredWidth = Math.max(maxRequiredWidth, requiredWidth);
   });
-  
+
   return maxRequiredWidth;
 };
 
@@ -534,15 +542,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     // Check variant for light/dark
     if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
-      return hasCustomBg
-        ? 'text-gray-900 border-gray-200'
-        : 'bg-white text-gray-900 border-gray-200';
+      // Background handled via inline styles in canvasStyles
+      return 'text-gray-900 border-gray-200';
     }
 
-    // Default to dark
-    return hasCustomBg
-      ? 'text-gray-100 border-gray-700'
-      : 'bg-gray-900 text-gray-100 border-gray-700';
+    // Default to dark - background handled via inline styles in canvasStyles
+    return 'text-gray-100 border-gray-700';
   }, [template.theme, template.themeVariant, template.themeFamily, template.backgroundType]);
 
   // Grid line color based on gridLineStyle setting (independent of theme variant)
@@ -718,8 +723,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       };
     }
 
-    return baseStyles;
-  }, [template.borderRadius, template.themeFamily, template.backgroundType, cardDimensions, currentTheme]);
+    // For default theme with no background, use themed calendar card background
+    const isLight = template.themeVariant === 'light' || template.theme?.includes('light');
+    return {
+      ...baseStyles,
+      background: isLight ? '#ffffff' : `var(--calendar-card-background, ${siteTheme.calendarCard.background})`,
+    };
+  }, [template.borderRadius, template.themeFamily, template.backgroundType, template.themeVariant, template.theme, cardDimensions, currentTheme]);
 
   const addSlotStyle = useMemo(() => {
     return {
@@ -926,7 +936,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       } else if (variant === 'light') {
         outerBgStyle.background = '#ffffff';
       } else {
-        outerBgStyle.background = '#111827';
+        // Use theme calendar card background color
+        outerBgStyle.background = `var(--calendar-card-background, ${siteTheme.calendarCard.background})`;
       }
     }
 
@@ -1764,8 +1775,10 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             }}
                           >
                             <div
-                              className="leading-none uppercase tracking-wide break-words"
+                              className="leading-none uppercase tracking-wide"
                               style={{
+                                wordBreak: 'keep-all',
+                                overflowWrap: 'normal',
                                 fontSize: `${template.titleFontSize}px`,
                                 fontFamily: template.titleFont,
                                 fontWeight: template.titleBold ? 700 : 400,

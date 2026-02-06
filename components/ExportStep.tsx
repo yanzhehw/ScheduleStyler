@@ -9,6 +9,7 @@ import { downloadCalendarExport } from '../services/exportPipeline';
 import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Bold, Italic } from 'lucide-react';
 import { GlowButton } from './ui/glow-button';
 import { GlassRadioGroup } from './ui/glass-radio-group';
+import { ThemedDropdown } from './ui/themed-dropdown';
 import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors, COLOR_PALETTES, getPalette, ColorPalette } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
@@ -208,9 +209,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       onUpdateEvents(updatedEvents);
     }
   }, [template.themeFamily]);
-  const [openFontDropdown, setOpenFontDropdown] = useState<'title' | 'subtitle' | 'details' | null>(null);
   const [openTextColorPicker, setOpenTextColorPicker] = useState<'title' | 'subtitle' | 'details' | null>(null);
-  const [fontPairDropdownOpen, setFontPairDropdownOpen] = useState(false);
 
   // Available fonts for selection (loaded from Google Fonts)
   const availableFonts = [
@@ -893,21 +892,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     }
   }, [selectedEventId]);
 
-  // Close font dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-component="TextFontPanel"]')) {
-        setOpenFontDropdown(null);
-      }
-    };
-
-    if (openFontDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [openFontDropdown]);
-
   // Apply theme colors when theme family or variant changes
   const applyThemeColors = (newThemeFamily: ThemeFamilyId, newVariant?: 'light' | 'dark') => {
     const variant = newVariant ?? template.themeVariant;
@@ -972,17 +956,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       {/* ZOOM TOOLBAR - Fixed position relative to ExportLayout, doesn't scroll */}
       {isZoomToolbarOpen && (
         <div data-component="ZoomToolbar" className="absolute top-4 right-[340px] z-50">
-          <div className="relative flex items-center gap-2 rounded-2xl border border-slate-600/70 bg-slate-900/70 p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] backdrop-blur-md">
+          <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
             <button
               onClick={handleZoomOut}
-              className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
               title="Zoom Out"
             >
               <ZoomOut size={16} className="mx-auto text-gray-200" />
             </button>
             <button
               onClick={handleZoomReset}
-              className="h-10 min-w-[72px] rounded-xl border border-slate-600/70 bg-slate-800/80 px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
               title="Reset to 100%"
             >
               <span className="text-xs font-mono text-gray-100">
@@ -991,14 +975,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </button>
             <button
               onClick={handleZoomIn}
-              className="h-10 w-11 rounded-xl border border-slate-600/70 bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all hover:bg-slate-700/80 active:scale-95"
+              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
               title="Zoom In"
             >
               <ZoomIn size={16} className="mx-auto text-gray-200" />
             </button>
             <button
               onClick={() => setIsZoomToolbarOpen(false)}
-              className="absolute -top-2 -right-2 rounded-lg border border-slate-600/70 bg-slate-800/90 p-1.5 shadow-lg transition-all hover:bg-slate-700/90 active:scale-95"
+              className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed"
               title="Hide zoom controls"
               aria-label="Hide zoom controls"
             >
@@ -1237,29 +1221,29 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative">
+            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative">
               {/* Arrow pointer - direction based on placement, with offset */}
               {colorPickerPosition.placement === 'top' && (
                 <div
-                  className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700"
+                  className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed"
                   style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'bottom' && (
                 <div
-                  className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700"
+                  className="absolute -top-2 w-4 h-4 border-l border-t modal-themed"
                   style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'right' && (
                 <div
-                  className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700"
+                  className="absolute -left-2 w-4 h-4 border-l border-b modal-themed"
                   style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'left' && (
                 <div
-                  className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700"
+                  className="absolute -right-2 w-4 h-4 border-r border-t modal-themed"
                   style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
                 />
               )}
@@ -1282,7 +1266,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
 
               {/* Apply to All Toggle */}
-              <div className="flex items-center justify-between gap-3 px-1 py-1.5 mb-2 bg-gray-800/50 rounded-lg">
+              <div className="flex items-center justify-between gap-3 px-1 py-1.5 mb-2 rounded-lg card-section-themed">
                 <span className="text-xs text-gray-300 font-medium whitespace-nowrap">Apply to All Blocks</span>
                 <div
                   onClick={() => {
@@ -1304,7 +1288,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       shuffleColorsForEvents(template.differentiateTypes);
                     }
                   }}
-                  className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${applyColorToAll ? 'toggle-accent-bg' : 'bg-gray-700'}`}
+                  className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${applyColorToAll ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
                 >
                   <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-6' : 'left-1'}`} />
                 </div>
@@ -1314,7 +1298,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               {!applyColorToAll && (
                 <button
                   onClick={() => shuffleColorsForEvents(template.differentiateTypes)}
-                  className="w-full mb-2 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors border border-gray-600/50 hover:border-gray-500/50"
+                  className="w-full mb-2 px-3 py-1.5 text-xs font-medium text-gray-300 rounded-lg transition-colors border border-[var(--border-default)] button-ghost-themed hover:opacity-90"
                 >
                   🎲 Shuffle Colors
                 </button>
@@ -1329,7 +1313,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 relative overflow-hidden ${
                       selectedEvent.color === color
                         ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                        : 'border-transparent hover:border-gray-500'
+                        : 'border-transparent hover:border-[var(--border-default)]'
                     }`}
                     style={{
                       // For acrylic: neutral gray base + color layers; solid-grain: direct color with opacity
@@ -1402,7 +1386,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
                 {/* Palette Options Panel */}
                 {showPalettePicker && (
-                  <div className="mb-2 p-2 bg-gray-800/80 rounded-lg border border-gray-700/50">
+                  <div className="mb-2 p-2 rounded-lg border card-section-themed">
                     <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Other Palettes</div>
                     <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
                       {COLOR_PALETTES.map((palette: ColorPalette) => (
@@ -1437,7 +1421,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           className={`w-full flex items-center gap-2 p-1.5 rounded-md transition-all ${
                             currentPalette.id === palette.id
                               ? 'bg-blue-600/30 border border-blue-500/50'
-                              : 'hover:bg-gray-700/50 border border-transparent'
+                              : 'hover:opacity-80 border border-transparent'
                           }`}
                         >
                           {/* Palette preview - first 6 colors */}
@@ -1465,7 +1449,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
               {/* Color Opacity Slider - Only for acrylic, solid-grain, and glass themes */}
               {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
-                <div className="pt-2 border-t border-gray-700/50">
+                <div className="pt-2 border-t border-[var(--border-muted)]">
                   <div className="px-1 py-1.5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-gray-300 font-medium">Color Opacity</span>
@@ -1496,7 +1480,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           onUpdateEvents(updatedEvents);
                         }
                       }}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                     />
                   </div>
                 </div>
@@ -1504,12 +1488,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
               {/* No Borders Toggle - Only for Acrylic/Solid Grain/Glass themes */}
               {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
-                <div className="pt-2 border-t border-gray-700/50">
-                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 bg-gray-800/50 rounded-lg">
+                <div className="pt-2 border-t border-[var(--border-muted)]">
+                  <div className="flex items-center justify-between gap-3 px-1 py-1.5 rounded-lg card-section-themed">
                     <span className="text-xs text-gray-300 font-medium whitespace-nowrap">No Borders</span>
                     <div
                       onClick={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
-                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.eventBlockNoBorders ? 'toggle-accent-bg' : 'bg-gray-700'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.eventBlockNoBorders ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
                     >
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.eventBlockNoBorders ? 'left-6' : 'left-1'}`} />
                     </div>
@@ -1518,12 +1502,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               )}
 
               {/* Different Lab/Tutorial Colors Toggle */}
-              <div className="pt-2 border-t border-gray-700/50">
-                <div className="flex items-center justify-between gap-3 px-1 py-1.5 bg-gray-800/50 rounded-lg">
+              <div className="pt-2 border-t border-[var(--border-muted)]">
+                <div className="flex items-center justify-between gap-3 px-1 py-1.5 rounded-lg card-section-themed">
                   <span className="text-xs text-gray-300 font-medium whitespace-nowrap">Different Lab/Tutorial Colors</span>
                   <div
                     onClick={() => triggerColorUpdate(!template.differentiateTypes)}
-                    className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.differentiateTypes ? 'toggle-accent-bg' : 'bg-gray-700'}`}
+                    className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.differentiateTypes ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
                   >
                     <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.differentiateTypes ? 'left-6' : 'left-1'}`} />
                   </div>
@@ -1531,14 +1515,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
 
               {/* Edit Fonts Button */}
-              <div className="pt-2 border-t border-gray-700/50">
+              <div className="pt-2 border-t border-[var(--border-muted)]">
                 <button
                   onClick={() => {
                     setShowFontSelector(true);
                     setColorPickerPosition(null);
                     // Keep selectedEventId so font panel can show the preview
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <TypeIcon size={14} /> Edit Fonts/Color
                 </button>
@@ -1560,35 +1544,35 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative w-[240px]">
+            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative w-[240px]">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   clearComponentSelection();
                 }}
-                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200"
+                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200 rounded border border-[var(--border-default)]"
                 aria-label="Close day header editor"
               >
                 <X size={14} />
               </button>
               {headerEditorPosition.placement === 'top' && (
                 <div
-                  className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700"
+                  className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed"
                   style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {headerEditorPosition.placement === 'bottom' && (
                 <div
-                  className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700"
+                  className="absolute -top-2 w-4 h-4 border-l border-t modal-themed"
                   style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {headerEditorPosition.placement === 'right' && (
-                <div className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -left-2 w-4 h-4 border-l border-b modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
               {headerEditorPosition.placement === 'left' && (
-                <div className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -right-2 w-4 h-4 border-r border-t modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
 
               <div className="text-xs text-gray-400 font-medium italic mb-2">Day Header</div>
@@ -1603,7 +1587,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
                           template.headerTextColor === color
                             ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                            : 'border-gray-600 hover:border-gray-500'
+                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                         }`}
                         style={{ backgroundColor: color }}
                         title={color}
@@ -1612,7 +1596,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                <div className="space-y-2 pt-2 border-t border-[var(--border-muted)]">
                   <label className="text-[10px] text-gray-400 font-medium">Backdrop Blur</label>
                   <div className="space-y-1">
                     <input
@@ -1622,36 +1606,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       step="1"
                       value={template.headerBlurAmount}
                       onChange={(e) => onUpdateTemplate({ ...template, headerBlurAmount: parseInt(e.target.value) })}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                     />
                   </div>
-                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'bar' })}
-                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
-                        template.headerBlurMode === 'bar'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Entire Row
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, headerBlurMode: 'cells' })}
-                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
-                        template.headerBlurMode === 'cells'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Each Cell
-                    </button>
-                  </div>
+                  <GlassRadioGroup
+                    name="header-blur-mode"
+                    options={[
+                      { id: 'bar', label: 'Entire Row', value: 'bar' as const },
+                      { id: 'cells', label: 'Each Cell', value: 'cells' as const },
+                    ]}
+                    value={template.headerBlurMode}
+                    onChange={(val) => onUpdateTemplate({ ...template, headerBlurMode: val })}
+                  />
                 </div>
 
                 <button
                   onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
-                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+                  className="w-full px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors"
                 >
                   Reset to Default
                 </button>
@@ -1673,29 +1644,29 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl p-3 relative w-[240px]">
+            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative w-[240px]">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   clearComponentSelection();
                 }}
-                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200"
+                className="absolute top-2 right-2 p-1 text-gray-400 transition hover:text-gray-200 rounded border border-[var(--border-default)]"
                 aria-label="Close time column editor"
               >
                 <X size={14} />
               </button>
               {timeEditorPosition.placement === 'top' && (
-                <div className="absolute -bottom-2 w-4 h-4 bg-gray-900/95 border-r border-b border-gray-700" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+                <div className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'bottom' && (
-                <div className="absolute -top-2 w-4 h-4 bg-gray-900/95 border-l border-t border-gray-700" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+                <div className="absolute -top-2 w-4 h-4 border-l border-t modal-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'right' && (
-                <div className="absolute -left-2 w-4 h-4 bg-gray-900/95 border-l border-b border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -left-2 w-4 h-4 border-l border-b modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'left' && (
-                <div className="absolute -right-2 w-4 h-4 bg-gray-900/95 border-r border-t border-gray-700" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -right-2 w-4 h-4 border-r border-t modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
 
               <div className="text-xs text-gray-400 font-medium italic mb-2">Time Column</div>
@@ -1710,7 +1681,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
                           template.timeColumnTextColor === color
                             ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                            : 'border-gray-600 hover:border-gray-500'
+                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                         }`}
                         style={{ backgroundColor: color }}
                         title={color}
@@ -1719,7 +1690,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-gray-700/50">
+                <div className="space-y-2 pt-2 border-t border-[var(--border-muted)]">
                   <label className="text-[10px] text-gray-400 font-medium">Backdrop Blur</label>
                   <div className="space-y-1">
                     <input
@@ -1729,36 +1700,23 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       step="1"
                       value={template.timeColumnBlurAmount}
                       onChange={(e) => onUpdateTemplate({ ...template, timeColumnBlurAmount: parseInt(e.target.value) })}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                     />
                   </div>
-                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'bar' })}
-                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
-                        template.timeColumnBlurMode === 'bar'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Entire Column
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, timeColumnBlurMode: 'cells' })}
-                      className={`flex-1 px-2 py-1.5 rounded-md text-[10px] transition-colors ${
-                        template.timeColumnBlurMode === 'cells'
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Each Cell
-                    </button>
-                  </div>
+                  <GlassRadioGroup
+                    name="time-blur-mode"
+                    options={[
+                      { id: 'bar', label: 'Entire Column', value: 'bar' as const },
+                      { id: 'cells', label: 'Each Cell', value: 'cells' as const },
+                    ]}
+                    value={template.timeColumnBlurMode}
+                    onChange={(val) => onUpdateTemplate({ ...template, timeColumnBlurMode: val })}
+                  />
                 </div>
 
                 <button
                   onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: undefined, timeColumnBlurAmount: 0 })}
-                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+                  className="w-full px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors"
                 >
                   Reset to Default
                 </button>
@@ -1774,7 +1732,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           {!isZoomToolbarOpen && (
             <button
               onClick={() => setIsZoomToolbarOpen(true)}
-              className="h-10 w-10 rounded-xl border border-slate-600/70 bg-slate-900/70 shadow-[0_10px_20px_rgba(2,6,23,0.35)] backdrop-blur-md transition-all hover:bg-slate-800/80 active:scale-95"
+              className="h-10 w-10 rounded-xl border shadow-[0_10px_20px_rgba(2,6,23,0.35)] transition-all active:scale-95 toolbar-themed"
               title="Show zoom controls"
               aria-label="Show zoom controls"
             >
@@ -1785,7 +1743,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             <button
               data-component="SidebarToggle"
               onClick={() => setIsSidebarOpen(true)}
-              className="h-10 w-10 rounded-xl border border-slate-600/70 bg-transparent text-gray-200 shadow-[0_10px_20px_rgba(2,6,23,0.2)] transition-all hover:bg-slate-800/40 active:scale-95"
+              className="h-10 w-10 rounded-xl border bg-transparent text-gray-200 shadow-[0_10px_20px_rgba(2,6,23,0.2)] transition-all active:scale-95 toolbar-themed"
               title="Show sidebar"
               aria-label="Show sidebar"
             >
@@ -1799,19 +1757,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       {showFontSelector && selectedEvent && (
         <div
           data-component="TextFontPanel"
-          className="w-72 min-h-0 bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
-          style={{ pointerEvents: 'auto' }}
+          className="w-72 min-h-0 rounded-2xl border flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
+          style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)', pointerEvents: 'auto' }}
           onClick={(e) => {
-            // Close dropdowns when clicking on blank areas within the panel
+            // Close color picker when clicking on blank areas within the panel
             const target = e.target as HTMLElement;
             if (target.closest('[data-dropdown]') || target.closest('[data-color-picker]')) return;
-            setOpenFontDropdown(null);
             setOpenTextColorPicker(null);
-            setFontPairDropdownOpen(false);
           }}
         >
           {/* Panel Header */}
-          <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-shrink-0">
+          <div className="p-4 border-b flex justify-between items-center flex-shrink-0" style={{ borderColor: 'var(--panel-border)' }}>
             <h3 className="font-semibold text-white text-sm">Text Font/Colors</h3>
             <button
               onClick={() => setShowFontSelector(false)}
@@ -1822,7 +1778,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Sample Block Preview */}
-          <div className="p-4 border-b border-gray-800 flex-shrink-0">
+          <div className="p-4 border-b flex-shrink-0" style={{ borderColor: 'var(--panel-border)' }}>
             <div
               className="p-3 rounded-lg relative overflow-hidden flex"
               style={{
@@ -1916,117 +1872,78 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             {/* Template Font Pairs Dropdown */}
             <div className="space-y-2" data-dropdown>
               <label className="text-xs text-gray-400 font-medium">Template Font Pairs</label>
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setFontPairDropdownOpen(!fontPairDropdownOpen);
-                    setOpenFontDropdown(null);
-                    setOpenTextColorPicker(null);
-                  }}
-                  className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-white" style={{ fontFamily: fontPairs.find(p => p.id === selectedFontPairId)?.titleFont || 'Inter' }}>
-                      {fontPairs.find(p => p.id === selectedFontPairId)?.name}
-                    </span>
-                    <span className="text-[10px] text-gray-500 block">{fontPairs.find(p => p.id === selectedFontPairId)?.description}</span>
-                  </div>
-                  <ChevronDown size={14} className={`text-gray-400 transition-transform ${fontPairDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {fontPairDropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                    {fontPairs.map((pair) => (
-                      <button
-                        key={pair.id}
-                        onClick={() => {
-                          applyFontPair(pair.id);
-                          setFontPairDropdownOpen(false);
-                        }}
-                        className={`w-full px-3 py-2.5 text-left transition-colors flex items-center justify-between ${
-                          selectedFontPairId === pair.id
-                            ? 'bg-blue-600/20 text-white'
-                            : 'hover:bg-gray-700 text-gray-300'
-                        }`}
-                      >
-                        <div>
-                          <span className="text-sm font-medium" style={{ fontFamily: pair.titleFont || 'Inter' }}>
-                            {pair.name}
-                          </span>
-                          <span className="text-[10px] text-gray-500 block">{pair.description}</span>
-                        </div>
-                        {selectedFontPairId === pair.id && (
-                          <span className="text-blue-400 text-sm">✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ThemedDropdown
+                options={fontPairs.map((pair) => ({
+                  id: pair.id,
+                  label: pair.name,
+                  value: pair.id,
+                }))}
+                value={selectedFontPairId}
+                onChange={(pairId) => applyFontPair(pairId as FontPairId)}
+                className="w-full"
+                renderButton={(opt) => {
+                  const pair = fontPairs.find(p => p.id === opt?.value);
+                  return (
+                    <div className="text-left">
+                      <span className="text-sm font-medium text-white" style={{ fontFamily: pair?.titleFont || 'Inter' }}>
+                        {pair?.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">{pair?.description}</span>
+                    </div>
+                  );
+                }}
+                renderOption={(opt, isSelected) => {
+                  const pair = fontPairs.find(p => p.id === opt.value);
+                  return (
+                    <>
+                      <div>
+                        <span className="text-sm font-medium" style={{ fontFamily: pair?.titleFont || 'Inter' }}>
+                          {pair?.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500 block">{pair?.description}</span>
+                      </div>
+                      {isSelected && <span style={{ color: 'var(--accent-primary)' }}>✓</span>}
+                    </>
+                  );
+                }}
+              />
             </div>
 
             {/* Text Alignment Controls */}
-            <div className="space-y-3 pt-2 border-t border-gray-700/50">
+            <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]">
               <label className="text-xs text-gray-400 font-medium">Text Alignment</label>
               <div className="flex gap-4">
                 {/* Horizontal Alignment */}
                 <div className="flex-1">
-                  <span className="text-[10px]  block mb-1.5"></span>
-                  <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'left' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'left' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Left"
-                    >
-                      <AlignLeft size={14} className="mx-auto" />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'center' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'center' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Center"
-                    >
-                      <AlignCenter size={14} className="mx-auto" />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignHorizontal: 'right' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignHorizontal === 'right' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Right"
-                    >
-                      <AlignRight size={14} className="mx-auto" />
-                    </button>
-                  </div>
+                  <GlassRadioGroup
+                    name="text-align-horizontal"
+                    options={[
+                      { id: 'left', label: <AlignLeft size={14} />, value: 'left' as const },
+                      { id: 'center', label: <AlignCenter size={14} />, value: 'center' as const },
+                      { id: 'right', label: <AlignRight size={14} />, value: 'right' as const },
+                    ]}
+                    value={template.textAlignHorizontal}
+                    onChange={(val) => onUpdateTemplate({ ...template, textAlignHorizontal: val })}
+                  />
                 </div>
                 {/* Vertical Alignment */}
                 <div className="flex-1">
-                  <span className="text-[10px]  block mb-1.5"></span>
-                  <div className="flex bg-gray-800 rounded-lg p-0.5 border border-gray-700">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'top' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'top' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Top"
-                    >
-                      <AlignVerticalJustifyStart size={14} className="mx-auto" />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'center' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'center' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Middle"
-                    >
-                      <AlignVerticalJustifyCenter size={14} className="mx-auto" />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, textAlignVertical: 'bottom' })}
-                      className={`flex-1 p-1.5 rounded-md transition-colors ${template.textAlignVertical === 'bottom' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                      title="Align Bottom"
-                    >
-                      <AlignVerticalJustifyEnd size={14} className="mx-auto" />
-                    </button>
-                  </div>
+                  <GlassRadioGroup
+                    name="text-align-vertical"
+                    options={[
+                      { id: 'top', label: <AlignVerticalJustifyStart size={14} />, value: 'top' as const },
+                      { id: 'center', label: <AlignVerticalJustifyCenter size={14} />, value: 'center' as const },
+                      { id: 'bottom', label: <AlignVerticalJustifyEnd size={14} />, value: 'bottom' as const },
+                    ]}
+                    value={template.textAlignVertical}
+                    onChange={(val) => onUpdateTemplate({ ...template, textAlignVertical: val })}
+                  />
                 </div>
               </div>
             </div>
 
             {/* Individual Font Selectors - Always visible, auto-switches to Custom when changed */}
-            <div className="space-y-3 pt-2 border-t border-gray-700/50" data-dropdown>
+            <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]" data-dropdown>
               <div className="flex items-center justify-between">
                 <label className="text-xs text-gray-400 font-medium">Fonts</label>
                 <button
@@ -2058,53 +1975,44 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Class Title</span>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <button
-                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'title' ? null : 'title'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                    >
-                      <span style={{ fontFamily: template.titleFont, fontWeight: template.titleBold ? 700 : 400, fontStyle: template.titleItalic ? 'italic' : 'normal' }}>{template.titleFont}</span>
-                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'title' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {openFontDropdown === 'title' && (
-                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                        {availableFonts.map((font) => (
-                          <button
-                            key={font}
-                            onClick={() => {
-                              onUpdateTemplate({ ...template, titleFont: font });
-                              setSelectedFontPairId('none');
-                              setOpenFontDropdown(null);
-                            }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.titleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                            style={{ fontFamily: font, fontWeight: 700 }}
-                          >
-                            {font}
-                            {template.titleFont === font && <span className="text-blue-400">✓</span>}
-                          </button>
-                        ))}
-                      </div>
+                  <ThemedDropdown
+                    options={availableFonts.map((font) => ({
+                      id: font,
+                      label: font,
+                      value: font,
+                    }))}
+                    value={template.titleFont}
+                    onChange={(font) => {
+                      onUpdateTemplate({ ...template, titleFont: font });
+                      setSelectedFontPairId('none');
+                    }}
+                    className="flex-1"
+                    renderButton={(opt) => (
+                      <span style={{ fontFamily: opt?.value, fontWeight: template.titleBold ? 700 : 400, fontStyle: template.titleItalic ? 'italic' : 'normal' }}>
+                        {opt?.label || 'Select font'}
+                      </span>
                     )}
-                  </div>
+                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 700 })}
+                  />
                   {/* Bold/Italic buttons */}
-                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex border rounded-lg input-themed overflow-hidden">
                     <button
                       onClick={() => onUpdateTemplate({ ...template, titleBold: !template.titleBold })}
-                      className={`px-2 py-2 transition-colors ${template.titleBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors ${template.titleBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Bold"
                     >
                       <Bold size={14} />
                     </button>
                     <button
                       onClick={() => onUpdateTemplate({ ...template, titleItalic: !template.titleItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.titleItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.titleItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Italic"
                     >
                       <Italic size={14} />
                     </button>
                   </div>
                   {/* Font size input with arrows */}
-                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
                     <input
                       type="number"
                       value={template.titleFontSize}
@@ -2113,16 +2021,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       min={6}
                       max={24}
                     />
-                    <div className="flex flex-col border-l border-gray-700">
+                    <div className="flex flex-col border-l border-[var(--border-default)]">
                       <button
                         onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.min(24, template.titleFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
                       >
                         <ChevronUp size={10} className="text-gray-400" />
                       </button>
                       <button
                         onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.max(6, template.titleFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
                       >
                         <ChevronDown size={10} className="text-gray-400" />
                       </button>
@@ -2135,53 +2043,44 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Class Type</span>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <button
-                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'subtitle' ? null : 'subtitle'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                    >
-                      <span style={{ fontFamily: template.subtitleFont, fontWeight: template.subtitleBold ? 600 : 400, fontStyle: template.subtitleItalic ? 'italic' : 'normal' }}>{template.subtitleFont}</span>
-                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'subtitle' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {openFontDropdown === 'subtitle' && (
-                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                        {availableFonts.map((font) => (
-                          <button
-                            key={font}
-                            onClick={() => {
-                              onUpdateTemplate({ ...template, subtitleFont: font });
-                              setSelectedFontPairId('none');
-                              setOpenFontDropdown(null);
-                            }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.subtitleFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                            style={{ fontFamily: font, fontWeight: 600 }}
-                          >
-                            {font}
-                            {template.subtitleFont === font && <span className="text-blue-400">✓</span>}
-                          </button>
-                        ))}
-                      </div>
+                  <ThemedDropdown
+                    options={availableFonts.map((font) => ({
+                      id: font,
+                      label: font,
+                      value: font,
+                    }))}
+                    value={template.subtitleFont}
+                    onChange={(font) => {
+                      onUpdateTemplate({ ...template, subtitleFont: font });
+                      setSelectedFontPairId('none');
+                    }}
+                    className="flex-1"
+                    renderButton={(opt) => (
+                      <span style={{ fontFamily: opt?.value, fontWeight: template.subtitleBold ? 600 : 400, fontStyle: template.subtitleItalic ? 'italic' : 'normal' }}>
+                        {opt?.label || 'Select font'}
+                      </span>
                     )}
-                  </div>
+                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 600 })}
+                  />
                   {/* Bold/Italic buttons */}
-                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex border rounded-lg input-themed overflow-hidden">
                     <button
                       onClick={() => onUpdateTemplate({ ...template, subtitleBold: !template.subtitleBold })}
-                      className={`px-2 py-2 transition-colors ${template.subtitleBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors ${template.subtitleBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Bold"
                     >
                       <Bold size={14} />
                     </button>
                     <button
                       onClick={() => onUpdateTemplate({ ...template, subtitleItalic: !template.subtitleItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.subtitleItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.subtitleItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Italic"
                     >
                       <Italic size={14} />
                     </button>
                   </div>
                   {/* Font size input with arrows */}
-                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
                     <input
                       type="number"
                       value={template.subtitleFontSize}
@@ -2190,16 +2089,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       min={6}
                       max={24}
                     />
-                    <div className="flex flex-col border-l border-gray-700">
+                    <div className="flex flex-col border-l border-[var(--border-default)]">
                       <button
                         onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.min(24, template.subtitleFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
                       >
                         <ChevronUp size={10} className="text-gray-400" />
                       </button>
                       <button
                         onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.max(6, template.subtitleFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
                       >
                         <ChevronDown size={10} className="text-gray-400" />
                       </button>
@@ -2212,53 +2111,44 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-500">Location/Details</span>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <button
-                      onClick={() => { setOpenFontDropdown(openFontDropdown === 'details' ? null : 'details'); setOpenTextColorPicker(null); setFontPairDropdownOpen(false); }}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 text-left flex items-center justify-between hover:border-gray-600 transition-colors"
-                    >
-                      <span style={{ fontFamily: template.detailsFont, fontWeight: template.detailsBold ? 600 : 400, fontStyle: template.detailsItalic ? 'italic' : 'normal' }}>{template.detailsFont}</span>
-                      <ChevronDown size={14} className={`transition-transform ${openFontDropdown === 'details' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {openFontDropdown === 'details' && (
-                      <div className="absolute z-50 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                        {availableFonts.map((font) => (
-                          <button
-                            key={font}
-                            onClick={() => {
-                              onUpdateTemplate({ ...template, detailsFont: font });
-                              setSelectedFontPairId('none');
-                              setOpenFontDropdown(null);
-                            }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors flex items-center justify-between ${template.detailsFont === font ? 'bg-gray-700/50 text-white' : 'text-gray-300'}`}
-                            style={{ fontFamily: font, fontWeight: 400 }}
-                          >
-                            {font}
-                            {template.detailsFont === font && <span className="text-blue-400">✓</span>}
-                          </button>
-                        ))}
-                      </div>
+                  <ThemedDropdown
+                    options={availableFonts.map((font) => ({
+                      id: font,
+                      label: font,
+                      value: font,
+                    }))}
+                    value={template.detailsFont}
+                    onChange={(font) => {
+                      onUpdateTemplate({ ...template, detailsFont: font });
+                      setSelectedFontPairId('none');
+                    }}
+                    className="flex-1"
+                    renderButton={(opt) => (
+                      <span style={{ fontFamily: opt?.value, fontWeight: template.detailsBold ? 600 : 400, fontStyle: template.detailsItalic ? 'italic' : 'normal' }}>
+                        {opt?.label || 'Select font'}
+                      </span>
                     )}
-                  </div>
+                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 400 })}
+                  />
                   {/* Bold/Italic buttons */}
-                  <div className="flex bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex border rounded-lg input-themed overflow-hidden">
                     <button
                       onClick={() => onUpdateTemplate({ ...template, detailsBold: !template.detailsBold })}
-                      className={`px-2 py-2 transition-colors ${template.detailsBold ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors ${template.detailsBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Bold"
                     >
                       <Bold size={14} />
                     </button>
                     <button
                       onClick={() => onUpdateTemplate({ ...template, detailsItalic: !template.detailsItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-gray-700 ${template.detailsItalic ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.detailsItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
                       title="Italic"
                     >
                       <Italic size={14} />
                     </button>
                   </div>
                   {/* Font size input with arrows */}
-                  <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
                     <input
                       type="number"
                       value={template.detailsFontSize}
@@ -2267,16 +2157,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       min={6}
                       max={24}
                     />
-                    <div className="flex flex-col border-l border-gray-700">
+                    <div className="flex flex-col border-l border-[var(--border-default)]">
                       <button
                         onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.min(24, template.detailsFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
                       >
                         <ChevronUp size={10} className="text-gray-400" />
                       </button>
                       <button
                         onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.max(6, template.detailsFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
                       >
                         <ChevronDown size={10} className="text-gray-400" />
                       </button>
@@ -2287,7 +2177,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
 
             {/* Text Colors Section */}
-            <div className="space-y-2 pt-2 border-t border-gray-700/50">
+            <div className="space-y-2 pt-2 border-t border-[var(--border-muted)]">
               <div className="flex items-center justify-between">
                 <label className="text-xs text-gray-400 font-medium">Text Colors</label>
                 <button
@@ -2306,17 +2196,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </div>
 
               {/* Color buttons row */}
-              <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-2" data-color-picker>
+              <div className="flex items-center gap-2 rounded-lg card-section-themed p-2" data-color-picker>
                 {/* Title color */}
                 <div className="flex-1 flex flex-col items-center gap-1 relative">
                   <span className="text-[9px] text-gray-400 whitespace-nowrap">Class Title</span>
                   <button
                     onClick={() => {
                       setOpenTextColorPicker(openTextColorPicker === 'title' ? null : 'title');
-                      setOpenFontDropdown(null);
-                      setFontPairDropdownOpen(false);
                     }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'title' ? 'border-blue-400' : 'border-gray-500 hover:border-gray-400'}`}
+                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'title' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
                     style={{ backgroundColor: template.titleTextColor || (template.themeVariant === 'dark' ? '#ffffff' : '#1f2937') }}
                   />
                 </div>
@@ -2327,10 +2215,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   <button
                     onClick={() => {
                       setOpenTextColorPicker(openTextColorPicker === 'subtitle' ? null : 'subtitle');
-                      setOpenFontDropdown(null);
-                      setFontPairDropdownOpen(false);
                     }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'subtitle' ? 'border-blue-400' : 'border-gray-500 hover:border-gray-400'}`}
+                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'subtitle' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
                     style={{ backgroundColor: template.subtitleTextColor || (template.themeVariant === 'dark' ? '#e5e7eb' : '#1f2937') }}
                   />
                 </div>
@@ -2341,10 +2227,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                   <button
                     onClick={() => {
                       setOpenTextColorPicker(openTextColorPicker === 'details' ? null : 'details');
-                      setOpenFontDropdown(null);
-                      setFontPairDropdownOpen(false);
                     }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'details' ? 'border-blue-400' : 'border-gray-500 hover:border-gray-400'}`}
+                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'details' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
                     style={{ backgroundColor: template.detailsTextColor || (template.themeVariant === 'dark' ? '#d1d5db' : '#374151') }}
                   />
                 </div>
@@ -2353,10 +2237,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               {/* Color picker callout - appears below the buttons */}
               {openTextColorPicker && (
                 <div className="relative" data-color-picker>
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3">
+                  <div className="border rounded-lg input-themed shadow-xl p-3">
                     {/* Arrow pointing up */}
                     <div
-                      className="absolute -top-2 w-4 h-4 bg-gray-800 border-r border-b border-gray-700 rotate-45"
+                      className="absolute -top-2 w-4 h-4 border-r border-b rotate-45 input-themed"
                       style={{
                         left: openTextColorPicker === 'title' ? '16%' : openTextColorPicker === 'subtitle' ? '50%' : '84%',
                         transform: 'translateX(-50%) rotate(45deg)'
@@ -2382,7 +2266,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                               }
                               setOpenTextColorPicker(null);
                             }}
-                            className={`w-5 h-5 rounded border-2 transition-all hover:scale-110 ${isSelected ? 'border-blue-400 scale-110 ring-2 ring-blue-400/50' : 'border-gray-600 hover:border-gray-500'}`}
+                            className={`w-5 h-5 rounded border-2 transition-all hover:scale-110 ${isSelected ? 'border-blue-400 scale-110 ring-2 ring-blue-400/50' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
                             style={{ backgroundColor: color }}
                           />
                         );
@@ -2395,12 +2279,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
 
             {/* Done Button */}
-            <button
-              onClick={() => setShowFontSelector(false)}
-              className="w-full px-4 py-2 btn-accent text-white font-medium rounded-lg flex-shrink-0"
-            >
-              Done
-            </button>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowFontSelector(false)}
+                className="px-6 py-2 btn-accent text-white font-medium rounded-lg"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2410,11 +2296,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       <div
         data-component="ExportSidebar"
         className={`
-         min-h-0 overflow-hidden bg-gray-900 rounded-2xl border border-gray-800 flex flex-col shadow-xl transition-all duration-300
+         min-h-0 overflow-hidden rounded-2xl border flex flex-col shadow-xl transition-all duration-300
          ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 border-0 p-0'}
-      `}>
+      `}
+        style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}>
         {/* SIDEBAR HEADER - Navigation and title */}
-        <div data-component="SidebarHeader" className="p-4 border-b border-gray-800 flex justify-between items-center whitespace-nowrap">
+        <div data-component="SidebarHeader" className="p-4 border-b flex justify-between items-center whitespace-nowrap" style={{ borderColor: 'var(--panel-border)' }}>
           <button onClick={onBack} className="text-gray-400 hover:text-white text-sm">← Back</button>
           <div className="flex items-center gap-2">
              <h3 className="font-semibold text-white text-lg">Visual Style</h3>
@@ -2445,10 +2332,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             
             {/* Theme Family Dropdown & Light/Dark Toggle on Same Line */}
             <div className="flex gap-2">
-              <select
+              <ThemedDropdown
+                options={THEME_FAMILY_LIST.map((family) => ({
+                  id: family.id,
+                  label: family.name,
+                  value: family.id as ThemeFamilyId,
+                }))}
                 value={template.themeFamily}
-                onChange={(e) => {
-                  const newFamily = e.target.value as ThemeFamilyId;
+                onChange={(newFamily) => {
                   // Acrylic/Glass need image background; Solid-grain has its own colored canvas
                   const needsImageBg = newFamily === 'acrylic' || newFamily === 'glass';
                   const newFamilyObj = THEME_FAMILIES[newFamily];
@@ -2477,24 +2368,22 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     prevThemeFamilyRef.current = newFamily;
                   }
                 }}
-                className="flex-1 px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all cursor-pointer hover:bg-gray-750"
-              >
-                {THEME_FAMILY_LIST.map((family) => (
-                  <option key={family.id} value={family.id}>
-                    {family.name}
-                  </option>
-                ))}
-              </select>
+                className="flex-1"
+              />
 
               {/* Variant selector: dropdown for extended variants, toggle for light/dark */}
               {(() => {
                 const family = THEME_FAMILIES[template.themeFamily];
                 if (family?.extendedVariants) {
                   return (
-                    <select
+                    <ThemedDropdown
+                      options={family.extendedVariants.map((v) => ({
+                        id: v.id,
+                        label: v.name,
+                        value: v.id,
+                      }))}
                       value={template.themeSubVariant || ''}
-                      onChange={(e) => {
-                        const subVariantId = e.target.value;
+                      onChange={(subVariantId) => {
                         const variant = family.extendedVariants!.find(v => v.id === subVariantId);
                         if (variant) {
                           onUpdateTemplate({
@@ -2507,12 +2396,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           applyThemeColors(template.themeFamily as ThemeFamilyId, variant.baseVariant);
                         }
                       }}
-                      className="w-32 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all cursor-pointer hover:bg-gray-750"
-                    >
-                      {family.extendedVariants.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
+                      className="w-32"
+                    />
                   );
                 }
                 return (
@@ -2527,7 +2412,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       });
                       applyThemeColors(template.themeFamily, newVariant);
                     }}
-                    className="px-4 py-2.5 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 border border-gray-600 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group"
+                    className="px-4 py-2.5 border border-[var(--border-default)] rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group button-ghost-themed hover:opacity-90"
                   >
                     {template.themeVariant === 'light' ? (
                       <>
@@ -2548,7 +2433,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Background Section - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isBackgroundExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isBackgroundExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
             <button
               onClick={() => setIsBackgroundExpanded(!isBackgroundExpanded)}
               className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
@@ -2561,31 +2446,21 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             <div className={`overflow-hidden transition-all duration-300 ease-out ${isBackgroundExpanded ? 'max-h-[900px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="space-y-4 pt-2">
                 {/* Background Type Toggle */}
-                <div className="space-y-2">
-                  <div className="flex bg-gray-700/50 rounded-lg p-0.5">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, backgroundType: 'none' })}
-                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'none' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      None
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, backgroundType: 'image' })}
-                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'image' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      Image
-                    </button>
-                    <button
-                      onClick={() => {
-                        onUpdateTemplate({ ...template, backgroundType: 'color' });
-                        setShowBackgroundColorPicker(true);
-                      }}
-                      className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${template.backgroundType === 'color' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      Color
-                    </button>
-                  </div>
-                </div>
+                <GlassRadioGroup
+                  name="background-type"
+                  options={[
+                    { id: 'none', label: 'None', value: 'none' as const },
+                    { id: 'image', label: 'Image', value: 'image' as const },
+                    { id: 'color', label: 'Color', value: 'color' as const },
+                  ]}
+                  value={template.backgroundType}
+                  onChange={(val) => {
+                    onUpdateTemplate({ ...template, backgroundType: val });
+                    if (val === 'color') {
+                      setShowBackgroundColorPicker(true);
+                    }
+                  }}
+                />
 
                 {/* Image Gallery - only shown when type is 'image' */}
                 {template.backgroundType === 'image' && (
@@ -2621,7 +2496,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                               className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
                                 template.backgroundImage === bg.id && !template.customBackgroundImage
                                   ? 'border-blue-500 ring-2 ring-blue-400/50'
-                                  : 'border-gray-600 hover:border-gray-500'
+                                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                               }`}
                             >
                               <img
@@ -2649,7 +2524,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                               className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
                                 template.backgroundImage === bg.id && !template.customBackgroundImage
                                   ? 'border-blue-500 ring-2 ring-blue-400/50'
-                                  : 'border-gray-600 hover:border-gray-500'
+                                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                               }`}
                             >
                               <img
@@ -2666,7 +2541,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     )}
                     {/* Custom uploaded image thumbnail */}
                     {template.customBackgroundImage && (
-                      <div className="pt-2 border-t border-gray-700/50">
+                      <div className="pt-2 border-t border-[var(--border-muted)]">
                         <span className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5 block">Custom Upload</span>
                         <button
                           onClick={() => onUpdateTemplate({
@@ -2676,7 +2551,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           className={`relative w-20 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
                             template.backgroundImage === 'custom'
                               ? 'border-blue-500 ring-2 ring-blue-400/50'
-                              : 'border-gray-600 hover:border-gray-500'
+                              : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                           }`}
                         >
                           <img
@@ -2713,13 +2588,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <div className="flex gap-2">
                       <button
                         onClick={() => setShowBackgroundGallery(true)}
-                        className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
                       >
                         <Image size={14} /> Browse Gallery
                       </button>
                       <button
                         onClick={() => backgroundFileInputRef.current?.click()}
-                        className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
                       >
                         <Upload size={14} /> Upload Custom
                       </button>
@@ -2733,20 +2608,20 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     <span className="text-xs text-gray-400">Background Color</span>
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-10 h-10 rounded-lg border-2 border-gray-600 cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: template.backgroundColor || '#1f2937' }}
+                        className="w-10 h-10 rounded-lg border-2 cursor-pointer relative overflow-hidden"
+                        style={{ borderColor: 'var(--border-default)', backgroundColor: template.backgroundColor || '#1f2937' }}
                         onClick={() => setShowBackgroundColorPicker(!showBackgroundColorPicker)}
                       />
                       <input
                         type="text"
                         value={template.backgroundColor || '#1f2937'}
                         onChange={(e) => onUpdateTemplate({ ...template, backgroundColor: e.target.value })}
-                        className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 font-mono"
+                        className="flex-1 px-3 py-2 border rounded-lg input-themed text-sm text-gray-200 font-mono"
                         placeholder="#1f2937"
                       />
                     </div>
                     {showBackgroundColorPicker && (
-                      <div className="grid grid-cols-8 gap-1.5 p-2 bg-gray-800/50 rounded-lg">
+                      <div className="grid grid-cols-8 gap-1.5 p-2 rounded-lg card-section-themed">
                         {[
                           '#1f2937', '#111827', '#0f172a', '#000000',
                           '#374151', '#4b5563', '#6b7280', '#9ca3af',
@@ -2764,7 +2639,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                             className={`w-6 h-6 rounded border-2 transition-all hover:scale-110 ${
                               template.backgroundColor === color
                                 ? 'border-white scale-110'
-                                : 'border-transparent hover:border-gray-500'
+                                : 'border-transparent hover:border-[var(--border-default)]'
                             }`}
                             style={{ backgroundColor: color }}
                           />
@@ -2776,7 +2651,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
                 {/* Blur & Reduce Highlights Sliders - only shown when image is selected */}
                 {template.backgroundType === 'image' && (template.backgroundImage || template.customBackgroundImage) && (
-                  <div className="space-y-3 pt-2 border-t border-gray-700/50">
+                  <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]">
                     {/* Blur Slider */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -2792,7 +2667,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         step="1"
                         value={template.backgroundBlur}
                         onChange={(e) => onUpdateTemplate({ ...template, backgroundBlur: parseInt(e.target.value) })}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                       />
                     </div>
 
@@ -2811,7 +2686,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         step="5"
                         value={template.backgroundOverlay}
                         onChange={(e) => onUpdateTemplate({ ...template, backgroundOverlay: parseInt(e.target.value) })}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                       />
                     </div>
                   </div>
@@ -2822,7 +2697,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Scale/Ratio Section - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isScaleRatioExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isScaleRatioExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
             <button
               onClick={() => setIsScaleRatioExpanded(!isScaleRatioExpanded)}
               className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
@@ -2851,7 +2726,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       step="0.01"
                       value={template.aspectRatio}
                       onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
-                      className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="flex-1 h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
                       disabled={template.lockscreenMockup}
                     />
                     <span className="text-xs text-gray-500">9:19.5</span>
@@ -2870,7 +2745,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
 
                 {/* Lockscreen Mockup */}
-                <div className="space-y-2 pt-3 border-t border-gray-700/50">
+                <div className="space-y-2 pt-3 border-t border-[var(--border-muted)]">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400 flex items-center gap-1.5">
                       <Smartphone size={12} /> Iphone Lockscreen Mockup
@@ -2894,7 +2769,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           setColorPickerPosition(null);
                         }
                       }}
-                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'toggle-accent-bg' : 'bg-gray-700'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
                     >
                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
                     </div>
@@ -2906,7 +2781,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Layout Options - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isContentExpanded ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isContentExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
             <button
               onClick={() => setIsContentExpanded(!isContentExpanded)}
               className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
@@ -2919,7 +2794,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             <div className={`overflow-hidden transition-all duration-300 ease-out ${isContentExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <div className="space-y-1 pt-2">
                 {/* Compact View at top - toggles off other options when enabled */}
-                <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-gray-600 transition-colors">
+                <div className="p-3 rounded-lg border transition-colors card-section-themed hover:opacity-90">
                   <ToggleSwitch
                     enabled={template.compact}
                     onToggle={() => {
@@ -2960,7 +2835,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
                 {/* Other content options - disabled when compact is on */}
                 <div className={`space-y-1 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
-                  <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors">
+                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
                     <ToggleSwitch
                       enabled={template.showClassType}
                       onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
@@ -2969,7 +2844,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     />
                   </div>
 
-                  <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors">
+                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
                     <ToggleSwitch
                       enabled={template.showTime}
                       onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
@@ -2978,7 +2853,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     />
                   </div>
 
-                  <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors">
+                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
                     <ToggleSwitch
                       enabled={template.showLocation}
                       onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
@@ -2987,7 +2862,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     />
                   </div>
 
-                  <div className="p-3 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors">
+                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
                     <ToggleSwitch
                       enabled={template.showNotes}
                       onToggle={() => onUpdateTemplate({ ...template, showNotes: !template.showNotes })}
@@ -3001,14 +2876,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Grid Section */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${template.showGrid ? 'bg-gray-800/30 border-gray-700/50' : 'bg-gray-800/10 border-gray-800/30'}`}>
+          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${template.showGrid ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
                 <Grid size={16} /> Grid
               </div>
               <div
                 onClick={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
-                className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.showGrid ? 'toggle-accent-bg' : 'bg-gray-700'}`}
+                className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.showGrid ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
               >
                 <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.showGrid ? 'left-6' : 'left-1'}`} />
               </div>
@@ -3049,11 +2924,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
           <div
             data-component="BackgroundGallery"
-            className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
+            className="relative border rounded-2xl modal-themed shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Gallery Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-800">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-muted)]">
               <h2 className="text-lg font-semibold text-white">Background Gallery</h2>
               <button
                 onClick={() => setShowBackgroundGallery(false)}
@@ -3101,7 +2976,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.03] hover:shadow-lg ${
                           template.backgroundImage === bg.id
                             ? 'border-blue-500 ring-2 ring-blue-400/50'
-                            : 'border-gray-700 hover:border-gray-500'
+                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                         }`}
                       >
                         <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
@@ -3124,7 +2999,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.03] hover:shadow-lg ${
                           template.backgroundImage === bg.id
                             ? 'border-blue-500 ring-2 ring-blue-400/50'
-                            : 'border-gray-700 hover:border-gray-500'
+                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
                         }`}
                       >
                         <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />

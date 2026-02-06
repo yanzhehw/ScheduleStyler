@@ -112,10 +112,11 @@ const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean }>`
     left: 0;
     border-radius: 0.5rem;
     z-index: 1;
-    background: linear-gradient(135deg, #3b82f655, #60a5fa);
+    /* Uses CSS variables from index.css for theming */
+    background: linear-gradient(135deg, rgba(var(--accent-primary-rgb, 59, 130, 246), 0.33), var(--accent-secondary, #60a5fa));
     box-shadow:
-      0 0 18px rgba(59, 130, 246, 0.5),
-      0 0 10px rgba(96, 165, 250, 0.4) inset;
+      0 0 18px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.5),
+      0 0 10px rgba(var(--accent-secondary-rgb, 96, 165, 250), 0.4) inset;
     transition:
       transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
       background 0.4s ease-in-out,
