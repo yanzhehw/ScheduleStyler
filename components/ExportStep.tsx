@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
 import { DETECT_IF_ON_BOARDED } from '../config';
-import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
+import { useMobileDetect } from '../hooks/useMobileDetect';
+import { MobileFooterToolbar, MobileTab } from './MobileFooterToolbar';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
@@ -309,17 +310,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [headerEditorPosition, setHeaderEditorPosition] = useState<CalloutPosition | null>(null);
   const [timeEditorPosition, setTimeEditorPosition] = useState<CalloutPosition | null>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const previewPanelRef = useRef<HTMLDivElement>(null);
 
-  // Overscroll bounce effects for scrollable areas
-  const previewPanelBounce = useOverscrollBounce();
-  const exportSidebarBounce = useOverscrollBounce();
-  const fontPanelBounce = useOverscrollBounce();
-  const backgroundGalleryBounce = useOverscrollBounce();
-
-  // Legacy refs (kept for compatibility with existing code that queries these)
-  const previewPanelRef = previewPanelBounce.scrollRef;
-  const exportSidebarContentRef = exportSidebarBounce.scrollRef;
-  const fontPanelScrollRef = fontPanelBounce.scrollRef;
+  // Mobile detection and active tab state
+  const isMobile = useMobileDetect();
+  const [mobileActiveTab, setMobileActiveTab] = useState<string | null>(null);
 
   // Track previous theme family to detect changes
   const prevThemeFamilyRef = useRef<ThemeFamilyId>(template.themeFamily);
@@ -445,6 +440,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     clearComponentSelection();
     setHeaderTextEditorOpen(false);
     setTimeColumnEditorOpen(false);
+
+    // On mobile, open the color tab instead of showing floating color picker
+    if (isMobile) {
+      setSelectedEventId(event.id);
+      setMobileActiveTab('color');
+      return;
+    }
+
     const clickedElement = document.querySelector(`[data-event-id="${event.id}"]`);
     const panel = previewPanelRef.current;
 
@@ -947,6 +950,966 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     setIsExporting(false);
   };
 
+  // Mobile tab content: Theme
+  const themeTabContent = (
+    <div className="space-y-4">
+      {/* Theme Family Dropdown */}
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400 font-medium">Theme Style</label>
+        <ThemedDropdown
+          options={THEME_FAMILY_LIST.map((family) => ({
+            id: family.id,
+            label: family.name,
+            value: family.id as ThemeFamilyId,
+          }))}
+          value={template.themeFamily}
+          onChange={(newFamily) => {
+            const needsImageBg = newFamily === 'acrylic' || newFamily === 'glass';
+            const newFamilyObj = THEME_FAMILIES[newFamily];
+            const defaultSubVariant = newFamilyObj?.extendedVariants?.[0];
+            const newVariant = defaultSubVariant?.baseVariant ?? template.themeVariant;
+            onUpdateTemplate({
+              ...template,
+              themeFamily: newFamily,
+              theme: `${newFamily}-${newVariant}` as any,
+              themeVariant: newVariant,
+              themeSubVariant: defaultSubVariant?.id,
+              backgroundType: needsImageBg ? 'image' : 'none',
+              backgroundImage: newFamily === 'default'
+                ? undefined
+                : (template.backgroundImage || getDefaultLandscapeId() || 'l1'),
+              customBackgroundImage: newFamily === 'default' ? undefined : template.customBackgroundImage,
+              eventOpacity: 1,
+            });
+            if (newFamily !== prevThemeFamilyRef.current) {
+              applyThemeColors(newFamily);
+              prevThemeFamilyRef.current = newFamily;
+            }
+          }}
+          className="w-full"
+        />
+      </div>
+
+      {/* Light/Dark Toggle */}
+      <div className="flex items-center justify-between p-3 rounded-lg card-section-themed">
+        <span className="text-sm text-gray-300">Appearance</span>
+        <button
+          onClick={() => {
+            const newVariant = template.themeVariant === 'light' ? 'dark' : 'light';
+            onUpdateTemplate({
+              ...template,
+              themeVariant: newVariant,
+              theme: `${template.themeFamily}-${newVariant}` as any,
+              eventOpacity: 1,
+            });
+            applyThemeColors(template.themeFamily, newVariant);
+          }}
+          className="px-4 py-2 border border-[var(--border-default)] rounded-lg text-sm font-medium transition-all flex items-center gap-2 button-ghost-themed"
+        >
+          {template.themeVariant === 'light' ? (
+            <>
+              <Sun size={16} className="text-yellow-400" />
+              <span className="text-gray-200">Light</span>
+            </>
+          ) : (
+            <>
+              <Moon size={16} className="text-blue-400" />
+              <span className="text-gray-200">Dark</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  // Mobile tab content: Background
+  const backgroundTabContent = (
+    <div className="space-y-4">
+      {/* Background Type Toggle */}
+      <GlassRadioGroup
+        name="mobile-background-type"
+        options={[
+          { id: 'none', label: 'None', value: 'none' as const },
+          { id: 'image', label: 'Image', value: 'image' as const },
+          { id: 'color', label: 'Color', value: 'color' as const },
+        ]}
+        value={template.backgroundType}
+        onChange={(val) => {
+          onUpdateTemplate({ ...template, backgroundType: val });
+          if (val === 'color') {
+            setShowBackgroundColorPicker(true);
+          }
+        }}
+      />
+
+      {/* Image Gallery */}
+      {template.backgroundType === 'image' && (
+        <div className="space-y-2">
+          {isBackgroundsLoading && (
+            <div className="flex items-center justify-center py-6">
+              <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+              <span className="ml-2 text-gray-400 text-xs">Loading backgrounds...</span>
+            </div>
+          )}
+          {!isBackgroundsLoading && !backgroundsError && (
+            <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+              {[...landscapes, ...portraits].slice(0, 9).map((bg) => (
+                <button
+                  key={bg.id}
+                  onClick={() => onUpdateTemplate({
+                    ...template,
+                    backgroundImage: bg.id,
+                    customBackgroundImage: undefined
+                  })}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                    template.backgroundImage === bg.id
+                      ? 'border-blue-500 ring-2 ring-blue-400/50'
+                      : 'border-[var(--border-default)]'
+                  }`}
+                >
+                  <img
+                    src={bg.thumbnailUrl}
+                    alt={bg.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => setShowBackgroundGallery(true)}
+            className="w-full px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Image size={14} /> Browse All
+          </button>
+        </div>
+      )}
+
+      {/* Color Picker */}
+      {template.backgroundType === 'color' && (
+        <div className="space-y-2">
+          <span className="text-xs text-gray-400">Background Color</span>
+          <div className="grid grid-cols-8 gap-1.5">
+            {['#1f2937', '#111827', '#0f172a', '#000000', '#374151', '#4b5563', '#ef4444', '#3b82f6'].map((color) => (
+              <button
+                key={color}
+                onClick={() => onUpdateTemplate({ ...template, backgroundColor: color })}
+                className={`w-6 h-6 rounded border-2 transition-all ${
+                  template.backgroundColor === color ? 'border-white scale-110' : 'border-transparent'
+                }`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Blur & Overlay Sliders */}
+      {template.backgroundType === 'image' && template.backgroundImage && (
+        <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">Blur</span>
+              <span className="text-xs text-gray-500">{template.backgroundBlur}px</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="20"
+              step="1"
+              value={template.backgroundBlur}
+              onChange={(e) => onUpdateTemplate({ ...template, backgroundBlur: parseInt(e.target.value) })}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">Darken</span>
+              <span className="text-xs text-gray-500">{template.backgroundOverlay}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="80"
+              step="5"
+              value={template.backgroundOverlay}
+              onChange={(e) => onUpdateTemplate({ ...template, backgroundOverlay: parseInt(e.target.value) })}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Mobile tab content: Scale/Ratio
+  const scaleTabContent = (
+    <div className="space-y-4">
+      {/* Aspect Ratio Slider */}
+      <div className={`space-y-2 ${template.lockscreenMockup ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">Aspect Ratio</span>
+          <span className="text-xs text-gray-500">
+            {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">16:9</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={template.aspectRatio}
+            onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
+            className="flex-1 h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+            disabled={template.lockscreenMockup}
+          />
+          <span className="text-xs text-gray-500">9:16</span>
+        </div>
+        <GlassRadioGroup
+          name="mobile-aspect-ratio"
+          options={[
+            { id: 'desktop', label: <><Monitor size={14} /> Desktop</>, value: 'desktop' as const },
+            { id: 'mobile', label: <><Smartphone size={14} /> Mobile</>, value: 'mobile' as const },
+          ]}
+          value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
+          onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
+          disabled={template.lockscreenMockup}
+        />
+      </div>
+
+      {/* Lockscreen Mockup */}
+      <div className="flex items-center justify-between p-3 rounded-lg card-section-themed">
+        <span className="text-xs text-gray-300">iPhone Mockup</span>
+        <div
+          onClick={() => {
+            const newMockupState = !template.lockscreenMockup;
+            onUpdateTemplate({
+              ...template,
+              lockscreenMockup: newMockupState,
+              ...(newMockupState && { aspectRatio: 1 })
+            });
+          }}
+          className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer ${template.lockscreenMockup ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
+        >
+          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Mobile tab content: Content options
+  const contentTabContent = (
+    <div className="space-y-2">
+      {/* Compact View */}
+      <div className="p-3 rounded-lg border card-section-themed">
+        <ToggleSwitch
+          enabled={template.compact}
+          onToggle={() => {
+            const newCompact = !template.compact;
+            if (newCompact) {
+              setCachedToggles({
+                showClassType: template.showClassType,
+                showTime: template.showTime,
+                showLocation: template.showLocation,
+                showNotes: template.showNotes
+              });
+              onUpdateTemplate({
+                ...template,
+                compact: true,
+                showClassType: false,
+                showTime: false,
+                showLocation: false,
+                showNotes: false
+              });
+            } else {
+              if (cachedToggles) {
+                onUpdateTemplate({ ...template, compact: false, ...cachedToggles });
+              } else {
+                onUpdateTemplate({ ...template, compact: false });
+              }
+            }
+          }}
+          label={<span className="text-sm text-gray-200 font-medium">Compact View</span>}
+        />
+      </div>
+
+      {/* Other toggles */}
+      <div className={`space-y-1 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className="p-3 rounded-lg card-section-themed">
+          <ToggleSwitch
+            enabled={template.showClassType}
+            onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
+            label={<span className="flex items-center gap-3 text-sm text-gray-300"><Tag size={14} /> Class Type</span>}
+            disabled={template.compact}
+          />
+        </div>
+        <div className="p-3 rounded-lg card-section-themed">
+          <ToggleSwitch
+            enabled={template.showTime}
+            onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
+            label={<span className="flex items-center gap-3 text-sm text-gray-300"><Clock size={14} /> Time</span>}
+            disabled={template.compact}
+          />
+        </div>
+        <div className="p-3 rounded-lg card-section-themed">
+          <ToggleSwitch
+            enabled={template.showLocation}
+            onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
+            label={<span className="flex items-center gap-3 text-sm text-gray-300"><MapPin size={14} /> Location</span>}
+            disabled={template.compact}
+          />
+        </div>
+      </div>
+
+      {/* Grid Toggle */}
+      <div className="flex items-center justify-between p-3 rounded-lg card-section-themed mt-4">
+        <span className="flex items-center gap-2 text-sm text-gray-300"><Grid size={14} /> Show Grid</span>
+        <div
+          onClick={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
+          className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer ${template.showGrid ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
+        >
+          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.showGrid ? 'left-6' : 'left-1'}`} />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Mobile tab content: Color (event color picker)
+  const colorTabContent = selectedEvent ? (
+    <div className="space-y-2">
+      {/* Apply to All + Shuffle row */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded-lg card-section-themed">
+          <span className="text-xs text-gray-300">All Blocks</span>
+          <div
+            onClick={() => {
+              const newValue = !applyColorToAll;
+              setApplyColorToAll(newValue);
+              if (newValue && selectedEvent) {
+                const currentOpacity = selectedEvent.opacity ?? template.eventOpacity;
+                const updatedEvents = events.map(e => ({
+                  ...e,
+                  color: selectedEvent.color,
+                  opacity: currentOpacity,
+                }));
+                onUpdateEvents(updatedEvents);
+                onUpdateTemplate({ ...template, eventOpacity: currentOpacity });
+              } else if (!newValue) {
+                shuffleColorsForEvents(template.differentiateTypes);
+              }
+            }}
+            className={`w-9 h-4 rounded-full relative transition-all duration-300 cursor-pointer ${applyColorToAll ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
+          >
+            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-5' : 'left-0.5'}`} />
+          </div>
+        </div>
+        {!applyColorToAll && (
+          <button
+            onClick={() => shuffleColorsForEvents(template.differentiateTypes)}
+            className="px-2 py-1.5 text-xs font-medium text-gray-300 rounded-lg border border-[var(--border-default)] button-ghost-themed"
+          >
+            🎲 Shuffle
+          </button>
+        )}
+      </div>
+
+      {/* Color swatches - compact */}
+      <div className="grid grid-cols-6 gap-1.5">
+        {themeColors.map(color => (
+          <button
+            key={color}
+            onClick={() => handleColorSelect(color)}
+            className={`w-8 h-8 rounded-full border-2 transition-all ${
+              selectedEvent.color === color
+                ? 'border-white ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                : 'border-transparent'
+            }`}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+
+      {/* Palette Picker - inline */}
+      <button
+        onClick={() => setShowPalettePicker(!showPalettePicker)}
+        className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1 ml-auto"
+      >
+        <Palette size={10} />
+        {showPalettePicker ? 'Hide' : `${currentPalette.name} · Change`}
+      </button>
+
+      {showPalettePicker && (
+        <div className="p-2 rounded-lg border card-section-themed max-h-[120px] overflow-y-auto">
+          {COLOR_PALETTES.map((palette: ColorPalette) => (
+            <button
+              key={palette.id}
+              onClick={() => {
+                setActivePaletteId(palette.id);
+                const newColors = palette.colors;
+                if (applyColorToAll) {
+                  const randomColor = newColors[Math.floor(Math.random() * newColors.length)];
+                  const updatedEvents = events.map(e => ({ ...e, color: randomColor }));
+                  onUpdateEvents(updatedEvents);
+                } else {
+                  const courseColorMap = new Map<string, string>();
+                  let colorIndex = 0;
+                  const updatedEvents = events.map(e => {
+                    const key = template.differentiateTypes
+                      ? `${e.displayTitle}-${e.classType}`
+                      : e.displayTitle;
+                    if (!courseColorMap.has(key)) {
+                      courseColorMap.set(key, newColors[colorIndex % newColors.length]);
+                      colorIndex++;
+                    }
+                    return { ...e, color: courseColorMap.get(key)! };
+                  });
+                  onUpdateEvents(updatedEvents);
+                }
+                setShowPalettePicker(false);
+              }}
+              className={`w-full flex items-center gap-2 p-1 rounded transition-all ${
+                currentPalette.id === palette.id ? 'bg-blue-600/30' : 'hover:opacity-80'
+              }`}
+            >
+              <div className="flex gap-0.5">
+                {palette.colors.slice(0, 5).map((color, idx) => (
+                  <div key={idx} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                ))}
+              </div>
+              <span className="text-[10px] text-gray-300">{palette.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Compact toggles row */}
+      <div className="flex items-center gap-2 pt-2 border-t border-[var(--border-muted)]">
+        {/* Opacity - only for certain themes */}
+        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
+          <div className="flex items-center gap-2 flex-1">
+            <span className="text-[10px] text-gray-400">Opacity</span>
+            <input
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.05"
+              value={applyColorToAll ? template.eventOpacity : (selectedEvent.opacity ?? template.eventOpacity)}
+              onChange={(e) => {
+                const newOpacity = parseFloat(e.target.value);
+                if (applyColorToAll) {
+                  onUpdateTemplate({ ...template, eventOpacity: newOpacity });
+                  const updatedEvents = events.map(ev => ({ ...ev, opacity: undefined }));
+                  onUpdateEvents(updatedEvents);
+                } else {
+                  const updatedEvents = events.map(ev =>
+                    ev.displayTitle === selectedEvent?.displayTitle
+                      ? { ...ev, opacity: newOpacity }
+                      : ev
+                  );
+                  onUpdateEvents(updatedEvents);
+                }
+              }}
+              className="w-16 h-1 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+            />
+          </div>
+        )}
+
+        {/* No Borders - only for certain themes */}
+        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-gray-400">No Border</span>
+            <div
+              onClick={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
+              className={`w-7 h-3.5 rounded-full relative transition-all cursor-pointer ${template.eventBlockNoBorders ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
+            >
+              <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${template.eventBlockNoBorders ? 'left-4' : 'left-0.5'}`} />
+            </div>
+          </div>
+        )}
+
+        {/* Diff Colors */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400">Diff Lab</span>
+          <div
+            onClick={() => triggerColorUpdate(!template.differentiateTypes)}
+            className={`w-7 h-3.5 rounded-full relative transition-all cursor-pointer ${template.differentiateTypes ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
+          >
+            <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${template.differentiateTypes ? 'left-4' : 'left-0.5'}`} />
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Fonts Button - compact */}
+      <button
+        onClick={() => setShowFontSelector(true)}
+        className="w-full px-2 py-1.5 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-1.5 border-t border-[var(--border-muted)] mt-1"
+      >
+        <TypeIcon size={12} /> Edit Fonts
+      </button>
+    </div>
+  ) : (
+    <div className="text-xs text-gray-400 italic text-center py-2">
+      Tap an event to edit color
+    </div>
+  );
+
+  // Mobile tab content: Day Header
+  const headerTabContent = (
+    <div className="space-y-4">
+      <div className="text-xs text-gray-400 font-medium italic">Day Header Style</div>
+
+      {/* Color swatches */}
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400 font-medium">Text Color</label>
+        <div className="grid grid-cols-6 gap-2">
+          {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+            <button
+              key={color}
+              onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
+              className={`w-10 h-10 rounded-full border-2 transition-all hover:scale-110 ${
+                template.headerTextColor === color
+                  ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Backdrop Blur */}
+      <div className="space-y-2 pt-3 border-t border-[var(--border-muted)]">
+        <label className="text-xs text-gray-400 font-medium">Backdrop Blur</label>
+        <input
+          type="range"
+          min="0"
+          max="20"
+          step="1"
+          value={template.headerBlurAmount}
+          onChange={(e) => onUpdateTemplate({ ...template, headerBlurAmount: parseInt(e.target.value) })}
+          className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+        />
+        <GlassRadioGroup
+          name="header-blur-mode-mobile"
+          options={[
+            { id: 'bar', label: 'Entire Row', value: 'bar' as const },
+            { id: 'cells', label: 'Each Cell', value: 'cells' as const },
+          ]}
+          value={template.headerBlurMode}
+          onChange={(val) => onUpdateTemplate({ ...template, headerBlurMode: val })}
+        />
+      </div>
+
+      {/* Reset Button */}
+      <button
+        onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
+        className="w-full px-3 py-2 button-ghost-themed rounded-lg text-sm text-gray-200 font-medium transition-colors"
+      >
+        Reset to Default
+      </button>
+    </div>
+  );
+
+  // Mobile tab content: Time Column
+  const timeTabContent = (
+    <div className="space-y-4">
+      <div className="text-xs text-gray-400 font-medium italic">Time Column Style</div>
+
+      {/* Color swatches */}
+      <div className="space-y-2">
+        <label className="text-xs text-gray-400 font-medium">Text Color</label>
+        <div className="grid grid-cols-6 gap-2">
+          {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
+            <button
+              key={color}
+              onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
+              className={`w-10 h-10 rounded-full border-2 transition-all hover:scale-110 ${
+                template.timeColumnTextColor === color
+                  ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Backdrop Blur */}
+      <div className="space-y-2 pt-3 border-t border-[var(--border-muted)]">
+        <label className="text-xs text-gray-400 font-medium">Backdrop Blur</label>
+        <input
+          type="range"
+          min="0"
+          max="20"
+          step="1"
+          value={template.timeColumnBlurAmount}
+          onChange={(e) => onUpdateTemplate({ ...template, timeColumnBlurAmount: parseInt(e.target.value) })}
+          className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+        />
+        <GlassRadioGroup
+          name="time-blur-mode-mobile"
+          options={[
+            { id: 'bar', label: 'Entire Column', value: 'bar' as const },
+            { id: 'cells', label: 'Each Cell', value: 'cells' as const },
+          ]}
+          value={template.timeColumnBlurMode}
+          onChange={(val) => onUpdateTemplate({ ...template, timeColumnBlurMode: val })}
+        />
+      </div>
+
+      {/* Reset Button */}
+      <button
+        onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: undefined, timeColumnBlurAmount: 0 })}
+        className="w-full px-3 py-2 button-ghost-themed rounded-lg text-sm text-gray-200 font-medium transition-colors"
+      >
+        Reset to Default
+      </button>
+    </div>
+  );
+
+  // Mobile tabs configuration - dynamic based on selection
+  const mobileExportTabs: MobileTab[] = selectedEventId ? [
+    // When an event is selected, show color tab
+    {
+      id: 'color',
+      label: 'Color',
+      icon: <Droplet size={20} />,
+      content: colorTabContent,
+    },
+  ] : selectedComponent === 'dayHeader' ? [
+    // When header is selected, show header tab
+    {
+      id: 'header',
+      label: 'Header',
+      icon: <Type size={20} />,
+      content: headerTabContent,
+    },
+  ] : selectedComponent === 'timeColumn' ? [
+    // When time column is selected, show time tab
+    {
+      id: 'time',
+      label: 'Time',
+      icon: <Clock size={20} />,
+      content: timeTabContent,
+    },
+  ] : [
+    // Default tabs
+    {
+      id: 'theme',
+      label: 'Theme',
+      icon: <Palette size={20} />,
+      content: themeTabContent,
+    },
+    {
+      id: 'background',
+      label: 'Background',
+      icon: <Image size={20} />,
+      content: backgroundTabContent,
+    },
+    {
+      id: 'scale',
+      label: 'Scale',
+      icon: <Maximize2 size={20} />,
+      content: scaleTabContent,
+    },
+    {
+      id: 'content',
+      label: 'Content',
+      icon: <Layout size={20} />,
+      content: contentTabContent,
+    },
+  ];
+
+  // Mobile layout for Export step
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full min-h-0 relative">
+        {/* Mobile Header Bar */}
+        <div
+          className="flex items-center justify-between px-3 py-2 rounded-xl mb-2"
+          style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}
+        >
+          <button
+            onClick={onBack}
+            className="px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded-lg"
+            style={{ backgroundColor: 'var(--button-ghost)' }}
+          >
+            ← Back
+          </button>
+          <h3 className="font-semibold text-white text-sm">Visual Style</h3>
+          <button
+            onClick={handleDownload}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 btn-accent text-white text-sm font-medium rounded-lg disabled:opacity-50"
+          >
+            <Download size={14} />
+            {isExporting ? '...' : 'Download'}
+          </button>
+        </div>
+
+        {/* Preview Panel with zoom controls */}
+        <div className="flex-1 min-h-0 relative mb-[72px]">
+          {/* Zoom Toolbar */}
+          {isZoomToolbarOpen && (
+            <div className="absolute top-4 right-4 z-50">
+              <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
+                <button
+                  onClick={handleZoomOut}
+                  className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={16} className="mx-auto text-gray-200" />
+                </button>
+                <button
+                  onClick={handleZoomReset}
+                  className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
+                  title="Fit to View"
+                >
+                  <span className="text-xs font-mono text-gray-100">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                </button>
+                <button
+                  onClick={handleZoomIn}
+                  className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={16} className="mx-auto text-gray-200" />
+                </button>
+                <button
+                  onClick={() => setIsZoomToolbarOpen(false)}
+                  className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed inline-btn"
+                  title="Hide zoom controls"
+                >
+                  <Minimize2 size={12} className="text-gray-200" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed zoom button */}
+          {!isZoomToolbarOpen && (
+            <button
+              onClick={() => setIsZoomToolbarOpen(true)}
+              className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border shadow-lg transition-all active:scale-95 toolbar-themed inline-btn"
+              title="Show zoom controls"
+            >
+              <ZoomIn size={16} className="mx-auto text-gray-200" />
+            </button>
+          )}
+
+          <div
+            data-component="MobilePreviewPanel"
+            ref={previewPanelRef}
+            className="absolute inset-0 overflow-auto"
+            style={{ touchAction: 'manipulation' }}
+            onMouseDown={(e) => {
+              const target = e.target as HTMLElement;
+              if (colorPickerRef.current?.contains(target)) return;
+              handleBlankClick();
+            }}
+            onTouchEnd={(e: React.TouchEvent) => {
+              const target = e.target as HTMLElement;
+              if (colorPickerRef.current?.contains(target)) return;
+              // Only trigger blank click if tapping on the panel itself, not on interactive elements
+              if (target.closest('[data-component="EventBlock"]') ||
+                  target.closest('[data-component="DayHeader"]') ||
+                  target.closest('[data-component="TimeColumn"]') ||
+                  target.closest('[data-component="DayColumn"]') ||
+                  target.closest('[data-component="CalendarCard"]')) return;
+              handleBlankClick();
+            }}
+          >
+            {/* Scale spacer - provides scrollable area for transform scale */}
+            <div
+              className="min-h-full p-4 flex items-start justify-center"
+              style={zoom > 1 ? {
+                width: canvasDimensions.width * zoom + 32,
+                height: canvasDimensions.height * zoom + 32,
+              } : undefined}
+            >
+            <div
+              className="transition-all duration-200 origin-top"
+              style={(supportsZoom ? { zoom } : { transform: `scale(${zoom})`, transformOrigin: 'top center' }) as React.CSSProperties}
+            >
+                {template.lockscreenMockup ? (
+                <div data-component="LockscreenMockup" className="relative">
+                  <div
+                    id="calendar-export-node"
+                    className="relative z-40"
+                    style={{ borderRadius: '8%' }}
+                  >
+                    <CalendarCanvas
+                      events={events}
+                      template={template}
+                      interactive={true}
+                      onEventClick={handleEventClick}
+                      onBlankClick={handleBlankClick}
+                      visualScale={supportsZoom ? 1 : zoom}
+                      showFullTitle={template.showCourseSection}
+                      mockupClipBorderRadius="8%"
+                      mockupOverlay={
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            width: `${(3772 / 3345) * 100}%`,
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 30,
+                          }}
+                        >
+                          <img
+                            src={lockscreenMockupImg}
+                            alt="iPhone Lockscreen Frame"
+                            className="w-full h-auto"
+                          />
+                        </div>
+                      }
+                      onHeaderClick={() => {
+                        setSelectedEventId(null);
+                        setSelectedComponent('dayHeader');
+                        setMobileActiveTab('header');
+                      }}
+                      onTimeColumnClick={() => {
+                        setSelectedEventId(null);
+                        setSelectedComponent('timeColumn');
+                        setMobileActiveTab('time');
+                      }}
+                      isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                      onCalendarCardSelect={() => {
+                        setSelectedComponent('calendarCard');
+                        setSelectedEventId(null);
+                        setMobileActiveTab('scale');
+                      }}
+                      highlightMode={selectedComponent}
+                      onboardingComponents={onboardingPending}
+                      onboardingEventId={onboardingEventId}
+                      onOnboardingOk={handleOnboardingOk}
+                      onDimensionsComputed={setCanvasDimensions}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div id="calendar-export-node">
+                  <CalendarCanvas
+                    events={events}
+                    template={template}
+                    interactive={true}
+                    onEventClick={handleEventClick}
+                    onBlankClick={handleBlankClick}
+                    visualScale={supportsZoom ? 1 : zoom}
+                    showFullTitle={template.showCourseSection}
+                    onHeaderClick={() => {
+                      setSelectedEventId(null);
+                      setSelectedComponent('dayHeader');
+                      setMobileActiveTab('header');
+                    }}
+                    onTimeColumnClick={() => {
+                      setSelectedEventId(null);
+                      setSelectedComponent('timeColumn');
+                      setMobileActiveTab('time');
+                    }}
+                    isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                    onCalendarCardSelect={() => {
+                      setSelectedComponent('calendarCard');
+                      setSelectedEventId(null);
+                      setMobileActiveTab('scale');
+                    }}
+                    highlightMode={selectedComponent}
+                    onboardingComponents={onboardingPending}
+                    onboardingEventId={onboardingEventId}
+                    onOnboardingOk={handleOnboardingOk}
+                    onDimensionsComputed={setCanvasDimensions}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+        </div>
+
+        {/* Hidden export canvas */}
+        <div
+          style={{
+            position: 'fixed',
+            left: isExporting ? '0' : '-9999px',
+            top: isExporting ? '0' : '-9999px',
+            zIndex: isExporting ? -1 : -9999,
+            pointerEvents: 'none',
+            visibility: isExporting ? 'visible' : 'hidden',
+          }}
+        >
+          <div id="calendar-export-hidden">
+            <CalendarCanvas
+              events={events}
+              template={template}
+              interactive={false}
+              showFullTitle={template.showCourseSection}
+            />
+          </div>
+        </div>
+
+        {/* Mobile Footer Toolbar */}
+        <MobileFooterToolbar
+          tabs={mobileExportTabs}
+          activeTabId={mobileActiveTab}
+          onTabChange={setMobileActiveTab}
+          onPanelClose={() => {
+            // Deselect elements when closing/collapsing the panel
+            if (selectedEventId) {
+              setSelectedEventId(null);
+            }
+            if (selectedComponent !== 'none') {
+              setSelectedComponent('none');
+            }
+          }}
+        />
+
+        {/* Background Gallery Modal */}
+        {showBackgroundGallery && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
+            <div
+              className="relative border rounded-2xl modal-themed shadow-2xl w-[95vw] max-w-lg max-h-[80vh] flex flex-col mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[var(--border-muted)]">
+                <h2 className="text-lg font-semibold text-white">Backgrounds</h2>
+                <button onClick={() => setShowBackgroundGallery(false)} className="text-gray-400 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-3 gap-2">
+                  {[...landscapes, ...portraits].map((bg) => (
+                    <button
+                      key={bg.id}
+                      onClick={() => {
+                        onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
+                        setShowBackgroundGallery(false);
+                      }}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        template.backgroundImage === bg.id
+                          ? 'border-blue-500 ring-2 ring-blue-400/50'
+                          : 'border-[var(--border-default)]'
+                      }`}
+                    >
+                      <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div
       data-component="ExportLayout"
@@ -996,8 +1959,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       <div
         data-component="PreviewPanel"
         ref={previewPanelRef}
-        className="flex-1 min-h-0 overflow-auto overscroll-contain relative"
-        onWheel={previewPanelBounce.handleWheel}
+        className="flex-1 min-h-0 overflow-auto relative"
+        style={{ touchAction: 'pan-x pan-y' }}
         onMouseDown={(e) => {
           const target = e.target as HTMLElement;
           if (colorPickerRef.current?.contains(target)) return;
@@ -1013,19 +1976,22 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         {/* PREVIEW VIEWPORT - Centers the calendar */}
         <div
           data-component="PreviewViewport"
-          className="min-h-full p-6 flex items-start justify-center"
-          style={getBounceStyle(previewPanelBounce.bounceOffset, previewPanelBounce.isReleasing)}
+          className="p-6 flex items-start justify-center"
+          style={zoom > 1 ? {
+            width: canvasDimensions.width * zoom + 48,
+            height: canvasDimensions.height * zoom + 48,
+          } : { minHeight: '100%' }}
         >
-          {/* ZOOM WRAPPER - Applies zoom transform */}
-          <div
-            data-component="ZoomWrapper"
-            className="transition-all duration-200 origin-top flex items-start"
-            style={
-              (supportsZoom
-                ? { zoom }
-                : { transform: `scale(${zoom})` }) as React.CSSProperties
-            }
-          >
+            {/* ZOOM WRAPPER - Applies zoom transform */}
+            <div
+              data-component="ZoomWrapper"
+              className="transition-all duration-200 origin-top flex items-start"
+              style={
+                (supportsZoom
+                  ? { zoom }
+                  : { transform: `scale(${zoom})`, transformOrigin: 'top center' }) as React.CSSProperties
+              }
+            >
             {/* LOCKSCREEN MOCKUP WRAPPER - When enabled, shows iPhone frame border around canvas */}
             {template.lockscreenMockup ? (
               <div data-component="LockscreenMockup" className="relative">
@@ -1858,16 +2824,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           </div>
 
           {/* Font & Color Selectors */}
-          <div
-            className="min-h-0 overflow-y-auto overscroll-contain custom-scrollbar flex-1"
-            ref={fontPanelScrollRef}
-            onWheel={fontPanelBounce.handleWheel}
-          >
-            {/* Bounce wrapper */}
-            <div
-              className="p-4 space-y-4"
-              style={getBounceStyle(fontPanelBounce.bounceOffset, fontPanelBounce.isReleasing)}
-            >
+          <div className="min-h-0 overflow-y-auto custom-scrollbar flex-1">
+            <div className="p-4 space-y-4">
 
             {/* Template Font Pairs Dropdown */}
             <div className="space-y-2" data-dropdown>
@@ -2314,15 +3272,9 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         {/* SIDEBAR CONTENT - Scrollable settings area */}
         <div
           data-component="ExportSidebarContent"
-          className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
-          ref={exportSidebarContentRef}
-          onWheel={exportSidebarBounce.handleWheel}
+          className="flex-1 h-0 overflow-y-auto custom-scrollbar"
         >
-          {/* Bounce wrapper for sidebar content */}
-          <div
-            className="p-4 space-y-8"
-            style={getBounceStyle(exportSidebarBounce.bounceOffset, exportSidebarBounce.isReleasing)}
-          >
+          <div className="p-4 space-y-8">
           
           {/* Theme Selection */}
           <div className="space-y-3">
@@ -2939,13 +3891,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             </div>
 
             {/* Gallery Content */}
-            <div
-              className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
-              ref={backgroundGalleryBounce.scrollRef}
-              onWheel={backgroundGalleryBounce.handleWheel}
-            >
-              {/* Bounce wrapper */}
-              <div className="p-5" style={getBounceStyle(backgroundGalleryBounce.bounceOffset, backgroundGalleryBounce.isReleasing)}>
+            <div className="flex-1 h-0 overflow-y-auto custom-scrollbar">
+              <div className="p-5">
               {/* Loading state */}
               {isBackgroundsLoading && (
                 <div className="flex items-center justify-center py-12">

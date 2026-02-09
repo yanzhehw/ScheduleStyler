@@ -4,11 +4,12 @@ import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { GuidanceNote } from './GuidanceNote';
 import { AlertBox } from './AlertBox';
-import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2 } from 'lucide-react';
+import { Trash2, ListPlus, Upload, Clock, MapPin, Type, Layout, Monitor, Smartphone, Tag, ChevronDown, ChevronRight, Maximize2, X, Plus, RotateCcw, Save, CirclePlus, ZoomIn, ZoomOut, Minimize2, Edit3 } from 'lucide-react';
 import { GlassRadioGroup } from './ui/glass-radio-group';
 import { ThemedDropdown } from './ui/themed-dropdown';
 import { getThemeColors } from '../themes';
-import { useOverscrollBounce, getBounceStyle } from '../hooks/useOverscrollBounce';
+import { useMobileDetect } from '../hooks/useMobileDetect';
+import { MobileFooterToolbar, MobileTab } from './MobileFooterToolbar';
 
 interface EditStepProps {
   events: CalendarEvent[];
@@ -162,9 +163,18 @@ export const EditStep: React.FC<EditStepProps> = ({
   const hasInitialized = useRef(false);
   const hasAppliedInitialZoom = useRef(false);
 
-  // Bounce effect for canvas and sidebar using shared hook
-  const canvasBounce = useOverscrollBounce();
-  const sidebarBounce = useOverscrollBounce();
+  // Mobile detection and active tab state
+  const isMobile = useMobileDetect();
+  const [mobileActiveTab, setMobileActiveTab] = useState<string | null>(null);
+
+  // Auto-open edit panel when an event is selected on mobile
+  useEffect(() => {
+    if (isMobile && selectedEventId) {
+      setMobileActiveTab('edit-event');
+    } else if (isMobile && !selectedEventId && mobileActiveTab === 'edit-event') {
+      setMobileActiveTab(null);
+    }
+  }, [isMobile, selectedEventId]);
 
   // Check if browser supports CSS zoom
   const supportsZoom = typeof window !== 'undefined'
@@ -631,6 +641,884 @@ export const EditStep: React.FC<EditStepProps> = ({
     }
   };
 
+  // Content sections for mobile tabs
+  const addCourseContent = (
+    <div className="space-y-4">
+      {/* Days of Week with Gradient Glow */}
+      <div>
+        <div className="flex gap-2">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
+            <button
+              key={day}
+              type="button"
+              onClick={() => {
+                const newSelectedDays = [...addCourseDraft.selectedDays];
+                newSelectedDays[index] = !newSelectedDays[index];
+                setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
+                if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
+              }}
+              className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
+            >
+              {addCourseDraft.selectedDays[index] && (
+                <div
+                  className="absolute inset-0 rounded-lg opacity-80"
+                  style={{
+                    background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                  }}
+                />
+              )}
+              <span className={`relative z-10 text-sm font-semibold transition-colors ${addCourseDraft.selectedDays[index]
+                  ? 'text-blue-300'
+                  : addCourseErrors.days
+                    ? 'text-red-400/70'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}>
+                {day}
+              </span>
+              <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${addCourseDraft.selectedDays[index]
+                  ? 'border-blue-400 bg-blue-500'
+                  : addCourseErrors.days
+                    ? 'border-red-400/50'
+                    : 'border-[var(--border-default)]'
+                }`}>
+                {addCourseDraft.selectedDays[index] && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+        {addCourseErrors.days && (
+          <p className="text-xs text-red-400 mt-1">{addCourseErrors.days}</p>
+        )}
+      </div>
+
+      {/* Course Code & Class Type */}
+      <div>
+        <label className="block text-xs font-medium text-gray-400 mb-1">Course Code & Type</label>
+        <div className="flex gap-2 min-w-0">
+          <input
+            type="text"
+            value={addCourseDraft.courseCode}
+            onChange={(e) => {
+              setAddCourseDraft({ ...addCourseDraft, courseCode: e.target.value });
+              if (addCourseErrors.courseCode) setAddCourseErrors({ ...addCourseErrors, courseCode: undefined });
+            }}
+            className={`flex-1 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
+              addCourseErrors.courseCode ? 'border-red-500' : ''
+            }`}
+            placeholder="e.g. CS 101"
+          />
+          <ThemedDropdown
+            options={CLASS_TYPES.map((type) => ({
+              id: type,
+              label: type,
+              value: type,
+            }))}
+            value={addCourseDraft.classType}
+            onChange={(val) => setAddCourseDraft({ ...addCourseDraft, classType: val as ClassType })}
+            className="w-28"
+          />
+        </div>
+        {addCourseErrors.courseCode && (
+          <p className="text-xs text-red-400 mt-1">{addCourseErrors.courseCode}</p>
+        )}
+      </div>
+
+      {/* Custom Class Type */}
+      {addCourseDraft.classType === 'Custom' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-400 mb-1">Custom Type Name</label>
+          <input
+            type="text"
+            value={addCourseDraft.customClassType}
+            onChange={(e) => setAddCourseDraft({ ...addCourseDraft, customClassType: e.target.value })}
+            className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            placeholder="e.g. Workshop"
+          />
+        </div>
+      )}
+
+      {/* Start/End Time */}
+      <div>
+        <label className={`block text-xs font-medium mb-1 ${addCourseErrors.time ? 'text-red-400' : 'text-gray-400'}`}>
+          Time (24h format)
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] text-gray-500 mb-1">Start</label>
+            <input
+              type="text"
+              value={addCourseDraft.startTime}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                  setAddCourseDraft({ ...addCourseDraft, startTime: val });
+                  if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+                }
+              }}
+              placeholder="09:00"
+              className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
+                addCourseErrors.time ? 'border-red-500' : ''
+              }`}
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-500 mb-1">End</label>
+            <input
+              type="text"
+              value={addCourseDraft.endTime}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                  setAddCourseDraft({ ...addCourseDraft, endTime: val });
+                  if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+                }
+              }}
+              placeholder="10:00"
+              className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
+                addCourseErrors.time ? 'border-red-500' : ''
+              }`}
+            />
+          </div>
+        </div>
+        {addCourseErrors.time && (
+          <p className="text-xs text-red-400 mt-1">{addCourseErrors.time}</p>
+        )}
+      </div>
+
+      {/* Location */}
+      <div>
+        <label className="block text-xs font-medium text-gray-400 mb-1">Location (optional)</label>
+        <input
+          type="text"
+          value={addCourseDraft.location}
+          onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
+          className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+        />
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 pt-2">
+        <button
+          type="button"
+          onClick={handleClearAddCourseForm}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm hover:text-white rounded-lg transition-colors button-ghost-themed"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <RotateCcw size={14} /> Clear
+        </button>
+        <button
+          type="button"
+          onClick={handleBulkCreateCoursesWithValidation}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium btn-accent text-white rounded-lg"
+        >
+          <CirclePlus size={14} /> Add
+        </button>
+      </div>
+    </div>
+  );
+
+  const contentDisplayContent = (
+    <div className="space-y-2">
+      {/* Include Course Section toggle */}
+      {hasValidCourseSections && (
+        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+          <ToggleSwitch
+            enabled={template.showCourseSection}
+            onToggle={() => onUpdateTemplate({ ...template, showCourseSection: !template.showCourseSection })}
+            label={<span className="flex items-center gap-2"><Tag size={12} /> Include Course Section</span>}
+          />
+        </div>
+      )}
+
+      {/* Compact View */}
+      <div className="p-2 hover:opacity-80 rounded-lg transition-colors border" style={{ borderColor: 'var(--border-default)' }}>
+        <ToggleSwitch
+          enabled={template.compact}
+          onToggle={() => {
+            const newCompact = !template.compact;
+            if (newCompact) {
+              setCachedToggles({
+                showClassType: template.showClassType,
+                showTime: template.showTime,
+                showLocation: template.showLocation,
+                showNotes: template.showNotes
+              });
+              onUpdateTemplate({
+                ...template,
+                compact: true,
+                showClassType: false,
+                showTime: false,
+                showLocation: false,
+                showNotes: false
+              });
+            } else {
+              if (cachedToggles) {
+                onUpdateTemplate({
+                  ...template,
+                  compact: false,
+                  ...cachedToggles
+                });
+              } else {
+                onUpdateTemplate({ ...template, compact: false });
+              }
+            }
+          }}
+          label="Compact View"
+        />
+      </div>
+
+      {/* Other content options */}
+      <div className={`space-y-2 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+          <ToggleSwitch
+            enabled={template.showClassType}
+            onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
+            label={<span className="flex items-center gap-2"><Tag size={12} /> Show Class Type</span>}
+            disabled={template.compact}
+          />
+        </div>
+
+        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+          <ToggleSwitch
+            enabled={template.showTime}
+            onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
+            label={<span className="flex items-center gap-2"><Clock size={12} /> Show Time</span>}
+            disabled={template.compact}
+          />
+        </div>
+
+        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+          <ToggleSwitch
+            enabled={template.showLocation}
+            onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
+            label={<span className="flex items-center gap-2"><MapPin size={12} /> Show Location</span>}
+            disabled={template.compact}
+          />
+        </div>
+
+        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+          <ToggleSwitch
+            enabled={template.showNotes}
+            onToggle={() => {
+              const updatedEvents = events.map(e => ({ ...e, includeNotes: undefined }));
+              onUpdateEvents(updatedEvents);
+              onUpdateTemplate({ ...template, showNotes: !template.showNotes });
+            }}
+            label={<span className="flex items-center gap-2"><Type size={12} /> Show Notes</span>}
+            disabled={template.compact}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const aspectRatioContent = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-gray-300 font-medium">
+          {template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
+        </span>
+      </div>
+
+      {/* Aspect Ratio Slider */}
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-gray-500">16:9</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={template.aspectRatio}
+          onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
+          className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+        />
+        <span className="text-[10px] text-gray-500">9:16</span>
+      </div>
+
+      {/* Quick Presets */}
+      <GlassRadioGroup
+        name="edit-aspect-ratio-mobile"
+        options={[
+          { id: 'desktop', label: <><Monitor size={12} /> Desktop</>, value: 'desktop' as const },
+          { id: 'mobile', label: <><Smartphone size={12} /> Mobile</>, value: 'mobile' as const },
+        ]}
+        value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
+        onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
+      />
+    </div>
+  );
+
+  // Mobile edit event content (when an event is selected)
+  const mobileEditEventContent = selectedEvent ? (
+    <div className="space-y-5">
+      {/* Warnings */}
+      {selectedEvent.isConfidenceLow && (
+        <AlertBox message="Check details (low confidence)." type="warning" />
+      )}
+      {isSelectedEventOverlapping && (
+        <div className="rounded-xl border border-red-500/60 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">
+          This course has overlaps. Please drag or edit the block to fix issue.
+        </div>
+      )}
+
+      {/* Days Selection */}
+      <div>
+        <div className="flex gap-2">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+            const isCurrentDay = selectedEvent.dayIndex === index;
+            const existsOnDay = events.some(
+              e => e.id !== selectedEvent.id &&
+                e.displayTitle === selectedEvent.displayTitle &&
+                e.classType === selectedEvent.classType &&
+                e.dayIndex === index
+            );
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => {
+                  if (isCurrentDay) return;
+                  if (existsOnDay) {
+                    const eventToRemove = events.find(
+                      e => e.id !== selectedEvent.id &&
+                        e.displayTitle === selectedEvent.displayTitle &&
+                        e.classType === selectedEvent.classType &&
+                        e.dayIndex === index
+                    );
+                    if (eventToRemove) {
+                      onUpdateEvents(events.filter(e => e.id !== eventToRemove.id));
+                    }
+                  } else {
+                    const newEvent: CalendarEvent = {
+                      ...selectedEvent,
+                      id: `evt-${Date.now()}-${index}-${Math.random().toString(16).slice(2, 8)}`,
+                      dayIndex: index,
+                    };
+                    onUpdateEvents([...events, newEvent]);
+                  }
+                }}
+                className={`flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1`}
+              >
+                {(isCurrentDay || existsOnDay) && (
+                  <div
+                    className="absolute inset-0 rounded-lg opacity-80"
+                    style={{
+                      background: isCurrentDay
+                        ? 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.5) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 70%)'
+                        : 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                    }}
+                  />
+                )}
+                <span className={`relative z-10 text-sm font-semibold transition-colors ${isCurrentDay ? 'text-green-300' : existsOnDay ? 'text-blue-300' : 'text-gray-500'}`}>
+                  {day}
+                </span>
+                <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isCurrentDay ? 'border-green-400 bg-green-500' : existsOnDay ? 'border-blue-400 bg-blue-500' : 'border-[var(--border-default)]'}`}>
+                  {(isCurrentDay || existsOnDay) && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-gray-500 mt-1.5 text-center">
+          <span className="text-green-400">●</span> Current &nbsp;
+          <span className="text-blue-400">●</span> Add/remove from other days
+        </p>
+      </div>
+
+      {/* Course Code + Class Type */}
+      <div>
+        <label className="block text-xs font-medium text-gray-400 mb-1">Course Code</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={template.showCourseSection ? selectedEvent.title : selectedEvent.displayTitle}
+            onChange={(e) => handleUpdateEvent(template.showCourseSection ? 'title' : 'displayTitle', e.target.value)}
+            className="flex-1 rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+            placeholder="e.g. CS 101"
+          />
+          <ThemedDropdown
+            options={CLASS_TYPES.map((type) => ({ id: type, label: type, value: type }))}
+            value={selectedEvent.classType}
+            onChange={(val) => handleUpdateEvent('classType', val as ClassType)}
+            className="w-24"
+          />
+        </div>
+      </div>
+
+      {/* Custom Class Type */}
+      {selectedEvent.classType === 'Custom' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-400 mb-1">Custom Class Type</label>
+          <input
+            type="text"
+            value={selectedEvent.customClassType || ''}
+            onChange={(e) => handleUpdateEvent('customClassType', e.target.value)}
+            className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            placeholder="e.g. Workshop"
+          />
+        </div>
+      )}
+
+      {/* Time */}
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-gray-400">Time</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Start</label>
+            <input
+              type="text"
+              value={pendingTimeChanges?.startTime ?? selectedEvent.startTime}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                  handlePendingTimeChange('startTime', val);
+                }
+              }}
+              onBlur={(e) => {
+                let val = e.target.value.replace(/[^0-9]/g, '');
+                if (val.length >= 3 && val.length <= 4) {
+                  const hours = val.slice(0, -2).padStart(2, '0');
+                  const mins = val.slice(-2);
+                  handlePendingTimeChange('startTime', `${hours}:${mins}`);
+                }
+              }}
+              placeholder="09:00"
+              className="w-full rounded-md input-themed p-2 text-white text-sm outline-none font-mono"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">End</label>
+            <input
+              type="text"
+              value={pendingTimeChanges?.endTime ?? selectedEvent.endTime}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                  handlePendingTimeChange('endTime', val);
+                }
+              }}
+              onBlur={(e) => {
+                let val = e.target.value.replace(/[^0-9]/g, '');
+                if (val.length >= 3 && val.length <= 4) {
+                  const hours = val.slice(0, -2).padStart(2, '0');
+                  const mins = val.slice(-2);
+                  handlePendingTimeChange('endTime', `${hours}:${mins}`);
+                }
+              }}
+              placeholder="10:00"
+              className="w-full rounded-md input-themed p-2 text-white text-sm outline-none font-mono"
+            />
+          </div>
+        </div>
+        {timeError && <p className="text-xs text-red-400">{timeError}</p>}
+        {hasUnsavedTimeChanges && (
+          <button
+            type="button"
+            onClick={handleSaveTimeChanges}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors mt-2"
+          >
+            <Save size={14} /> Save Time Changes
+          </button>
+        )}
+      </div>
+
+      {/* Location */}
+      <div>
+        <label className="block text-xs font-medium text-gray-400 mb-1">Location</label>
+        <input
+          type="text"
+          value={selectedEvent.location}
+          onChange={(e) => handleUpdateEvent('location', e.target.value)}
+          className="w-full rounded-md input-themed p-2 text-white text-sm outline-none"
+        />
+      </div>
+
+      {/* Delete Button */}
+      <div className="pt-4 border-t" style={{ borderColor: 'var(--border-muted)' }}>
+        <button
+          onClick={handleDeleteEvent}
+          className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-2 rounded-md transition-colors text-sm"
+        >
+          <Trash2 size={14} /> Delete Event
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  // Mobile tabs configuration
+  const mobileTabs: MobileTab[] = selectedEvent ? [
+    {
+      id: 'edit-event',
+      label: 'Edit',
+      icon: <Edit3 size={20} />,
+      content: mobileEditEventContent,
+    },
+  ] : [
+    {
+      id: 'add-course',
+      label: 'Add',
+      icon: <CirclePlus size={20} />,
+      content: addCourseContent,
+    },
+    {
+      id: 'display',
+      label: 'Display',
+      icon: <Layout size={20} />,
+      content: contentDisplayContent,
+    },
+    {
+      id: 'ratio',
+      label: 'Ratio',
+      icon: <Maximize2 size={20} />,
+      content: aspectRatioContent,
+    },
+  ];
+
+  // Canvas component (shared between mobile and desktop)
+  const canvasComponent = (
+    <div
+      ref={canvasContainerRef}
+      className={`flex-1 min-h-0 rounded-2xl border relative ${isMobile ? 'mb-[72px]' : ''}`}
+      style={{ backgroundColor: 'rgba(var(--accent-primary-rgb), 0.05)', borderColor: 'var(--border-muted)' }}
+    >
+      {/* Zoom Toolbar - positioned outside scrollable area */}
+      {isZoomToolbarOpen && (
+        <div className="absolute top-4 right-4 z-50">
+          <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
+            <button
+              onClick={handleZoomOut}
+              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
+              title="Zoom Out"
+            >
+              <ZoomOut size={16} className="mx-auto text-gray-200" />
+            </button>
+            <button
+              onClick={handleZoomReset}
+              className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
+              title="Fit to View"
+            >
+              <span className="text-xs font-mono text-gray-100">
+                {Math.round(zoom * 100)}%
+              </span>
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
+              title="Zoom In"
+            >
+              <ZoomIn size={16} className="mx-auto text-gray-200" />
+            </button>
+            <button
+              onClick={() => setIsZoomToolbarOpen(false)}
+              className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed"
+              title="Hide zoom controls"
+            >
+              <Minimize2 size={12} className="text-gray-200" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed zoom button */}
+      {!isZoomToolbarOpen && (
+        <button
+          onClick={() => setIsZoomToolbarOpen(true)}
+          className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border shadow-lg transition-all active:scale-95 toolbar-themed"
+          title="Show zoom controls"
+        >
+          <ZoomIn size={16} className="mx-auto text-gray-200" />
+        </button>
+      )}
+
+      {/* Scrollable canvas area */}
+      <div
+        className="absolute inset-0 p-6 overflow-auto"
+        style={{ touchAction: 'pan-x pan-y' }}
+      >
+        {/* Scale spacer - provides scrollable area when zoomed */}
+        <div
+          className="flex justify-center"
+          style={zoom > 1 ? {
+            width: canvasDimensions.width * zoom + 48,
+            height: canvasDimensions.height * zoom + 48,
+          } : undefined}
+        >
+          {/* Zoom wrapper - hidden until initial zoom is calculated to prevent glitch */}
+          <div
+            className="origin-top"
+            style={{
+              ...(supportsZoom
+                ? { zoom }
+                : { transform: `scale(${zoom})`, transformOrigin: 'top center' }),
+              opacity: isZoomReady ? 1 : 0,
+              transition: 'opacity 150ms ease-out',
+            } as React.CSSProperties}
+          >
+          <CalendarCanvas
+              events={events}
+              template={template}
+              interactive={true}
+              onEventClick={handleEventClickWithPending}
+              onBlankClick={handleBlankClick}
+              showFullTitle={template.showCourseSection}
+              selectedEventId={selectedEventId}
+              onEventTimeChange={handleEventTimeChange}
+              onEventDragEnd={handleEventDragEnd}
+              onEmptyBlockClick={openNewEventModal}
+              hideUnselectedBorders={true}
+              overlappingEventIds={Array.from(overlappingEventIds)}
+              minTimeRange={{ start: 8, end: 18 }}
+              onboardingComponents={showEditOnboarding && onboardingEvent ? { eventBlock: true } : undefined}
+              onboardingEventId={showEditOnboarding ? onboardingEvent?.id : null}
+              eventBlockOnboardingMessage={
+                <>
+                  Click to <strong>Drag</strong> and <strong>edit details</strong>
+                </>
+              }
+              onOnboardingOk={() => setShowEditOnboarding(false)}
+              visualScale={supportsZoom ? 1 : zoom}
+              onDimensionsComputed={setCanvasDimensions}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        {/* Mobile Header Bar */}
+        <div
+          className="flex items-center justify-between px-3 py-2 rounded-xl mb-2"
+          style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}
+        >
+          <button
+            onClick={() => setShowReuploadConfirm(true)}
+            className="px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded-lg"
+            style={{ backgroundColor: 'var(--button-ghost)' }}
+          >
+            Re-upload
+          </button>
+          <h3 className="font-semibold text-white text-sm">
+            {selectedEvent ? 'Editing Block' : 'Edit Calendar'}
+          </h3>
+          {selectedEvent ? (
+            <button
+              onClick={() => setSelectedEventId(null)}
+              className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
+            >
+              Done
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (hasOverlaps) {
+                  setShowOverlapWarning(true);
+                  return;
+                }
+                onNext();
+              }}
+              className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
+            >
+              Next
+            </button>
+          )}
+        </div>
+
+        {canvasComponent}
+
+        <MobileFooterToolbar
+          tabs={mobileTabs}
+          activeTabId={mobileActiveTab}
+          onTabChange={setMobileActiveTab}
+          onPanelClose={() => {
+            // Deselect event when closing/collapsing the edit panel
+            if (mobileActiveTab === 'edit-event') {
+              setSelectedEventId(null);
+            }
+          }}
+        />
+
+        {/* Modals */}
+        {showOverlapWarning && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-white font-semibold">Overlaps detected</h4>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Some blocks overlap. Please fix if not intended.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-5">
+                <button
+                  onClick={() => setShowOverlapWarning(false)}
+                  className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Back to Edit
+                </button>
+                <button
+                  onClick={() => {
+                    setShowOverlapWarning(false);
+                    onNext();
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+                >
+                  Proceed with Overlap
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showReuploadConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-white font-semibold">Re-upload schedule?</h4>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Your current progress will be lost. Are you sure you want to continue?
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-5">
+                <button
+                  onClick={() => setShowReuploadConfirm(false)}
+                  className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowReuploadConfirm(false);
+                    onReupload();
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+                >
+                  Proceed
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {newEventSlot && newEventDraft && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                closeNewEventModal();
+              }
+            }}
+          >
+            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-white font-semibold">Add Class</h4>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {DAY_LABELS[newEventSlot.dayIndex]} • {newEventSlot.startTime} - {newEventSlot.endTime}
+                  </p>
+                </div>
+                <button
+                  onClick={closeNewEventModal}
+                  className="text-gray-500 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCreateNewEvent();
+                }}
+              >
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Course Title</label>
+                  <input
+                    type="text"
+                    value={newEventDraft.title}
+                    onChange={(e) => setNewEventDraft({ ...newEventDraft, title: e.target.value })}
+                    className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    placeholder="e.g. CS 101"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Class Type</label>
+                  <ThemedDropdown
+                    options={CLASS_TYPES.map((type) => ({
+                      id: type,
+                      label: type,
+                      value: type,
+                    }))}
+                    value={newEventDraft.classType}
+                    onChange={(val) => setNewEventDraft({ ...newEventDraft, classType: val as ClassType })}
+                    className="w-full"
+                  />
+                </div>
+
+                {newEventDraft.classType === 'Custom' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Custom Class Type</label>
+                    <input
+                      type="text"
+                      value={newEventDraft.customClassType}
+                      onChange={(e) => setNewEventDraft({ ...newEventDraft, customClassType: e.target.value })}
+                      className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      placeholder="e.g. Workshop"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={newEventDraft.location}
+                    onChange={(e) => setNewEventDraft({ ...newEventDraft, location: e.target.value })}
+                    className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeNewEventModal}
+                    className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium btn-accent text-white rounded-lg"
+                  >
+                    Done
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div
       className="flex h-full min-h-0 gap-6"
@@ -692,19 +1580,24 @@ export const EditStep: React.FC<EditStepProps> = ({
 
         {/* Scrollable canvas area */}
         <div
-          ref={canvasBounce.scrollRef}
-          className="absolute inset-0 p-6 overflow-auto overscroll-contain flex flex-col items-center"
-          onWheel={canvasBounce.handleWheel}
+          className="absolute inset-0 overflow-auto"
+          style={{ touchAction: 'pan-x pan-y' }}
         >
-          {/* Bounce wrapper */}
-          <div style={getBounceStyle(canvasBounce.bounceOffset, canvasBounce.isReleasing)}>
+          {/* Scale spacer - provides scrollable area when zoomed */}
+          <div
+            className="p-6 flex justify-center"
+            style={zoom > 1 ? {
+              width: canvasDimensions.width * zoom + 48,
+              height: canvasDimensions.height * zoom + 48,
+            } : { minHeight: '100%', minWidth: '100%' }}
+          >
             {/* Zoom wrapper - hidden until initial zoom is calculated to prevent glitch */}
             <div
               className="origin-top"
               style={{
                 ...(supportsZoom
                   ? { zoom }
-                  : { transform: `scale(${zoom})` }),
+                  : { transform: `scale(${zoom})`, transformOrigin: 'top center' }),
                 opacity: isZoomReady ? 1 : 0,
                 transition: 'opacity 150ms ease-out',
               } as React.CSSProperties}
@@ -776,15 +1669,9 @@ export const EditStep: React.FC<EditStepProps> = ({
 
         <div
           data-component="EditSidebar"
-          className="flex-1 h-0 overflow-y-auto overscroll-contain custom-scrollbar"
-          ref={sidebarBounce.scrollRef}
-          onWheel={sidebarBounce.handleWheel}
+          className="flex-1 h-0 overflow-y-auto custom-scrollbar"
         >
-          {/* Bounce wrapper for sidebar content */}
-          <div
-            className="p-4 space-y-6"
-            style={getBounceStyle(sidebarBounce.bounceOffset, sidebarBounce.isReleasing)}
-          >
+          <div className="p-4 space-y-6">
 
           {/* Global Toggles & Class Mapping */}
           {!selectedEvent && (

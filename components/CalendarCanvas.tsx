@@ -282,44 +282,97 @@ const formatTimeFromHours = (timeInHours: number): string => {
 };
 
 // Calculate minimum height needed for an event's content in pixels
+// Uses line-height multiplier of 1.4 because CSS renders text with line-height: 1.4
+// (standard typographic spacing - actual rendered line box = fontSize × 1.4)
 const calculateMinEventHeight = (
   event: CalendarEvent,
   template: TemplateConfig,
-  showFullTitle: boolean
+  showFullTitle: boolean,
+  debug: boolean = false
 ): number => {
-  const baseFontSize = template.titleFontSize;
-  const smallFontSize = template.detailsFontSize;
+  // Each text field uses its own font size from template
+  const titleFontSize = template.titleFontSize;       // Title text
+  const subtitleFontSize = template.subtitleFontSize; // Class type label
+  const detailsFontSize = template.detailsFontSize;   // Time, location, notes
+
+  // Line-height multiplier matches CSS leading-none + visual spacing
+  // In the event block, we use leading-none (line-height: 1) but have gaps between elements
+  // The 1.4 factor accounts for the effective vertical space each text line occupies
   const lineHeight = 1.4;
-  
-  let totalHeight = 16; // Base padding (p-2 = 8px top + 8px bottom)
-  
-  // Title height
+
+  const breakdown: { component: string; height: number; detail?: string }[] = [];
+
+  let totalHeight = 16; // Base padding (p-1.5 = 6px × 2 = 12px, plus ~4px internal margins)
+  breakdown.push({ component: 'basePadding', height: 16 });
+
+  // Title height - estimate lines based on character count
   const title = showFullTitle ? event.title : event.displayTitle;
-  const titleLines = Math.ceil(title.length / 12); // Rough estimate of line wrapping
-  totalHeight += baseFontSize * lineHeight * Math.min(titleLines, 2);
-  
-  // Class type height
-  if (template.showClassType) {
-    totalHeight += smallFontSize * lineHeight + 4; // +4 for mb-1
-  }
-  
+  const titleLines = Math.ceil(title.length / 12); // ~12 chars per line estimate
+  const titleHeight = titleFontSize * lineHeight * Math.min(titleLines, 2);
+  totalHeight += titleHeight;
+  breakdown.push({
+    component: 'title',
+    height: titleHeight,
+    detail: `"${title}" (${title.length} chars → ${titleLines} lines, capped at 2) × ${titleFontSize}px × ${lineHeight}`,
+  });
+
   if (!template.compact) {
+    // Class type uses subtitleFontSize (not detailsFontSize)
+    if (template.showClassType) {
+      const classTypeHeight = subtitleFontSize * lineHeight + 2;
+      totalHeight += classTypeHeight;
+      breakdown.push({
+        component: 'classType',
+        height: classTypeHeight,
+        detail: `${subtitleFontSize}px × ${lineHeight} + 2px margin`,
+      });
+    }
+
     // Time height
     if (template.showTime) {
-      totalHeight += smallFontSize * lineHeight + 2;
+      const timeHeight = detailsFontSize * lineHeight + 2;
+      totalHeight += timeHeight;
+      breakdown.push({
+        component: 'time',
+        height: timeHeight,
+        detail: `${detailsFontSize}px × ${lineHeight} + 2px margin`,
+      });
     }
-    
+
     // Location height
     if (template.showLocation && event.location) {
-      totalHeight += smallFontSize * lineHeight + 2;
+      const locationHeight = detailsFontSize * lineHeight + 2;
+      totalHeight += locationHeight;
+      breakdown.push({
+        component: 'location',
+        height: locationHeight,
+        detail: `"${event.location}" - ${detailsFontSize}px × ${lineHeight} + 2px margin`,
+      });
     }
-    
+
     // Notes height (estimate 2 lines max for calculation)
     if ((event.includeNotes ?? template.showNotes) && event.notes) {
-      totalHeight += smallFontSize * lineHeight * 2 + 8; // +8 for margin/border
+      const notesHeight = detailsFontSize * lineHeight * 2 + 8;
+      totalHeight += notesHeight;
+      breakdown.push({
+        component: 'notes',
+        height: notesHeight,
+        detail: `2 lines × ${detailsFontSize}px × ${lineHeight} + 8px margin`,
+      });
     }
+  } else {
+    breakdown.push({ component: 'compact', height: 0, detail: 'compact mode - skipping details' });
   }
-  
+
+  if (debug) {
+    console.log('[calculateMinEventHeight] Breakdown:', {
+      title,
+      fontSizes: { title: titleFontSize, subtitle: subtitleFontSize, details: detailsFontSize },
+      breakdown,
+      totalHeight,
+    });
+  }
+
   return totalHeight;
 };
 
@@ -468,30 +521,51 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   // Calculate dynamic hour height based on content that needs to fit
   const hourHeight = useMemo(() => {
     const baseHourHeight = 60; // Base height per hour in pixels
-    
+
     if (events.length === 0) return baseHourHeight;
-    
+
     let maxRequiredHourHeight = baseHourHeight;
-    
+    let tightestEvent: { title: string; minContentHeight: number; durationHours: number; requiredHourHeight: number } | null = null;
+
     events.forEach(event => {
       const minContentHeight = calculateMinEventHeight(event, template, showFullTitle);
-      
+
       // Calculate event duration using aligned times (same as rendering)
       const startVal = parseInt(event.startTime.split(':')[0]) + parseInt(event.startTime.split(':')[1]) / 60;
       const endVal = parseInt(event.endTime.split(':')[0]) + parseInt(event.endTime.split(':')[1]) / 60;
       const alignedStart = roundToNearestHalfHour(startVal);
       const alignedEnd = roundToNearestHalfHour(endVal);
       const durationHours = Math.max(0.5, alignedEnd - alignedStart);
-      
+
       // Calculate what hourHeight would give us enough space for this event
       // eventHeight = durationHours * hourHeight
       // We need: eventHeight >= minContentHeight
       // So: hourHeight >= minContentHeight / durationHours
       const requiredHourHeight = minContentHeight / durationHours;
-      
-      maxRequiredHourHeight = Math.max(maxRequiredHourHeight, requiredHourHeight);
+
+      if (requiredHourHeight > maxRequiredHourHeight) {
+        maxRequiredHourHeight = requiredHourHeight;
+        tightestEvent = {
+          title: showFullTitle ? event.title : event.displayTitle,
+          minContentHeight,
+          durationHours,
+          requiredHourHeight,
+        };
+      }
     });
-    
+
+    // Debug: log the tightest (most constrained) event with detailed breakdown
+    if (tightestEvent) {
+      console.log('[hourHeight] Tightest event:', tightestEvent);
+      // Re-calculate with debug=true to get detailed breakdown
+      const tightestEventObj = events.find(e =>
+        (showFullTitle ? e.title : e.displayTitle) === tightestEvent.title
+      );
+      if (tightestEventObj) {
+        calculateMinEventHeight(tightestEventObj, template, showFullTitle, true);
+      }
+    }
+
     // Apply reasonable bounds
     return Math.max(baseHourHeight, Math.min(maxRequiredHourHeight, 200));
   }, [events, template, showFullTitle]);
@@ -766,13 +840,16 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   useEffect(() => {
     if (!draggingEventId || !onEventTimeChange) return;
 
-    const handleMove = (e: MouseEvent) => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
       const dragInfo = dragInfoRef.current;
       if (!dragInfo || !dayColumnsRef.current) return;
 
       const rect = dayColumnsRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top - dragInfo.offsetY;
+      // Handle both mouse and touch events
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top - dragInfo.offsetY;
       const dayWidth = rect.width / visibleDays.length;
       const rawDayIndex = Math.floor(x / dayWidth);
       const nextDayIndex = Math.min(visibleDays.length - 1, Math.max(0, rawDayIndex));
@@ -804,9 +881,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleUp);
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
     };
   }, [draggingEventId, onEventDragEnd, onEventTimeChange, hourRange, startHour, visibleDays.length]);
 
@@ -872,6 +953,42 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     setHoveredSlot(null);
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  // Touch handler for mobile dragging
+  const handleEventTouchStart = (event: CalendarEvent, e: React.TouchEvent<HTMLDivElement>) => {
+    if (!interactive || !onEventTimeChange || selectedEventId !== event.id) return;
+    if (!dayColumnsRef.current) return;
+    if (e.touches.length !== 1) return; // Only single touch
+
+    const touch = e.touches[0];
+    const startVal = parseTimeToHours(event.startTime);
+    const endVal = parseTimeToHours(event.endTime);
+    const alignedStart = roundToNearestHalfHour(startVal);
+    const alignedEnd = roundToNearestHalfHour(endVal);
+    const durationHours = Math.max(0.5, alignedEnd - alignedStart);
+
+    const rect = dayColumnsRef.current.getBoundingClientRect();
+    const eventTop = ((alignedStart - startHour) / hourRange) * rect.height;
+    const offsetY = touch.clientY - (rect.top + eventTop);
+
+    dragInfoRef.current = {
+      eventId: event.id,
+      durationHours,
+      offsetY,
+      original: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
+      latest: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
+    };
+    setDraggingEventId(event.id);
+    setHoveredSlot(null);
   };
 
   // Render background layer component
@@ -1349,6 +1466,19 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           onCalendarCardSelect();
         }
       }}
+      onTouchEnd={(e: React.TouchEvent) => {
+        // Only trigger card selection if tapping on the card background (not on events/header/time column)
+        const target = e.target as HTMLElement;
+        const isEventBlock = target.closest('[data-component="EventBlock"]');
+        const isDayHeader = target.closest('[data-component="DayHeader"]');
+        const isTimeColumn = target.closest('[data-component="TimeColumn"]');
+        const isEmptySlot = target.closest('[data-component="EmptySlot"]');
+
+        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive && onCalendarCardSelect) {
+          e.stopPropagation();
+          onCalendarCardSelect();
+        }
+      }}
     >
       {/* BACKGROUND LAYER - Renders background image or color (only when not using outer container) */}
       {template.backgroundType !== 'none' && !useOuterContainer && renderBackgroundLayer()}
@@ -1363,6 +1493,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           <div className="w-12 shrink-0"></div>
           <div
             onClick={() => interactive && onHeaderClick && onHeaderClick()}
+            onTouchEnd={(e: React.TouchEvent) => {
+              if (interactive && onHeaderClick) {
+                e.preventDefault();
+                e.stopPropagation();
+                onHeaderClick();
+              }
+            }}
             onMouseEnter={() => {
               if (interactive && onHeaderClick) {
                 setHoveredComponent('dayHeader');
@@ -1469,6 +1606,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         <div
           data-component="TimeColumn"
           onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
+          onTouchEnd={(e: React.TouchEvent) => {
+            if (interactive && onTimeColumnClick) {
+              e.preventDefault();
+              e.stopPropagation();
+              onTimeColumnClick();
+            }
+          }}
           onMouseEnter={() => {
             if (interactive && onTimeColumnClick) {
               setHoveredComponent('timeColumn');
@@ -1592,6 +1736,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                     onBlankClick();
                   }
                 }}
+                onTouchEnd={(e: React.TouchEvent<HTMLDivElement>) => {
+                  if (interactive && onBlankClick && e.target === e.currentTarget) {
+                    e.stopPropagation();
+                    onBlankClick();
+                  }
+                }}
               >
                 {hoveredSlotForDay && onEmptyBlockClick && (
                   <div
@@ -1649,6 +1799,15 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         data-event-id={event.id}
                         onClick={() => interactive && onEventClick && onEventClick(event)}
                         onMouseDown={(e) => handleEventMouseDown(event, e)}
+                        onTouchStart={(e) => handleEventTouchStart(event, e)}
+                        onTouchEnd={(e: React.TouchEvent) => {
+                          // Handle tap on mobile - only trigger if not dragging
+                          if (interactive && onEventClick && !isDragging && selectedEventId !== event.id) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onEventClick(event);
+                          }
+                        }}
                         className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
                           ${template.textAlignVertical === 'center' ? 'justify-center' : template.textAlignVertical === 'bottom' ? 'justify-end' : 'justify-start'}
                           ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-[200] transition-all' : ''}

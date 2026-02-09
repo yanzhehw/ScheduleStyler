@@ -446,3 +446,117 @@
 .tab-inactive-themed:hover {
   color: var(--tab-hover-text);
 }
+
+/* =============================================
+ * MOBILE RESPONSIVE STYLES
+ * =============================================
+ */
+
+/* Safe area padding for devices with notches/home indicators */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Mobile footer toolbar active tab */
+.mobile-tab-active {
+  position: relative;
+}
+
+.mobile-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+}
+
+/* Mobile-specific scrollbar (thinner) */
+@media (max-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #374151;
+  }
+
+  /* Prevent body scroll when modal is open */
+  body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* Touch-friendly tap targets */
+  button,
+  [role="button"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Smaller min-height for inline buttons */
+  .inline-btn {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Hide desktop sidebar on mobile */
+@media (max-width: 768px) {
+  [data-component="ExportSidebar"],
+  [data-component="EditSidebar"] {
+    display: none;
+  }
+}
+
+/* Mobile panel slide-up animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Mobile touch feedback */
+@media (max-width: 768px) {
+  .touch-feedback:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Adjust header for mobile */
+@media (max-width: 768px) {
+  header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Hide step indicators text on very small screens */
+  @media (max-width: 480px) {
+    .step-indicator-active,
+    .step-indicator {
+      padding: 0.5rem;
+      font-size: 0.7rem;
+    }
+  }
+}

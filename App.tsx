@@ -104,6 +104,8 @@ const App: React.FC = () => {
   const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
   const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
   const [starCount, setStarCount] = useState<number>(0);
+  // Reupload confirmation modal state for header navigation
+  const [showHeaderReuploadConfirm, setShowHeaderReuploadConfirm] = useState(false);
   // Track if user has started a session (persisted in sessionStorage for page refresh)
   const [hasStartedSession, setHasStartedSession] = useState(() => {
     return sessionStorage.getItem('hasStartedSession') === 'true';
@@ -288,6 +290,34 @@ const App: React.FC = () => {
     navigate(ROUTES.UPLOAD);
   };
 
+  // Handle header step click - only backward navigation allowed
+  const handleStepClick = (stepIndex: number) => {
+    const currentIdx = STEP_INFO.findIndex(s => s.path === location.pathname);
+    // Only allow backward navigation
+    if (stepIndex >= currentIdx) return;
+
+    if (stepIndex === 0) {
+      // Going to Upload - show confirmation if session started
+      if (hasStartedSession) {
+        setShowHeaderReuploadConfirm(true);
+      } else {
+        navigate(ROUTES.UPLOAD);
+      }
+    } else if (stepIndex === 1 && currentIdx === 2) {
+      // Going from Export to Edit
+      handleNavigateBackToEdit();
+    }
+  };
+
+  // Handle logo/brand click
+  const handleLogoClick = () => {
+    if (hasStartedSession && location.pathname !== ROUTES.UPLOAD) {
+      setShowHeaderReuploadConfirm(true);
+    } else {
+      navigate(ROUTES.UPLOAD);
+    }
+  };
+
   // Determine current step index for header highlighting
   const currentStepIndex = STEP_INFO.findIndex(s => s.path === location.pathname);
 
@@ -296,55 +326,62 @@ const App: React.FC = () => {
     <div className="h-screen overflow-hidden flex flex-col text-slate-100 font-sans" style={{ backgroundColor: 'var(--surface-app)' }}>
 
       {/* Header */}
-      <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <picture className="w-8 h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
+      <header className="h-14 md:h-16 border-b border-gray-800 flex items-center justify-between px-3 md:px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <button
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <picture className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
             <source srcSet={faviconLight} media="(prefers-color-scheme: dark)" />
-            <img src={faviconDark} alt="ScheduleStyler" className="w-6 h-6 object-contain" />
+            <img src={faviconDark} alt="ScheduleStyler" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
           </picture>
-          <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+          <span className="hidden sm:inline font-bold text-lg md:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             ScheduleStyler
           </span>
-        </div>
+        </button>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2">
           {STEP_INFO.map((step, idx) => {
              const isActive = idx === currentStepIndex;
              const isPast = currentStepIndex > idx;
+             const isClickable = isPast; // Only past steps are clickable
              return (
-               <div key={step.path} className="flex items-center gap-2">
-                 <div className={`
-                    px-3 py-1 rounded-full text-xs font-semibold transition-all
+               <div key={step.path} className="flex items-center gap-1 md:gap-2">
+                 <button
+                   onClick={() => isClickable && handleStepClick(idx)}
+                   disabled={!isClickable}
+                   className={`
+                    px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-semibold transition-all whitespace-nowrap inline-btn
                     ${isActive ? 'step-indicator-active text-white' :
-                      isPast ? 'bg-gray-800 text-gray-400' : 'text-gray-600'}
+                      isPast ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300 cursor-pointer' : 'text-gray-600 cursor-default'}
                  `}>
                    {idx + 1}. {step.label}
-                 </div>
-                 {idx < 2 && <div className="w-4 h-0.5 bg-gray-800"></div>}
+                 </button>
+                 {idx < 2 && <div className="w-2 md:w-4 h-0.5 bg-gray-800"></div>}
                </div>
              )
           })}
         </div>
 
-        {/* GitHub Star Button */}
+        {/* GitHub Star Button - hidden on mobile */}
         <a
           href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="github-star-btn flex items-center gap-0 rounded-full"
+          className="github-star-btn hidden md:flex items-center gap-0 rounded-full"
         >
-          <div className="flex items-center gap-2 px-4 py-2">
-            <span className="text-sm font-semibold text-white">Star On GitHub</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2">
+            <span className="text-xs md:text-sm font-semibold text-white">Star On GitHub</span>
           </div>
-          <div className="flex items-center gap-1 px-3 py-2 bg-slate-900/80 rounded-r-full border-l border-blue-500/30">
-            <Star size={16} className="text-white fill-white" />
-            <span className="text-sm font-medium text-slate-200">{starCount}</span>
+          <div className="flex items-center gap-1 px-2 md:px-3 py-1.5 md:py-2 sm:bg-slate-900/80 sm:rounded-r-full sm:border-l sm:border-blue-500/30">
+            <Star size={14} className="text-white fill-white md:w-4 md:h-4" />
+            <span className="text-xs md:text-sm font-medium text-slate-200">{starCount}</span>
           </div>
         </a>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 p-6 overflow-hidden">
+      <main className="flex-1 min-h-0 p-2 md:p-6 overflow-hidden">
         <Routes>
           <Route
             path={ROUTES.UPLOAD}
@@ -406,6 +443,39 @@ const App: React.FC = () => {
           <Route path="*" element={<Navigate to={ROUTES.UPLOAD} replace />} />
         </Routes>
       </main>
+
+      {/* Reupload Confirmation Modal */}
+      {showHeaderReuploadConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4" style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-white font-semibold">Start over?</h4>
+                <p className="text-sm text-gray-400 mt-1">
+                  Your current progress will be lost. Are you sure you want to continue?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-5">
+              <button
+                onClick={() => setShowHeaderReuploadConfirm(false)}
+                className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowHeaderReuploadConfirm(false);
+                  handleReupload();
+                }}
+                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+              >
+                Yes, start over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </BackgroundsProvider>
   );

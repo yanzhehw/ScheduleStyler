@@ -163,8 +163,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
   }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey, activationToken]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[60vh] animate-fade-in">
-      <div className="w-full max-w-5xl">
+    <div className="flex flex-col items-center md:justify-center h-full min-h-0 animate-fade-in overflow-y-auto py-4 md:py-0">
+      <div className="w-full max-w-5xl px-2 md:px-0">
         {/* Upload + Manual options */}
         <div className="grid gap-6 lg:items-stretch lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col gap-4 h-full">
