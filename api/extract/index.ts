@@ -1,5 +1,63 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// Supabase client for token validation
+function getSupabase(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error('Missing Supabase configuration');
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
+// Validate activation token against database
+async function validateActivationToken(token: string): Promise<{ valid: boolean; code?: string }> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('passcodes')
+      .select('code,status,activation_token,expires_at')
+      .eq('activation_token', token)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { valid: false };
+    }
+
+    const now = new Date();
+    const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+    const isExpired = !expiresAt || expiresAt <= now;
+
+    if (data.status !== 'ACTIVATED' || isExpired) {
+      return { valid: false };
+    }
+
+    return { valid: true, code: data.code };
+  } catch {
+    return { valid: false };
+  }
+}
+
+// Mark token as used after successful extraction
+async function markTokenAsUsed(code: string): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    await supabase
+      .from('passcodes')
+      .update({
+        status: 'USED',
+        used_at: new Date().toISOString(),
+        activation_token: null,
+      })
+      .eq('code', code);
+  } catch (error) {
+    console.error('Failed to mark token as used:', error);
+  }
+}
 
 const SYSTEM_INSTRUCTION = `
 You are an expert OCR and course schedule extraction assistant.
@@ -31,17 +89,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64Image, apiKey: userApiKey } = req.body;
+  const { base64Image, apiKey: userApiKey, activationToken } = req.body;
 
   if (!base64Image) {
     return res.status(400).json({ error: 'base64Image is required' });
   }
 
-  // Use user's API key (BYOK) or server's API key for invited users
-  const apiKey = userApiKey || process.env.GEMINI_API_KEY;
+  let apiKey: string;
+  let tokenCode: string | undefined;
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'No API key configured' });
+  if (userApiKey) {
+    // BYOK mode: use user's API key directly, no token validation needed
+    apiKey = userApiKey;
+  } else {
+    // Server key mode: REQUIRE and validate activation token
+    if (!activationToken) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'Please provide an invitation code or your own API key.'
+      });
+    }
+
+    const validation = await validateActivationToken(activationToken);
+    if (!validation.valid) {
+      return res.status(401).json({
+        error: 'Invalid or expired token',
+        message: 'Your invitation code has expired or is invalid. Please try again.'
+      });
+    }
+
+    tokenCode = validation.code;
+    apiKey = process.env.GEMINI_API_KEY!;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Server API key not configured' });
+    }
   }
 
   try {
@@ -98,6 +180,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = JSON.parse(text);
+
+    // Mark token as used AFTER successful extraction (only for server key mode)
+    if (tokenCode) {
+      await markTokenAsUsed(tokenCode);
+    }
+
     return res.json(data);
 
   } catch (error: any) {

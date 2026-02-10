@@ -25,7 +25,7 @@ Transform ugly ahh calendar screenshots into good looking Ones.
 
 1. **Upload** - Drop in a screenshot of your calendar/Manual Input
 2. **Edit** - Review extracted events and fine tune details
-3. **Export** - Select Styling and download your upper upper schedule thats ready to plug and play. (High resolution)
+3. **Export** - Select Styling and download your fire schedule thats ready to plug and play. (High resolution)
 ---
 
 ### Prerequisites

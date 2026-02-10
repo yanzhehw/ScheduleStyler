@@ -40,6 +40,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   themeFamily: 'default',
   themeVariant: 'dark',
   theme: 'default-dark',
+  textColorPreset: 'dark',
   primaryColor: '#3b82f6',
   borderRadius: '16px',
   showTime: true,
@@ -159,33 +160,12 @@ const App: React.FC = () => {
     setApiKeyError(null);
     try {
       const base64 = await convertFileToBase64(file);
-      const data = await extractCalendarFromImage(base64, apiKey);
+      // Pass activationToken to the API - token is marked as USED atomically after successful extraction
+      const data = await extractCalendarFromImage(base64, apiKey, activationToken);
       setEvents(data.events);
       setCategories(data.categories);
       setHasStartedSession(true);
       navigate(ROUTES.EDIT);
-
-      // Mark the invitation code as used after successful extraction
-      if (activationToken) {
-        console.log('[mark-used] Calling /api/mark-used with activationToken:', activationToken);
-        try {
-          const markResponse = await fetch('/api/mark-used', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activationToken }),
-          });
-          const markResult = await markResponse.json();
-          console.log('[mark-used] Response status:', markResponse.status);
-          console.log('[mark-used] Response body:', markResult);
-          if (markResponse.ok) {
-            console.log('[mark-used] ✅ Invitation code successfully marked as USED');
-          } else {
-            console.warn('[mark-used] ⚠️ Failed to mark code as used:', markResult.error);
-          }
-        } catch (markError) {
-          console.error("[mark-used] ❌ Failed to mark invitation code as used:", markError);
-        }
-      }
     } catch (error) {
       console.error("Extraction error", error);
       if (apiKey) {
@@ -240,15 +220,16 @@ const App: React.FC = () => {
 
   const handleNavigateToExport = () => {
     if (!hasVisitedExport) {
+      // Set acrylic theme and first landscape background as default when first arriving at Export
       const defaultBg = getDefaultLandscapeId() || 'l1';
       setTemplate(prev => ({
         ...prev,
         themeFamily: 'acrylic',
-        themeVariant: 'dark',
-        themeSubVariant: 'dark-slate',
         theme: 'acrylic-dark',
+        themeVariant: 'dark',
+        textColorPreset: 'light',
         backgroundType: 'image',
-        backgroundImage: prev.backgroundImage || defaultBg,
+        backgroundImage: defaultBg,
       }));
     } else if (savedExportSettings) {
       setTemplate((prev: TemplateConfig) => ({

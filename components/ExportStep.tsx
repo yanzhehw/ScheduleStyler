@@ -7,14 +7,15 @@ import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
 import { VerticalSlider } from './VerticalSlider';
 import { downloadCalendarExport } from '../services/exportPipeline';
-import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, Sun, Moon, ZoomIn, ZoomOut, X, TypeIcon, Camera, MousePointerClick, Image, Upload, Droplet, AlignLeft, AlignCenter, AlignRight, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, Bold, Italic } from 'lucide-react';
+import { Download, Layout, Type, Palette, MapPin, Grid, Clock, ChevronRight, ChevronDown, ChevronUp, SlidersHorizontal, Monitor, Smartphone, Tag, Maximize2, Minimize2, ZoomIn, ZoomOut, X, TypeIcon, Image, Droplet } from 'lucide-react';
 import { GlowButton } from './ui/glow-button';
 import { GlassRadioGroup } from './ui/glass-radio-group';
 import { ThemedDropdown } from './ui/themed-dropdown';
-import { THEME_FAMILY_LIST, THEME_FAMILIES, getThemeColors, COLOR_PALETTES, getPalette, ColorPalette } from '../themes';
+import { THEME_FAMILY_LIST, getThemeColors, COLOR_PALETTES, getPalette, ColorPalette } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
 import { getDefaultLandscapeId } from '../assets/backgrounds';
+import { ExportSidebar, FontSection, SidebarSection, FontPair, FontPairId, TextColorField } from './export/sidebar';
 
 // Import lockscreen mockup overlay
 import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
@@ -36,6 +37,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     && window.CSS.supports('zoom', '1');
   const [isExporting, setIsExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeSidebarSection, setActiveSidebarSection] = useState<'theme' | 'background' | 'scale' | 'layout' | 'grid' | 'font'>('theme');
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isScaleRatioExpanded, setIsScaleRatioExpanded] = useState(true);
   const [isBackgroundExpanded, setIsBackgroundExpanded] = useState(false);
@@ -318,6 +320,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
   // Track previous theme family to detect changes
   const prevThemeFamilyRef = useRef<ThemeFamilyId>(template.themeFamily);
+  // Track if theme colors have been applied on first mount
+  const hasAppliedInitialColorsRef = useRef(false);
 
   // Cache for toggle states before compact mode
   const [cachedToggles, setCachedToggles] = useState<{
@@ -932,6 +936,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     onUpdateEvents(updatedEvents);
   };
 
+  // Apply theme colors on first mount when entering Export for the first time
+  useEffect(() => {
+    if (hasAppliedInitialColorsRef.current || events.length === 0) return;
+    hasAppliedInitialColorsRef.current = true;
+    // Apply theme colors based on current theme family
+    applyThemeColors(template.themeFamily, template.themeVariant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.length]); // Run when events are available
+
   // Zoom controls
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
@@ -965,15 +978,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           value={template.themeFamily}
           onChange={(newFamily) => {
             const needsImageBg = newFamily === 'acrylic' || newFamily === 'glass';
-            const newFamilyObj = THEME_FAMILIES[newFamily];
-            const defaultSubVariant = newFamilyObj?.extendedVariants?.[0];
-            const newVariant = defaultSubVariant?.baseVariant ?? template.themeVariant;
             onUpdateTemplate({
               ...template,
               themeFamily: newFamily,
-              theme: `${newFamily}-${newVariant}` as any,
-              themeVariant: newVariant,
-              themeSubVariant: defaultSubVariant?.id,
+              theme: `${newFamily}-dark` as any,
+              themeVariant: 'dark',
+              themeSubVariant: undefined,
               backgroundType: needsImageBg ? 'image' : 'none',
               backgroundImage: newFamily === 'default'
                 ? undefined
@@ -990,35 +1000,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         />
       </div>
 
-      {/* Light/Dark Toggle */}
-      <div className="flex items-center justify-between p-3 rounded-lg card-section-themed">
-        <span className="text-sm text-gray-300">Appearance</span>
-        <button
-          onClick={() => {
-            const newVariant = template.themeVariant === 'light' ? 'dark' : 'light';
-            onUpdateTemplate({
-              ...template,
-              themeVariant: newVariant,
-              theme: `${template.themeFamily}-${newVariant}` as any,
-              eventOpacity: 1,
-            });
-            applyThemeColors(template.themeFamily, newVariant);
-          }}
-          className="px-4 py-2 border border-[var(--border-default)] rounded-lg text-sm font-medium transition-all flex items-center gap-2 button-ghost-themed"
-        >
-          {template.themeVariant === 'light' ? (
-            <>
-              <Sun size={16} className="text-yellow-400" />
-              <span className="text-gray-200">Light</span>
-            </>
-          ) : (
-            <>
-              <Moon size={16} className="text-blue-400" />
-              <span className="text-gray-200">Dark</span>
-            </>
-          )}
-        </button>
-      </div>
     </div>
   );
 
@@ -1727,9 +1708,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             <div
               className="min-h-full p-4 flex items-start justify-center"
               style={zoom > 1 ? {
-                width: canvasDimensions.width * zoom + 32,
-                height: canvasDimensions.height * zoom + 32,
-              } : undefined}
+                minWidth: canvasDimensions.width * zoom + 32,
+                minHeight: canvasDimensions.height * zoom + 32,
+                width: '100%',
+              } : { width: '100%' }}
             >
             <div
               className="transition-all duration-200 origin-top"
@@ -1916,9 +1898,38 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
       className="flex h-full min-h-0 gap-6 relative"
     >
 
-      {/* ZOOM TOOLBAR - Fixed position relative to ExportLayout, doesn't scroll */}
+      {/* BACK TO EDIT BUTTON - Fixed top left of canvas area */}
+      <button
+        onClick={onBack}
+        className="absolute top-4 left-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300"
+        style={{
+          backgroundColor: 'transparent',
+          borderColor: 'var(--panel-border)',
+          color: 'var(--text-muted)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--surface-elevated)';
+          e.currentTarget.style.borderColor = 'var(--panel-border)';
+          e.currentTarget.style.color = 'var(--text-primary)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderColor = 'var(--panel-border)';
+          e.currentTarget.style.color = 'var(--text-muted)';
+        }}
+        title="Back to Edit"
+      >
+        <ChevronRight size={16} className="rotate-180" />
+        <span className="text-sm font-medium">Edit</span>
+      </button>
+
+      {/* ZOOM TOOLBAR - Fixed position, adapts horizontally when sidebar collapses */}
       {isZoomToolbarOpen && (
-        <div data-component="ZoomToolbar" className="absolute top-4 right-[340px] z-50">
+        <div
+          data-component="ZoomToolbar"
+          className="absolute top-4 z-50 transition-all duration-500"
+          style={{ right: isSidebarOpen ? '340px' : '24px' }}
+        >
           <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
             <button
               onClick={handleZoomOut}
@@ -1978,9 +1989,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
           data-component="PreviewViewport"
           className="p-6 flex items-start justify-center"
           style={zoom > 1 ? {
-            width: canvasDimensions.width * zoom + 48,
-            height: canvasDimensions.height * zoom + 48,
-          } : { minHeight: '100%' }}
+            minWidth: canvasDimensions.width * zoom + 48,
+            minHeight: canvasDimensions.height * zoom + 48,
+            width: '100%',
+          } : { minHeight: '100%', width: '100%' }}
         >
             {/* ZOOM WRAPPER - Applies zoom transform */}
             <div
@@ -2480,11 +2492,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 </div>
               </div>
 
-              {/* Edit Fonts Button */}
+              {/* Edit Fonts Button - Switches sidebar to Font panel */}
               <div className="pt-2 border-t border-[var(--border-muted)]">
                 <button
                   onClick={() => {
-                    setShowFontSelector(true);
+                    setActiveSidebarSection('font');
+                    setIsSidebarOpen(true);
                     setColorPickerPosition(null);
                     // Keep selectedEventId so font panel can show the preview
                   }}
@@ -2693,1183 +2706,134 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
       </div>
 
-      {(!isZoomToolbarOpen || !isSidebarOpen) && (
-        <div data-component="CanvasControls" className="flex flex-col items-center gap-3 pt-4">
-          {!isZoomToolbarOpen && (
-            <button
-              onClick={() => setIsZoomToolbarOpen(true)}
-              className="h-10 w-10 rounded-xl border shadow-[0_10px_20px_rgba(2,6,23,0.35)] transition-all active:scale-95 toolbar-themed"
-              title="Show zoom controls"
-              aria-label="Show zoom controls"
-            >
-              <ZoomIn size={16} className="mx-auto text-gray-200" />
-            </button>
-          )}
-          {!isSidebarOpen && (
-            <button
-              data-component="SidebarToggle"
-              onClick={() => setIsSidebarOpen(true)}
-              className="h-10 w-10 rounded-xl border bg-transparent text-gray-200 shadow-[0_10px_20px_rgba(2,6,23,0.2)] transition-all active:scale-95 toolbar-themed"
-              title="Show sidebar"
-              aria-label="Show sidebar"
-            >
-              <SlidersHorizontal size={18} className="mx-auto" />
-            </button>
-          )}
-        </div>
+      {/* Collapsed Zoom Button - Shows when zoom toolbar is hidden */}
+      {!isZoomToolbarOpen && (
+        <button
+          data-component="ZoomToggle"
+          onClick={() => setIsZoomToolbarOpen(true)}
+          className="absolute top-4 z-50 h-10 w-10 rounded-xl border shadow-[0_10px_20px_rgba(2,6,23,0.35)] transition-all duration-500 active:scale-95 toolbar-themed"
+          style={{ right: isSidebarOpen ? '340px' : '24px' }}
+          title="Show zoom controls"
+          aria-label="Show zoom controls"
+        >
+          <ZoomIn size={16} className="mx-auto text-gray-200" />
+        </button>
       )}
 
-      {/* TEXT FONT/COLORS PANEL - Shows between canvas and sidebar when editing fonts */}
-      {showFontSelector && selectedEvent && (
-        <div
-          data-component="TextFontPanel"
-          className="w-72 min-h-0 rounded-2xl border flex flex-col shadow-xl z-50 max-h-[calc(100vh-2rem)] overflow-hidden"
-          style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)', pointerEvents: 'auto' }}
-          onClick={(e) => {
-            // Close color picker when clicking on blank areas within the panel
-            const target = e.target as HTMLElement;
-            if (target.closest('[data-dropdown]') || target.closest('[data-color-picker]')) return;
-            setOpenTextColorPicker(null);
+      {/* Collapsed Sidebar Button - Shows below zoom toolbar when sidebar is hidden */}
+      {!isSidebarOpen && (
+        <button
+          data-component="SidebarToggle"
+          onClick={() => setIsSidebarOpen(true)}
+          className="absolute z-50 h-10 w-10 rounded-xl border bg-transparent text-gray-200 shadow-[0_10px_20px_rgba(2,6,23,0.2)] transition-all duration-500 active:scale-95 toolbar-themed"
+          style={{
+            right: '24px',
+            top: isZoomToolbarOpen ? '80px' : '64px'
           }}
+          title="Show sidebar"
+          aria-label="Show sidebar"
         >
-          {/* Panel Header */}
-          <div className="p-4 border-b flex justify-between items-center flex-shrink-0" style={{ borderColor: 'var(--panel-border)' }}>
-            <h3 className="font-semibold text-white text-sm">Text Font/Colors</h3>
-            <button
-              onClick={() => setShowFontSelector(false)}
-              className="text-gray-500 hover:text-white transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Sample Block Preview */}
-          <div className="p-4 border-b flex-shrink-0" style={{ borderColor: 'var(--panel-border)' }}>
-            <div
-              className="p-3 rounded-lg relative overflow-hidden flex"
-              style={{
-                backgroundColor: 'transparent',
-                minHeight: '80px',
-                justifyContent: template.textAlignHorizontal === 'center' ? 'center' : template.textAlignHorizontal === 'right' ? 'flex-end' : 'flex-start',
-                alignItems: template.textAlignVertical === 'center' ? 'center' : template.textAlignVertical === 'bottom' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              {/* Background layer with opacity */}
-              <div
-                className="absolute inset-0 rounded-lg"
-                style={{
-                  backgroundColor: selectedEvent.color || '#60a5fa',
-                  opacity: template.eventOpacity,
-                }}
-              />
-              {/* Content layer - no opacity applied */}
-              <div className="relative z-10" style={{ textAlign: template.textAlignHorizontal }}>
-                <div
-                  className="uppercase tracking-wide mb-1"
-                  style={{
-                    fontFamily: template.titleFont,
-                    fontSize: `${template.fontScale * 0.75}rem`,
-                    fontWeight: template.titleBold ? 700 : 400,
-                    fontStyle: template.titleItalic ? 'italic' : 'normal',
-                    color: template.titleTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? '#fff' : '#1f2937'),
-                  }}
-                >
-                  {selectedEvent.displayTitle}
-                </div>
-                {template.showClassType && (
-                  <div
-                    className="opacity-90 mb-1"
-                    style={{
-                      fontFamily: template.subtitleFont,
-                      fontSize: `${template.fontScale * 0.6}rem`,
-                      fontWeight: template.subtitleBold ? 600 : 400,
-                      fontStyle: template.subtitleItalic ? 'italic' : 'normal',
-                      color: template.subtitleTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.9)' : '#1f2937'),
-                    }}
-                  >
-                    {selectedEvent.classType === 'Custom' ? selectedEvent.customClassType : selectedEvent.classType}
-                  </div>
-                )}
-                {template.showTime && (
-                  <div
-                    className="opacity-80"
-                    style={{
-                      fontFamily: template.detailsFont,
-                      fontSize: `${template.fontScale * 0.6}rem`,
-                      fontWeight: template.detailsBold ? 600 : 400,
-                      fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                      color: template.detailsTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.8)' : '#374151'),
-                    }}
-                  >
-                    {selectedEvent.startTime} - {selectedEvent.endTime}
-                  </div>
-                )}
-                {template.showLocation && selectedEvent.location && (
-                  <div
-                    className={`flex items-center gap-1 opacity-75 mt-0.5 ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}
-                    style={{
-                      fontFamily: template.detailsFont,
-                      fontSize: `${template.fontScale * 0.6}rem`,
-                      fontWeight: template.detailsBold ? 600 : 400,
-                      fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                      color: template.detailsTextColor || ((template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain') && template.themeVariant === 'dark' ? 'rgba(255,255,255,0.75)' : '#374151'),
-                    }}
-                  >
-                    <MapPin size={10} className="shrink-0" />
-                    <span>{selectedEvent.location}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Font & Color Selectors */}
-          <div className="min-h-0 overflow-y-auto custom-scrollbar flex-1">
-            <div className="p-4 space-y-4">
-
-            {/* Template Font Pairs Dropdown */}
-            <div className="space-y-2" data-dropdown>
-              <label className="text-xs text-gray-400 font-medium">Template Font Pairs</label>
-              <ThemedDropdown
-                options={fontPairs.map((pair) => ({
-                  id: pair.id,
-                  label: pair.name,
-                  value: pair.id,
-                }))}
-                value={selectedFontPairId}
-                onChange={(pairId) => applyFontPair(pairId as FontPairId)}
-                className="w-full"
-                renderButton={(opt) => {
-                  const pair = fontPairs.find(p => p.id === opt?.value);
-                  return (
-                    <div className="text-left">
-                      <span className="text-sm font-medium text-white" style={{ fontFamily: pair?.titleFont || 'Inter' }}>
-                        {pair?.name}
-                      </span>
-                      <span className="text-[10px] text-gray-500 block">{pair?.description}</span>
-                    </div>
-                  );
-                }}
-                renderOption={(opt, isSelected) => {
-                  const pair = fontPairs.find(p => p.id === opt.value);
-                  return (
-                    <>
-                      <div>
-                        <span className="text-sm font-medium" style={{ fontFamily: pair?.titleFont || 'Inter' }}>
-                          {pair?.name}
-                        </span>
-                        <span className="text-[10px] text-gray-500 block">{pair?.description}</span>
-                      </div>
-                      {isSelected && <span style={{ color: 'var(--accent-primary)' }}>✓</span>}
-                    </>
-                  );
-                }}
-              />
-            </div>
-
-            {/* Text Alignment Controls */}
-            <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]">
-              <label className="text-xs text-gray-400 font-medium">Text Alignment</label>
-              <div className="flex gap-4">
-                {/* Horizontal Alignment */}
-                <div className="flex-1">
-                  <GlassRadioGroup
-                    name="text-align-horizontal"
-                    options={[
-                      { id: 'left', label: <AlignLeft size={14} />, value: 'left' as const },
-                      { id: 'center', label: <AlignCenter size={14} />, value: 'center' as const },
-                      { id: 'right', label: <AlignRight size={14} />, value: 'right' as const },
-                    ]}
-                    value={template.textAlignHorizontal}
-                    onChange={(val) => onUpdateTemplate({ ...template, textAlignHorizontal: val })}
-                  />
-                </div>
-                {/* Vertical Alignment */}
-                <div className="flex-1">
-                  <GlassRadioGroup
-                    name="text-align-vertical"
-                    options={[
-                      { id: 'top', label: <AlignVerticalJustifyStart size={14} />, value: 'top' as const },
-                      { id: 'center', label: <AlignVerticalJustifyCenter size={14} />, value: 'center' as const },
-                      { id: 'bottom', label: <AlignVerticalJustifyEnd size={14} />, value: 'bottom' as const },
-                    ]}
-                    value={template.textAlignVertical}
-                    onChange={(val) => onUpdateTemplate({ ...template, textAlignVertical: val })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Individual Font Selectors - Always visible, auto-switches to Custom when changed */}
-            <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]" data-dropdown>
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-400 font-medium">Fonts</label>
-                <button
-                  onClick={() => {
-                    onUpdateTemplate({
-                      ...template,
-                      titleFont: 'Inter',
-                      subtitleFont: 'Inter',
-                      detailsFont: 'Inter',
-                      titleFontSize: 12,
-                      subtitleFontSize: 10,
-                      detailsFontSize: 10,
-                      titleBold: true,
-                      titleItalic: false,
-                      subtitleBold: true,
-                      subtitleItalic: false,
-                      detailsBold: false,
-                      detailsItalic: false,
-                    });
-                    setSelectedFontPairId('none');
-                  }}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  Reset to default
-                </button>
-              </div>
-
-              {/* Title Font */}
-              <div className="space-y-1">
-                <span className="text-[10px] text-gray-500">Class Title</span>
-                <div className="flex gap-2">
-                  <ThemedDropdown
-                    options={availableFonts.map((font) => ({
-                      id: font,
-                      label: font,
-                      value: font,
-                    }))}
-                    value={template.titleFont}
-                    onChange={(font) => {
-                      onUpdateTemplate({ ...template, titleFont: font });
-                      setSelectedFontPairId('none');
-                    }}
-                    className="flex-1"
-                    renderButton={(opt) => (
-                      <span style={{ fontFamily: opt?.value, fontWeight: template.titleBold ? 700 : 400, fontStyle: template.titleItalic ? 'italic' : 'normal' }}>
-                        {opt?.label || 'Select font'}
-                      </span>
-                    )}
-                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 700 })}
-                  />
-                  {/* Bold/Italic buttons */}
-                  <div className="flex border rounded-lg input-themed overflow-hidden">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, titleBold: !template.titleBold })}
-                      className={`px-2 py-2 transition-colors ${template.titleBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Bold"
-                    >
-                      <Bold size={14} />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, titleItalic: !template.titleItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.titleItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Italic"
-                    >
-                      <Italic size={14} />
-                    </button>
-                  </div>
-                  {/* Font size input with arrows */}
-                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
-                    <input
-                      type="number"
-                      value={template.titleFontSize}
-                      onChange={(e) => onUpdateTemplate({ ...template, titleFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 12)) })}
-                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      min={6}
-                      max={24}
-                    />
-                    <div className="flex flex-col border-l border-[var(--border-default)]">
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.min(24, template.titleFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
-                      >
-                        <ChevronUp size={10} className="text-gray-400" />
-                      </button>
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, titleFontSize: Math.max(6, template.titleFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
-                      >
-                        <ChevronDown size={10} className="text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subtitle Font */}
-              <div className="space-y-1">
-                <span className="text-[10px] text-gray-500">Class Type</span>
-                <div className="flex gap-2">
-                  <ThemedDropdown
-                    options={availableFonts.map((font) => ({
-                      id: font,
-                      label: font,
-                      value: font,
-                    }))}
-                    value={template.subtitleFont}
-                    onChange={(font) => {
-                      onUpdateTemplate({ ...template, subtitleFont: font });
-                      setSelectedFontPairId('none');
-                    }}
-                    className="flex-1"
-                    renderButton={(opt) => (
-                      <span style={{ fontFamily: opt?.value, fontWeight: template.subtitleBold ? 600 : 400, fontStyle: template.subtitleItalic ? 'italic' : 'normal' }}>
-                        {opt?.label || 'Select font'}
-                      </span>
-                    )}
-                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 600 })}
-                  />
-                  {/* Bold/Italic buttons */}
-                  <div className="flex border rounded-lg input-themed overflow-hidden">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, subtitleBold: !template.subtitleBold })}
-                      className={`px-2 py-2 transition-colors ${template.subtitleBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Bold"
-                    >
-                      <Bold size={14} />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, subtitleItalic: !template.subtitleItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.subtitleItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Italic"
-                    >
-                      <Italic size={14} />
-                    </button>
-                  </div>
-                  {/* Font size input with arrows */}
-                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
-                    <input
-                      type="number"
-                      value={template.subtitleFontSize}
-                      onChange={(e) => onUpdateTemplate({ ...template, subtitleFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 10)) })}
-                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      min={6}
-                      max={24}
-                    />
-                    <div className="flex flex-col border-l border-[var(--border-default)]">
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.min(24, template.subtitleFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
-                      >
-                        <ChevronUp size={10} className="text-gray-400" />
-                      </button>
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, subtitleFontSize: Math.max(6, template.subtitleFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
-                      >
-                        <ChevronDown size={10} className="text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Details Font */}
-              <div className="space-y-1">
-                <span className="text-[10px] text-gray-500">Location/Details</span>
-                <div className="flex gap-2">
-                  <ThemedDropdown
-                    options={availableFonts.map((font) => ({
-                      id: font,
-                      label: font,
-                      value: font,
-                    }))}
-                    value={template.detailsFont}
-                    onChange={(font) => {
-                      onUpdateTemplate({ ...template, detailsFont: font });
-                      setSelectedFontPairId('none');
-                    }}
-                    className="flex-1"
-                    renderButton={(opt) => (
-                      <span style={{ fontFamily: opt?.value, fontWeight: template.detailsBold ? 600 : 400, fontStyle: template.detailsItalic ? 'italic' : 'normal' }}>
-                        {opt?.label || 'Select font'}
-                      </span>
-                    )}
-                    optionStyle={(opt) => ({ fontFamily: opt.value, fontWeight: 400 })}
-                  />
-                  {/* Bold/Italic buttons */}
-                  <div className="flex border rounded-lg input-themed overflow-hidden">
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, detailsBold: !template.detailsBold })}
-                      className={`px-2 py-2 transition-colors ${template.detailsBold ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Bold"
-                    >
-                      <Bold size={14} />
-                    </button>
-                    <button
-                      onClick={() => onUpdateTemplate({ ...template, detailsItalic: !template.detailsItalic })}
-                      className={`px-2 py-2 transition-colors border-l border-[var(--border-default)] ${template.detailsItalic ? 'btn-accent text-white' : 'text-gray-400 hover:text-white hover:opacity-80'}`}
-                      title="Italic"
-                    >
-                      <Italic size={14} />
-                    </button>
-                  </div>
-                  {/* Font size input with arrows */}
-                  <div className="flex items-center border rounded-lg input-themed overflow-hidden">
-                    <input
-                      type="number"
-                      value={template.detailsFontSize}
-                      onChange={(e) => onUpdateTemplate({ ...template, detailsFontSize: Math.max(6, Math.min(24, Number(e.target.value) || 10)) })}
-                      className="w-10 px-1 py-2 bg-transparent text-center text-sm text-gray-200 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      min={6}
-                      max={24}
-                    />
-                    <div className="flex flex-col border-l border-[var(--border-default)]">
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.min(24, template.detailsFontSize + 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors"
-                      >
-                        <ChevronUp size={10} className="text-gray-400" />
-                      </button>
-                      <button
-                        onClick={() => onUpdateTemplate({ ...template, detailsFontSize: Math.max(6, template.detailsFontSize - 1) })}
-                        className="px-1.5 py-0.5 hover:opacity-80 transition-colors border-t border-[var(--border-default)]"
-                      >
-                        <ChevronDown size={10} className="text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Text Colors Section */}
-            <div className="space-y-2 pt-2 border-t border-[var(--border-muted)]">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-400 font-medium">Text Colors</label>
-                <button
-                  onClick={() => {
-                    onUpdateTemplate({
-                      ...template,
-                      titleTextColor: undefined,
-                      subtitleTextColor: undefined,
-                      detailsTextColor: undefined,
-                    });
-                  }}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  Reset to default
-                </button>
-              </div>
-
-              {/* Color buttons row */}
-              <div className="flex items-center gap-2 rounded-lg card-section-themed p-2" data-color-picker>
-                {/* Title color */}
-                <div className="flex-1 flex flex-col items-center gap-1 relative">
-                  <span className="text-[9px] text-gray-400 whitespace-nowrap">Class Title</span>
-                  <button
-                    onClick={() => {
-                      setOpenTextColorPicker(openTextColorPicker === 'title' ? null : 'title');
-                    }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'title' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
-                    style={{ backgroundColor: template.titleTextColor || (template.themeVariant === 'dark' ? '#ffffff' : '#1f2937') }}
-                  />
-                </div>
-
-                {/* Subtitle color */}
-                <div className="flex-1 flex flex-col items-center gap-1 relative">
-                  <span className="text-[9px] text-gray-400 whitespace-nowrap">Class Type</span>
-                  <button
-                    onClick={() => {
-                      setOpenTextColorPicker(openTextColorPicker === 'subtitle' ? null : 'subtitle');
-                    }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'subtitle' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
-                    style={{ backgroundColor: template.subtitleTextColor || (template.themeVariant === 'dark' ? '#e5e7eb' : '#1f2937') }}
-                  />
-                </div>
-
-                {/* Details color */}
-                <div className="flex-1 flex flex-col items-center gap-1 relative">
-                  <span className="text-[9px] text-gray-400 whitespace-nowrap">Location/Details</span>
-                  <button
-                    onClick={() => {
-                      setOpenTextColorPicker(openTextColorPicker === 'details' ? null : 'details');
-                    }}
-                    className={`w-7 h-7 rounded-md border-2 transition-colors shadow-sm ${openTextColorPicker === 'details' ? 'border-blue-400' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
-                    style={{ backgroundColor: template.detailsTextColor || (template.themeVariant === 'dark' ? '#d1d5db' : '#374151') }}
-                  />
-                </div>
-              </div>
-
-              {/* Color picker callout - appears below the buttons */}
-              {openTextColorPicker && (
-                <div className="relative" data-color-picker>
-                  <div className="border rounded-lg input-themed shadow-xl p-3">
-                    {/* Arrow pointing up */}
-                    <div
-                      className="absolute -top-2 w-4 h-4 border-r border-b rotate-45 input-themed"
-                      style={{
-                        left: openTextColorPicker === 'title' ? '16%' : openTextColorPicker === 'subtitle' ? '50%' : '84%',
-                        transform: 'translateX(-50%) rotate(45deg)'
-                      }}
-                    />
-                    <div className="text-[10px] text-gray-400 mb-2">
-                      {openTextColorPicker === 'title' ? 'Class Title Color' : openTextColorPicker === 'subtitle' ? 'Class Type Color' : 'Location/Details Color'}
-                    </div>
-                    <div className="grid grid-cols-8 gap-1.5">
-                      {['#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'].map((color) => {
-                        const currentColor = openTextColorPicker === 'title' ? template.titleTextColor : openTextColorPicker === 'subtitle' ? template.subtitleTextColor : template.detailsTextColor;
-                        const isSelected = currentColor === color;
-                        return (
-                          <button
-                            key={color}
-                            onClick={() => {
-                              if (openTextColorPicker === 'title') {
-                                onUpdateTemplate({ ...template, titleTextColor: color });
-                              } else if (openTextColorPicker === 'subtitle') {
-                                onUpdateTemplate({ ...template, subtitleTextColor: color });
-                              } else {
-                                onUpdateTemplate({ ...template, detailsTextColor: color });
-                              }
-                              setOpenTextColorPicker(null);
-                            }}
-                            className={`w-5 h-5 rounded border-2 transition-all hover:scale-110 ${isSelected ? 'border-blue-400 scale-110 ring-2 ring-blue-400/50' : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'}`}
-                            style={{ backgroundColor: color }}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            </div>
-
-            {/* Done Button */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowFontSelector(false)}
-                className="px-6 py-2 btn-accent text-white font-medium rounded-lg"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
+          <SlidersHorizontal size={18} className="mx-auto" />
+        </button>
       )}
 
       {/* HEADER/TIME COLUMN EDITORS - Inline callouts rendered in preview */}
       {/* SETTINGS SIDEBAR - Right panel with all style controls */}
-      <div
-        data-component="ExportSidebar"
-        className={`
-         min-h-0 overflow-hidden rounded-2xl border flex flex-col shadow-xl transition-all duration-300
-         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 border-0 p-0'}
-      `}
-        style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}>
-        {/* SIDEBAR HEADER - Navigation and title */}
-        <div data-component="SidebarHeader" className="p-4 border-b flex justify-between items-center whitespace-nowrap" style={{ borderColor: 'var(--panel-border)' }}>
-          <button onClick={onBack} className="text-gray-400 hover:text-white text-sm">← Back</button>
-          <div className="flex items-center gap-2">
-             <h3 className="font-semibold text-white text-lg">Visual Style</h3>
-             <button onClick={() => setIsSidebarOpen(false)} className="text-gray-500 hover:text-white">
-               <ChevronRight size={18} />
-             </button>
-          </div>
-        </div>
-
-        {/* SIDEBAR CONTENT - Scrollable settings area */}
-        <div
-          data-component="ExportSidebarContent"
-          className="flex-1 h-0 overflow-y-auto custom-scrollbar"
-        >
-          <div className="p-4 space-y-8">
-          
-          {/* Theme Selection */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
-              <Palette size={16} /> Theme
-            </div>
-            
-            {/* Theme Family Dropdown & Light/Dark Toggle on Same Line */}
-            <div className="flex gap-2">
-              <ThemedDropdown
-                options={THEME_FAMILY_LIST.map((family) => ({
-                  id: family.id,
-                  label: family.name,
-                  value: family.id as ThemeFamilyId,
-                }))}
-                value={template.themeFamily}
-                onChange={(newFamily) => {
-                  // Acrylic/Glass need image background; Solid-grain has its own colored canvas
-                  const needsImageBg = newFamily === 'acrylic' || newFamily === 'glass';
-                  const newFamilyObj = THEME_FAMILIES[newFamily];
-                  // Set default sub-variant for families with extended variants
-                  const defaultSubVariant = newFamilyObj?.extendedVariants?.[0];
-                  const newVariant = defaultSubVariant?.baseVariant ?? template.themeVariant;
-                  onUpdateTemplate({
-                    ...template,
-                    themeFamily: newFamily,
-                    theme: `${newFamily}-${newVariant}` as any,
-                    themeVariant: newVariant,
-                    themeSubVariant: defaultSubVariant?.id,
-                    // Set image background for Acrylic/Glass; solid-grain has its own background
-                    backgroundType: needsImageBg ? 'image' : 'none',
-                    // Only clear background when switching to Default theme
-                    // For other themes (acrylic, glass, solid-grain): keep existing or use default
-                    backgroundImage: newFamily === 'default'
-                      ? undefined
-                      : (template.backgroundImage || getDefaultLandscapeId() || 'l1'),
-                    customBackgroundImage: newFamily === 'default' ? undefined : template.customBackgroundImage,
-                    eventOpacity: 1,
-                  });
-                  // Apply theme colors when switching themes (except default)
-                  if (newFamily !== prevThemeFamilyRef.current) {
-                    applyThemeColors(newFamily);
-                    prevThemeFamilyRef.current = newFamily;
-                  }
-                }}
-                className="flex-1"
-              />
-
-              {/* Variant selector: dropdown for extended variants, toggle for light/dark */}
-              {(() => {
-                const family = THEME_FAMILIES[template.themeFamily];
-                if (family?.extendedVariants) {
-                  return (
-                    <ThemedDropdown
-                      options={family.extendedVariants.map((v) => ({
-                        id: v.id,
-                        label: v.name,
-                        value: v.id,
-                      }))}
-                      value={template.themeSubVariant || ''}
-                      onChange={(subVariantId) => {
-                        const variant = family.extendedVariants!.find(v => v.id === subVariantId);
-                        if (variant) {
-                          onUpdateTemplate({
-                            ...template,
-                            themeSubVariant: subVariantId,
-                            themeVariant: variant.baseVariant,
-                            theme: `${template.themeFamily}-${variant.baseVariant}` as any,
-                            eventOpacity: 1,
-                          });
-                          applyThemeColors(template.themeFamily as ThemeFamilyId, variant.baseVariant);
-                        }
-                      }}
-                      className="w-32"
-                    />
-                  );
-                }
-                return (
-                  <button
-                    onClick={() => {
-                      const newVariant = template.themeVariant === 'light' ? 'dark' : 'light';
-                      onUpdateTemplate({
-                        ...template,
-                        themeVariant: newVariant,
-                        theme: `${template.themeFamily}-${newVariant}` as any,
-                        eventOpacity: 1,
-                      });
-                      applyThemeColors(template.themeFamily, newVariant);
-                    }}
-                    className="px-4 py-2.5 border border-[var(--border-default)] rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] flex items-center gap-2 group button-ghost-themed hover:opacity-90"
-                  >
-                    {template.themeVariant === 'light' ? (
-                      <>
-                        <Sun size={16} className="text-yellow-400" />
-                        <span className="text-gray-200">Light</span>
-                      </>
-                    ) : (
-                      <>
-                        <Moon size={16} className="text-blue-400" />
-                        <span className="text-gray-200">Dark</span>
-                      </>
-                    )}
-                    <span className="text-lg group-hover:scale-110 transition-transform">⇄</span>
-                  </button>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* Background Section - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isBackgroundExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
-            <button
-              onClick={() => setIsBackgroundExpanded(!isBackgroundExpanded)}
-              className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Image size={16} /> Background
-              </div>
-              {isBackgroundExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-            <div className={`overflow-hidden transition-all duration-300 ease-out ${isBackgroundExpanded ? 'max-h-[900px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="space-y-4 pt-2">
-                {/* Background Type Toggle */}
-                <GlassRadioGroup
-                  name="background-type"
-                  options={[
-                    { id: 'none', label: 'None', value: 'none' as const },
-                    { id: 'image', label: 'Image', value: 'image' as const },
-                    { id: 'color', label: 'Color', value: 'color' as const },
-                  ]}
-                  value={template.backgroundType}
-                  onChange={(val) => {
-                    onUpdateTemplate({ ...template, backgroundType: val });
-                    if (val === 'color') {
-                      setShowBackgroundColorPicker(true);
-                    }
-                  }}
-                />
-
-                {/* Image Gallery - only shown when type is 'image' */}
-                {template.backgroundType === 'image' && (
-                  <div className="space-y-2">
-                    {/* Loading state */}
-                    {isBackgroundsLoading && (
-                      <div className="flex items-center justify-center py-6">
-                        <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full" />
-                        <span className="ml-2 text-gray-400 text-xs">Loading backgrounds...</span>
-                      </div>
-                    )}
-                    {/* Error state */}
-                    {backgroundsError && !isBackgroundsLoading && (
-                      <div className="text-red-400 text-xs py-4 text-center">
-                        Failed to load backgrounds
-                      </div>
-                    )}
-                    {/* Side-by-side: 1 column landscape, 2 columns portrait */}
-                    {!isBackgroundsLoading && !backgroundsError && (
-                    <div className="flex gap-3 max-h-45 overflow-y-auto custom-scrollbar pr-1">
-                      {/* Landscape column - single column, wider */}
-                      <div className="w-[45%] flex-shrink-0 space-y-1.5">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">Landscape</span>
-                        <div className="space-y-1.5">
-                          {landscapes.map((bg) => (
-                            <button
-                              key={bg.id}
-                              onClick={() => onUpdateTemplate({
-                                ...template,
-                                backgroundImage: bg.id,
-                                customBackgroundImage: undefined
-                              })}
-                              className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
-                                template.backgroundImage === bg.id && !template.customBackgroundImage
-                                  ? 'border-blue-500 ring-2 ring-blue-400/50'
-                                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
-                              }`}
-                            >
-                              <img
-                                src={bg.thumbnailUrl}
-                                alt={bg.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Portrait columns - 2-column grid, narrower section */}
-                      <div className="w-[46%] flex-shrink-0 space-y-1.5">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">Portrait</span>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {portraits.map((bg) => (
-                            <button
-                              key={bg.id}
-                              onClick={() => onUpdateTemplate({
-                                ...template,
-                                backgroundImage: bg.id,
-                                customBackgroundImage: undefined
-                              })}
-                              className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.02] ${
-                                template.backgroundImage === bg.id && !template.customBackgroundImage
-                                  ? 'border-blue-500 ring-2 ring-blue-400/50'
-                                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
-                              }`}
-                            >
-                              <img
-                                src={bg.thumbnailUrl}
-                                alt={bg.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    )}
-                    {/* Custom uploaded image thumbnail */}
-                    {template.customBackgroundImage && (
-                      <div className="pt-2 border-t border-[var(--border-muted)]">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wide mb-1.5 block">Custom Upload</span>
-                        <button
-                          onClick={() => onUpdateTemplate({
-                            ...template,
-                            backgroundImage: 'custom'
-                          })}
-                          className={`relative w-20 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-                            template.backgroundImage === 'custom'
-                              ? 'border-blue-500 ring-2 ring-blue-400/50'
-                              : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
-                          }`}
-                        >
-                          <img
-                            src={template.customBackgroundImage}
-                            alt="Custom"
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Upload Button */}
-                    <input
-                      ref={backgroundFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const dataUrl = event.target?.result as string;
-                            onUpdateTemplate({
-                              ...template,
-                              customBackgroundImage: dataUrl,
-                              backgroundImage: 'custom'
-                            });
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowBackgroundGallery(true)}
-                        className="flex-1 px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Image size={14} /> Browse Gallery
-                      </button>
-                      <button
-                        onClick={() => backgroundFileInputRef.current?.click()}
-                        className="flex-1 px-3 py-2 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Upload size={14} /> Upload Custom
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Color Picker - only shown when type is 'color' */}
-                {template.backgroundType === 'color' && (
-                  <div className="space-y-2">
-                    <span className="text-xs text-gray-400">Background Color</span>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-10 h-10 rounded-lg border-2 cursor-pointer relative overflow-hidden"
-                        style={{ borderColor: 'var(--border-default)', backgroundColor: template.backgroundColor || '#1f2937' }}
-                        onClick={() => setShowBackgroundColorPicker(!showBackgroundColorPicker)}
-                      />
-                      <input
-                        type="text"
-                        value={template.backgroundColor || '#1f2937'}
-                        onChange={(e) => onUpdateTemplate({ ...template, backgroundColor: e.target.value })}
-                        className="flex-1 px-3 py-2 border rounded-lg input-themed text-sm text-gray-200 font-mono"
-                        placeholder="#1f2937"
-                      />
-                    </div>
-                    {showBackgroundColorPicker && (
-                      <div className="grid grid-cols-8 gap-1.5 p-2 rounded-lg card-section-themed">
-                        {[
-                          '#1f2937', '#111827', '#0f172a', '#000000',
-                          '#374151', '#4b5563', '#6b7280', '#9ca3af',
-                          '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db',
-                          '#ef4444', '#f97316', '#eab308', '#22c55e',
-                          '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
-                          '#14b8a6', '#06b6d4', '#0ea5e9', '#f43f5e',
-                        ].map((color) => (
-                          <button
-                            key={color}
-                            onClick={() => {
-                              onUpdateTemplate({ ...template, backgroundColor: color });
-                              setShowBackgroundColorPicker(false);
-                            }}
-                            className={`w-6 h-6 rounded border-2 transition-all hover:scale-110 ${
-                              template.backgroundColor === color
-                                ? 'border-white scale-110'
-                                : 'border-transparent hover:border-[var(--border-default)]'
-                            }`}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Blur & Reduce Highlights Sliders - only shown when image is selected */}
-                {template.backgroundType === 'image' && (template.backgroundImage || template.customBackgroundImage) && (
-                  <div className="space-y-3 pt-2 border-t border-[var(--border-muted)]">
-                    {/* Blur Slider */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                          <Droplet size={12} /> Blur
-                        </span>
-                        <span className="text-xs text-gray-500">{template.backgroundBlur}px</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="20"
-                        step="1"
-                        value={template.backgroundBlur}
-                        onChange={(e) => onUpdateTemplate({ ...template, backgroundBlur: parseInt(e.target.value) })}
-                        className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
-                      />
-                    </div>
-
-                    {/* Reduce Highlights Slider */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                          <Moon size={12} /> Reduce Highlights
-                        </span>
-                        <span className="text-xs text-gray-500">{template.backgroundOverlay}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="80"
-                        step="5"
-                        value={template.backgroundOverlay}
-                        onChange={(e) => onUpdateTemplate({ ...template, backgroundOverlay: parseInt(e.target.value) })}
-                        className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
-                      />
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
-          </div>
-
-          {/* Scale/Ratio Section - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isScaleRatioExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
-            <button
-              onClick={() => setIsScaleRatioExpanded(!isScaleRatioExpanded)}
-              className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Maximize2 size={16} /> Content Scale / Ratio
-              </div>
-              {isScaleRatioExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-            <div className={`overflow-hidden transition-all duration-300 ease-out ${isScaleRatioExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="space-y-4 pt-2">
-                {/* Background Aspect Ratio - disabled when lockscreen mockup is enabled */}
-                <div className={`space-y-2 ${template.lockscreenMockup ? 'opacity-40 pointer-events-none' : ''}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Background Ratio</span>
-                    <span className="text-xs text-gray-500">
-                      {template.lockscreenMockup ? 'Locked (Portrait)' : template.aspectRatio <= 0.5 ? 'Landscape' : 'Portrait'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">16:9</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={template.aspectRatio}
-                      onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
-                      className="flex-1 h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
-                      disabled={template.lockscreenMockup}
-                    />
-                    <span className="text-xs text-gray-500">9:19.5</span>
-                  </div>
-                  {/* Quick Presets */}
-                  <GlassRadioGroup
-                    name="aspect-ratio"
-                    options={[
-                      { id: 'desktop', label: <><Monitor size={14} /> Desktop</>, value: 'desktop' as const },
-                      { id: 'mobile', label: <><Smartphone size={14} /> Mobile</>, value: 'mobile' as const },
-                    ]}
-                    value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
-                    onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
-                    disabled={template.lockscreenMockup}
-                  />
-                </div>
-
-                {/* Lockscreen Mockup */}
-                <div className="space-y-2 pt-3 border-t border-[var(--border-muted)]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <Smartphone size={12} /> Iphone Lockscreen Mockup
-                    </span>
-                    <div
-                      onClick={() => {
-                        const newMockupState = !template.lockscreenMockup;
-                        onUpdateTemplate({
-                          ...template,
-                          lockscreenMockup: newMockupState,
-                          // When enabling mockup, set portrait background ratio
-                          ...(newMockupState && {
-                            aspectRatio: 1,
-                          })
-                        });
-                        if (newMockupState) {
-                          setSelectedComponent('calendarCard');
-                          setHeaderTextEditorOpen(false);
-                          setTimeColumnEditorOpen(false);
-                          setSelectedEventId(null);
-                          setColorPickerPosition(null);
-                        }
-                      }}
-                      className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.lockscreenMockup ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.lockscreenMockup ? 'left-6' : 'left-1'}`} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-gray-500">Preview with iPhone lock screen frame. </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Layout Options - Collapsible */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${isContentExpanded ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
-            <button
-              onClick={() => setIsContentExpanded(!isContentExpanded)}
-              className="flex items-center justify-between w-full text-sm text-gray-300 font-medium hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Layout size={16} /> Content Selection
-              </div>
-              {isContentExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-            <div className={`overflow-hidden transition-all duration-300 ease-out ${isContentExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="space-y-1 pt-2">
-                {/* Compact View at top - toggles off other options when enabled */}
-                <div className="p-3 rounded-lg border transition-colors card-section-themed hover:opacity-90">
-                  <ToggleSwitch
-                    enabled={template.compact}
-                    onToggle={() => {
-                      const newCompact = !template.compact;
-                      if (newCompact) {
-                        // Cache current toggle states before enabling compact
-                        setCachedToggles({
-                          showClassType: template.showClassType,
-                          showTime: template.showTime,
-                          showLocation: template.showLocation,
-                          showNotes: template.showNotes
-                        });
-                        // Disable all content options
-                        onUpdateTemplate({
-                          ...template,
-                          compact: true,
-                          showClassType: false,
-                          showTime: false,
-                          showLocation: false,
-                          showNotes: false
-                        });
-                      } else {
-                        // Restore cached toggle states
-                        if (cachedToggles) {
-                          onUpdateTemplate({
-                            ...template,
-                            compact: false,
-                            ...cachedToggles
-                          });
-                        } else {
-                          onUpdateTemplate({ ...template, compact: false });
-                        }
-                      }
-                    }}
-                    label={<span className="text-sm text-gray-200 font-medium">Compact View</span>}
-                  />
-                </div>
-
-                {/* Other content options - disabled when compact is on */}
-                <div className={`space-y-1 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
-                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
-                    <ToggleSwitch
-                      enabled={template.showClassType}
-                      onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
-                      label={<span className="flex items-center gap-3 text-sm text-gray-300"><Tag size={14} /> Show Class Type</span>}
-                      disabled={template.compact}
-                    />
-                  </div>
-
-                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
-                    <ToggleSwitch
-                      enabled={template.showTime}
-                      onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
-                      label={<span className="flex items-center gap-3 text-sm text-gray-300"><Clock size={14} /> Show Time</span>}
-                      disabled={template.compact}
-                    />
-                  </div>
-
-                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
-                    <ToggleSwitch
-                      enabled={template.showLocation}
-                      onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
-                      label={<span className="flex items-center gap-3 text-sm text-gray-300"><MapPin size={14} /> Show Location</span>}
-                      disabled={template.compact}
-                    />
-                  </div>
-
-                  <div className="p-3 rounded-lg border border-transparent hover:border-[var(--border-muted)] transition-colors card-section-themed hover:opacity-90">
-                    <ToggleSwitch
-                      enabled={template.showNotes}
-                      onToggle={() => onUpdateTemplate({ ...template, showNotes: !template.showNotes })}
-                      label={<span className="flex items-center gap-3 text-sm text-gray-300"><Type size={14} /> Show Notes</span>}
-                      disabled={template.compact}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Grid Section */}
-          <div className={`space-y-3 p-3 rounded-xl border transition-all duration-300 ${template.showGrid ? 'card-section-themed border-[var(--border-muted)]' : 'bg-[var(--surface-card)]/10 border-[var(--border-muted)]/30'}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-300 font-medium">
-                <Grid size={16} /> Grid
-              </div>
-              <div
-                onClick={() => onUpdateTemplate({ ...template, showGrid: !template.showGrid })}
-                className={`w-10 h-5 rounded-full relative transition-all duration-300 cursor-pointer flex-shrink-0 ${template.showGrid ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
-              >
-                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200 ${template.showGrid ? 'left-6' : 'left-1'}`} />
-              </div>
-            </div>
-            {/* Grid Line Style Toggle - only shown when grid is visible */}
-            <div className={`overflow-hidden transition-all duration-300 ease-out ${template.showGrid ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <GlassRadioGroup
-                name="grid-line-style"
-                options={[
-                  { id: 'bright', label: <><Sun size={14} /> Bright</>, value: 'bright' as const },
-                  { id: 'dark', label: <><Moon size={14} /> Dark</>, value: 'dark' as const },
-                ]}
-                value={template.gridLineStyle}
-                onChange={(val) => onUpdateTemplate({ ...template, gridLineStyle: val })}
-              />
-            </div>
-          </div>
-
-          {/* Download Button - Standalone */}
-          <div className="pt-2">
-            <GlowButton
-              onClick={handleDownload}
-              disabled={isExporting}
-              label={isExporting ? 'Exporting...' : 'Download'}
-              className="w-full"
-            >
-              <Download size={18} />
-              {isExporting ? 'Exporting...' : 'Download'}
-            </GlowButton>
-          </div>
-
-          </div>
-        </div>
-      </div>
+      <ExportSidebar
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        activeSidebarSection={activeSidebarSection}
+        setActiveSidebarSection={setActiveSidebarSection}
+        themeProps={{
+          template,
+          onUpdateTemplate,
+          applyThemeColors,
+          prevThemeFamilyRef,
+          colorPalettes: COLOR_PALETTES,
+          activePaletteId,
+          onPaletteChange: (paletteId: string) => {
+            setActivePaletteId(paletteId);
+            // Re-shuffle colors with new palette
+            const newColors = getPalette(paletteId).colors;
+            if (applyColorToAll) {
+              const randomColor = newColors[Math.floor(Math.random() * newColors.length)];
+              const updatedEvents = events.map(event => ({ ...event, color: randomColor }));
+              onUpdateEvents(updatedEvents);
+            } else {
+              const displayTitlesSet = new Set<string>();
+              events.forEach(e => displayTitlesSet.add(e.displayTitle));
+              const displayTitles = Array.from(displayTitlesSet);
+              const colorMap: Record<string, string> = {};
+              displayTitles.forEach((title, idx) => {
+                colorMap[title] = newColors[idx % newColors.length];
+              });
+              const updatedEvents = events.map(event => ({
+                ...event,
+                color: colorMap[event.displayTitle],
+              }));
+              onUpdateEvents(updatedEvents);
+            }
+          },
+          onTextColorPresetChange: (preset: 'light' | 'dark') => {
+            onUpdateTemplate({
+              ...template,
+              textColorPreset: preset,
+              // Clear custom text colors when switching presets
+              titleTextColor: undefined,
+              subtitleTextColor: undefined,
+              detailsTextColor: undefined,
+              headerTextColor: undefined,
+              timeColumnTextColor: undefined,
+            });
+          },
+        }}
+        fontProps={{
+          template,
+          onUpdateTemplate,
+          availableFonts,
+          fontPairs,
+          selectedFontPairId,
+          setSelectedFontPairId,
+          applyFontPair,
+          openTextColorPicker,
+          setOpenTextColorPicker,
+        }}
+        backgroundProps={{
+          template,
+          onUpdateTemplate,
+          setShowBackgroundGallery,
+          landscapes,
+          portraits,
+          isBackgroundsLoading,
+          backgroundsError: !!backgroundsError,
+          showBackgroundColorPicker,
+          setShowBackgroundColorPicker,
+          backgroundFileInputRef,
+        }}
+        scaleProps={{
+          template,
+          onUpdateTemplate,
+          onEnableMockup: () => {
+            setSelectedComponent('calendarCard');
+            setHeaderTextEditorOpen(false);
+            setTimeColumnEditorOpen(false);
+            setSelectedEventId(null);
+            setColorPickerPosition(null);
+          },
+        }}
+        layoutProps={{
+          template,
+          onUpdateTemplate,
+          cachedToggles,
+          setCachedToggles,
+        }}
+        gridProps={{
+          template,
+          onUpdateTemplate,
+        }}
+        isExporting={isExporting}
+        onDownload={handleDownload}
+      />
 
       {/* Background Gallery Popup */}
       {showBackgroundGallery && (

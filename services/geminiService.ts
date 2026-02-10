@@ -4,8 +4,15 @@ import { LOG_RESPONSES } from "../config";
 /**
  * Extract calendar events from an image via the backend API
  * The API key is securely stored on the server
+ * @param base64Image - Base64 encoded image data
+ * @param apiKey - Optional user-provided API key (BYOK mode)
+ * @param activationToken - Optional activation token from invitation code (required if no apiKey)
  */
-export async function extractCalendarFromImage(base64Image: string, apiKey?: string): Promise<{ events: CalendarEvent[]; categories: Category[] }> {
+export async function extractCalendarFromImage(
+  base64Image: string,
+  apiKey?: string,
+  activationToken?: string
+): Promise<{ events: CalendarEvent[]; categories: Category[] }> {
   try {
     const response = await fetch('/api/extract', {
       method: 'POST',
@@ -14,7 +21,8 @@ export async function extractCalendarFromImage(base64Image: string, apiKey?: str
       },
       body: JSON.stringify({
         base64Image,
-        apiKey, // Only sent for BYOK mode
+        apiKey,           // Only sent for BYOK mode
+        activationToken,  // Only sent for invitation code mode
       }),
     });
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { CalendarEvent, TemplateConfig, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, ResizeEdge, OnboardingComponent, getTextColorPreset } from '../types';
 import { MapPin, AlignLeft, Plus, MousePointerClick, MoveUp, MoveDown } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
@@ -526,7 +526,6 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     if (events.length === 0) return baseHourHeight;
 
     let maxRequiredHourHeight = baseHourHeight;
-    let tightestEvent: { title: string; minContentHeight: number; durationHours: number; requiredHourHeight: number } | null = null;
 
     events.forEach(event => {
       const minContentHeight = calculateMinEventHeight(event, template, showFullTitle);
@@ -546,26 +545,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
       if (requiredHourHeight > maxRequiredHourHeight) {
         maxRequiredHourHeight = requiredHourHeight;
-        tightestEvent = {
-          title: showFullTitle ? event.title : event.displayTitle,
-          minContentHeight,
-          durationHours,
-          requiredHourHeight,
-        };
       }
     });
 
-    // Debug: log the tightest (most constrained) event with detailed breakdown
-    if (tightestEvent) {
-      console.log('[hourHeight] Tightest event:', tightestEvent);
-      // Re-calculate with debug=true to get detailed breakdown
-      const tightestEventObj = events.find(e =>
-        (showFullTitle ? e.title : e.displayTitle) === tightestEvent.title
-      );
-      if (tightestEventObj) {
-        calculateMinEventHeight(tightestEventObj, template, showFullTitle, true);
-      }
-    }
 
     // Apply reasonable bounds
     return Math.max(baseHourHeight, Math.min(maxRequiredHourHeight, 200));
@@ -593,77 +575,52 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return getTheme(template.themeFamily, template.themeVariant, template.themeSubVariant);
   }, [template.themeFamily, template.themeVariant, template.themeSubVariant]);
 
-  // Theme styles
+  // Get the text color preset
+  const textColorPreset = useMemo(() => {
+    return getTextColorPreset(template.textColorPreset);
+  }, [template.textColorPreset]);
+
+  // Theme styles (all themes are dark now)
   const themeClasses = useMemo(() => {
-    // Handle both legacy single theme strings and new structured theme format
-    const themeId = template.theme;
-    const variant = template.themeVariant;
     const family = template.themeFamily;
     const hasCustomBg = template.backgroundType !== 'none';
 
     // For acrylic and solid-grain, we'll handle background via inline styles
     if (family === 'acrylic' || family === 'solid-grain') {
-      return variant === 'light'
-        ? 'text-gray-900 border-gray-200'
-        : 'text-gray-100 border-gray-700';
+      return 'text-gray-100 border-gray-700';
     }
 
     // Check if it's glass family
-    if (themeId?.includes('glass') || family === 'glass') {
+    if (family === 'glass') {
       return hasCustomBg
         ? 'backdrop-blur-xl text-white border-white/20'
         : 'bg-white/10 backdrop-blur-xl text-white border-white/20';
     }
 
-    // Check variant for light/dark
-    if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
-      // Background handled via inline styles in canvasStyles
-      return 'text-gray-900 border-gray-200';
-    }
-
     // Default to dark - background handled via inline styles in canvasStyles
     return 'text-gray-100 border-gray-700';
-  }, [template.theme, template.themeVariant, template.themeFamily, template.backgroundType]);
+  }, [template.themeFamily, template.backgroundType]);
 
-  // Grid line color based on gridLineStyle setting (independent of theme variant)
+  // Grid line color based on gridLineStyle setting
   const gridBorderColor = useMemo(() => {
     return template.gridLineStyle === 'bright'
       ? 'border-gray-300'
       : 'border-gray-700';
   }, [template.gridLineStyle]);
 
-  // Time column text color - use custom color or fall back to theme-based default
-  const hourTextColor = useMemo(() => {
-    if (template.timeColumnTextColor) {
-      return ''; // Will use inline style instead
-    }
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
-      ? 'text-gray-400'
-      : 'text-gray-500';
-  }, [template.theme, template.themeVariant, template.timeColumnTextColor]);
-
-  // Header text color - use custom color or fall back to theme-based default
+  // Header text color - use custom color or fall back to preset
   const headerTextColor = useMemo(() => {
     if (template.headerTextColor) {
       return template.headerTextColor;
     }
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
-      ? '#111827'
-      : '#f3f4f6';
-  }, [template.theme, template.themeVariant, template.headerTextColor]);
+    return textColorPreset.headerColor;
+  }, [template.headerTextColor, textColorPreset]);
 
   const effectiveScale = Math.max(0.25, visualScale ?? 1);
   const blurScale = 1 / effectiveScale;
 
-  const isLightTheme = useMemo(() => {
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return variant === 'light' || themeId === 'light' || themeId?.includes('light');
-  }, [template.theme, template.themeVariant]);
+  // All themes are dark now, so this is always false
+  const isLightTheme = false;
 
   // Get background image URL based on template settings
   const backgroundImageUrl = useMemo(() => {
@@ -1669,9 +1626,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 key={hour}
                 style={{
                   height: `${cardDimensions.gridHeight / hourRange}px`,
-                  ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {}),
+                  color: template.timeColumnTextColor || textColorPreset.timeColumnColor,
                 }}
-                className={hourTextColor}
               >
                 {isCellBlur ? (
                   <span
@@ -1943,9 +1899,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                 fontFamily: template.titleFont,
                                 fontWeight: template.titleBold ? 700 : 400,
                                 fontStyle: template.titleItalic ? 'italic' : 'normal',
-                                color: template.titleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                  ? currentTheme.eventBlock.titleColor
-                                  : '#1f2937')
+                                color: template.titleTextColor || textColorPreset.titleColor
                               }}
                               title={showFullTitle ? event.title : event.displayTitle}
                             >
@@ -1961,9 +1915,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                   fontFamily: template.subtitleFont,
                                   fontWeight: template.subtitleBold ? 600 : 400,
                                   fontStyle: template.subtitleItalic ? 'italic' : 'normal',
-                                  color: template.subtitleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                    ? currentTheme.eventBlock.subtitleColor
-                                    : '#1f2937'),
+                                  color: template.subtitleTextColor || textColorPreset.subtitleColor,
                                   marginTop: '2px'
                                 }}
                               >
@@ -1981,9 +1933,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                               fontFamily: template.detailsFont,
                               fontWeight: template.detailsBold ? 600 : 400,
                               fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                              color: template.detailsTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                ? currentTheme.eventBlock.detailsColor
-                                : '#374151'),
+                              color: template.detailsTextColor || textColorPreset.detailsColor,
                               marginTop: '2px',
                               textAlign: template.textAlignHorizontal,
                               // Add padding for italic text overhang, especially when right-aligned

@@ -144,6 +144,36 @@
   ::selection {
     background-color: rgba(var(--accent-primary-rgb), 0.3);
   }
+
+  /* Global scrollbar styles - applies to all scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-elevated) var(--surface-card);
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--surface-card);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--surface-elevated);
+    border-radius: 4px;
+    border: 2px solid var(--surface-card);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--surface-card);
+  }
 }
 
 /* Custom scrollbar */
@@ -406,6 +436,17 @@
 
 .input-themed:focus {
   border-color: var(--accent-primary);
+}
+
+/* Number Input - Hide native spinners (using custom spinners) */
+.font-size-input {
+  -moz-appearance: textfield;
+}
+
+.font-size-input::-webkit-outer-spin-button,
+.font-size-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* Toggle Off State */

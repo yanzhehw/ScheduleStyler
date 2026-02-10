@@ -14,6 +14,8 @@ interface GlassRadioGroupProps<T extends string | number> {
   onChange: (value: T) => void;
   disabled?: boolean;
   className?: string;
+  /** Compact mode with smaller padding for narrow layouts */
+  compact?: boolean;
 }
 
 export function GlassRadioGroup<T extends string | number>({
@@ -23,12 +25,13 @@ export function GlassRadioGroup<T extends string | number>({
   onChange,
   disabled = false,
   className,
+  compact = false,
 }: GlassRadioGroupProps<T>) {
   const selectedIndex = options.findIndex(opt => opt.value === value);
   const gliderWidth = 100 / options.length;
 
   return (
-    <StyledWrapper className={className} $optionCount={options.length} $disabled={disabled}>
+    <StyledWrapper className={className} $optionCount={options.length} $disabled={disabled} $compact={compact}>
       <div className="glass-radio-group">
         {options.map((option, index) => (
           <React.Fragment key={option.id}>
@@ -55,7 +58,7 @@ export function GlassRadioGroup<T extends string | number>({
   );
 }
 
-const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean }>`
+const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean; $compact: boolean }>`
   .glass-radio-group {
     --bg: rgba(255, 255, 255, 0.06);
     --text: #e5e5e5;
@@ -84,9 +87,9 @@ const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.375rem;
-    font-size: 12px;
-    padding: 0.5rem 0.75rem;
+    gap: ${props => props.$compact ? '0.25rem' : '0.375rem'};
+    font-size: ${props => props.$compact ? '11px' : '12px'};
+    padding: ${props => props.$compact ? '0.375rem 0.5rem' : '0.5rem 0.75rem'};
     cursor: pointer;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -118,7 +121,7 @@ const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean }>`
       0 0 18px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.5),
       0 0 10px rgba(var(--accent-secondary-rgb, 96, 165, 250), 0.4) inset;
     transition:
-      transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
+      transform 0.3s cubic-bezier(0.37, 1.95, 0.66, 0.56),
       background 0.4s ease-in-out,
       box-shadow 0.4s ease-in-out;
   }
