@@ -131,6 +131,129 @@ export interface SiteTheme {
   };
 }
 
+export const darkTheme: SiteTheme = {
+  name: "Dark",
+
+  // Primary accent colors - that vibrant lime/chartreuse
+  // Radio glider blends: accent.primary (33% opacity) → accent.secondary (gradient)
+  accent: {
+    primary: "#8cfbb2",      // Bright lime green
+    secondary: "#61f193",    // Lighter lime for gradients
+    glow: "#d9ff5019",       // Same lime for glow effects
+  },
+
+  // Surface/background colors
+  surface: {
+    app: "#1e1e1e",          // Very dark background
+    card: "#2a2a2a",         // Card backgrounds (slightly lighter)
+    elevated: "#101010",     // Elevated elements
+    input: "#1e1e1e",        // Input fields
+    inputBorder: "#2b2b2b",  // Input borders
+  },
+
+  // Panel/sidebar colors
+  panel: {
+    background: "#141414",   // Sidebar background
+    border: "#2a2a2a",       // Panel borders
+    headerBg: "#1a1a1a",     // Panel headers
+  },
+
+  // Highlight section
+  highlight: {
+    gradientFrom: "rgba(212, 255, 58, 0.08)",  // Lime gradient start
+    gradientTo: "rgba(212, 255, 58, 0.02)",    // Lime gradient end
+    border: "#2a3310",       // Subtle lime-tinted border
+  },
+
+  // Dropzone/upload area
+  dropzone: {
+    background: "#1a1a1a",
+    border: "#333333",
+    hoverBorder: "#fffa78",  // Lime on hover
+    hoverBackground: "#487d5b2e",
+  },
+
+  // Text colors
+  text: {
+    primary: "#ffffff",      // White text
+    secondary: "#a0a0a0",    // Gray text
+    muted: "#666666",        // Muted gray
+    onAccent: "#1e1e1e",     // Black text on lime background
+  },
+
+  // Semantic colors
+  semantic: {
+    error: "#ff4444",
+    errorMuted: "#ff444440",
+    warning: "#ffaa00",
+    success: "#44ff88",
+    successMuted: "#44ff8840",
+    info: "#4488ff",
+  },
+
+  // Border colors
+  border: {
+    default: "#2a2a2a",
+    muted: "#1e1e1e",
+    accent: "#d4ff3a",
+  },
+
+  // Toolbar/floating UI
+  toolbar: {
+    background: "#1a1a1a",
+    border: "#333333",
+    buttonBg: "#252525",
+    buttonHoverBg: "#303030",
+  },
+
+  // Card sections within panels
+  cardSection: {
+    background: "#2a2a2a",
+    border: "#252525",
+  },
+
+  // Feature pills
+  pill: {
+    background: "#252525",
+    border: "#333333",
+  },
+
+  // Calendar card
+  calendarCard: {
+    background: "#1e1e1e",
+  },
+
+  // Toggle switch
+  toggle: {
+    offBg: "#333333",
+  },
+
+  // Modal/popup windows
+  modal: {
+    background: "#1a1a1a",
+    border: "#333333",
+    overlay: "rgba(0, 0, 0, 0.75)",
+  },
+
+  // Slider
+  slider: {
+    track: "#333333",
+  },
+
+  // Button variants
+  button: {
+    ghost: "transparent",
+    ghostHover: "rgba(212, 255, 58, 0.1)",
+  },
+
+  // Tab states
+  tab: {
+    activeBg: "#151515",
+    inactiveText: "#808080",
+    hoverText: "#cccccc",
+  },
+};
+
 // Default blue theme (current)
 export const blueTheme: SiteTheme = {
   name: 'Blue',
@@ -231,7 +354,7 @@ export const blueTheme: SiteTheme = {
   },
 
   tab: {
-    activeBg: '#1e293b',                       // slate-800
+    activeBg: '#26344a',                       // slate-800
     inactiveText: '#94a3b8',                   // slate-400
     hoverText: '#e2e8f0',                      // slate-200
   },
@@ -452,7 +575,7 @@ export const tealTheme: SiteTheme = {
 // ============================================
 // ACTIVE THEME - Change this to switch themes
 // ============================================
-export const currentTheme: SiteTheme = tealTheme;
+export const currentTheme: SiteTheme = blueTheme;  // Default theme is blue. Change to purpleTheme or tealTheme for A/B testing.
 
 /**
  * Generates CSS custom properties from the current theme
@@ -514,6 +637,7 @@ export const availableThemes: SiteTheme[] = [
   blueTheme,
   purpleTheme,
   tealTheme,
+  darkTheme
 ];
 
 /**

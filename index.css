@@ -272,6 +272,7 @@
 /* Standard Accent Button */
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
   box-shadow:
     0 0 15px rgba(var(--accent-primary-rgb), 0.4),
     0 2px 8px rgba(0, 0, 0, 0.2);
@@ -295,6 +296,7 @@
 /* Step Indicator (Upload/Edit/Export) */
 .step-indicator-active {
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
   box-shadow:
     0 0 15px rgba(var(--accent-primary-rgb), 0.5),
     0 2px 8px rgba(0, 0, 0, 0.2);
@@ -303,6 +305,7 @@
 /* GitHub Star Button */
 .github-star-btn {
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
   border: 1px solid rgba(var(--accent-secondary-rgb), 0.5);
   box-shadow:
     0 0 20px rgba(var(--accent-primary-rgb), 0.4),

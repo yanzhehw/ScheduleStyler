@@ -36,6 +36,7 @@ const calculateMinEventHeight = (event, template, showFullTitle) => {
 
   // Line-height multiplier (see explanation below)
   const lineHeight = 1.4;
+  const locationLineHeight = 1.25; // Matches CSS leading-tight for location field
 
   let totalHeight = 16; // Base padding (p-1.5 = 6px × 2 = 12px, plus ~4px internal margins)
 
@@ -47,7 +48,7 @@ const calculateMinEventHeight = (event, template, showFullTitle) => {
   if (!template.compact) {
     if (template.showClassType) totalHeight += subtitleFontSize * lineHeight + 2;
     if (template.showTime) totalHeight += detailsFontSize * lineHeight + 2;
-    if (template.showLocation && event.location) totalHeight += detailsFontSize * lineHeight + 2;
+    if (template.showLocation && event.location) totalHeight += detailsFontSize * locationLineHeight + 2;
     if (showNotes && event.notes) totalHeight += detailsFontSize * lineHeight * 2 + 8;
   }
 
@@ -420,3 +421,5 @@ When `template.compact = true`:
 | `maxHourHeight` | 200px | Maximum pixels per hour |
 | `titleCharWidth` | fontSize × 0.8 | Width per uppercase character |
 | `detailCharWidth` | fontSize × 0.55 | Width per normal character |
+| `lineHeight` | 1.4 | Default line-height multiplier for text fields |
+| `locationLineHeight` | 1.25 | Line-height for location field (CSS `leading-tight`) |

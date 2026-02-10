@@ -299,6 +299,7 @@ const calculateMinEventHeight = (
   // In the event block, we use leading-none (line-height: 1) but have gaps between elements
   // The 1.4 factor accounts for the effective vertical space each text line occupies
   const lineHeight = 1.4;
+  const locationLineHeight = 1.25; // Matches CSS leading-tight for location field
 
   const breakdown: { component: string; height: number; detail?: string }[] = [];
 
@@ -339,14 +340,14 @@ const calculateMinEventHeight = (
       });
     }
 
-    // Location height
+    // Location height - uses locationLineHeight (leading-tight) for tighter spacing
     if (template.showLocation && event.location) {
-      const locationHeight = detailsFontSize * lineHeight + 2;
+      const locationHeight = detailsFontSize * locationLineHeight + 2;
       totalHeight += locationHeight;
       breakdown.push({
         component: 'location',
         height: locationHeight,
-        detail: `"${event.location}" - ${detailsFontSize}px × ${lineHeight} + 2px margin`,
+        detail: `"${event.location}" - ${detailsFontSize}px × ${locationLineHeight} + 2px margin`,
       });
     }
 
@@ -1999,12 +2000,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                               template.textAlignHorizontal === 'left' ? (
                                 <div className="flex items-start gap-1 opacity-75 w-full">
                                   <MapPin size={10} className="mt-0.5 shrink-0" />
-                                  <span className="break-words">{event.location}</span>
+                                  <span className="break-words leading-tight">{event.location}</span>
                                 </div>
                               ) : (
                                 <div className={`opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'text-center' : 'text-right'}`}>
                                   <MapPin size={10} className="inline-block align-middle mr-1" />
-                                  <span className="break-words">{event.location}</span>
+                                  <span className="break-words leading-tight">{event.location}</span>
                                 </div>
                               )
                             )}
