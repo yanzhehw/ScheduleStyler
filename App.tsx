@@ -9,6 +9,10 @@ import { processRawEvents } from './services/geminiService';
 import { UploadStep } from './components/UploadStep';
 import { EditStep } from './components/EditStep';
 import { ExportStep } from './components/ExportStep';
+import { LandingPage } from './components/LandingPage';
+import { AboutPage } from './components/pages/AboutPage';
+import { BlogPage } from './components/pages/BlogPage';
+import { CommunityPage } from './components/pages/CommunityPage';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
@@ -19,9 +23,13 @@ const GITHUB_REPO_URL = 'https://github.com/yanzhehw/ScheduleStyler';
 
 // Route paths
 const ROUTES = {
-  UPLOAD: '/',
+  HOME: '/',
+  UPLOAD: '/upload',
   EDIT: '/edit',
   EXPORT: '/export',
+  ABOUT: '/about',
+  BLOG: '/blog',
+  COMMUNITY: '/community',
 } as const;
 
 // Step labels for header display
@@ -213,11 +221,6 @@ const App: React.FC = () => {
     navigate(ROUTES.EDIT);
   };
 
-  const handleMockWaiting = () => {
-    setIsProcessing(true);
-    setTimeout(() => setIsProcessing(false), 15000);
-  };
-
   const handleNavigateToExport = () => {
     if (!hasVisitedExport) {
       // Set acrylic theme and first landscape background as default when first arriving at Export
@@ -268,7 +271,7 @@ const App: React.FC = () => {
     sessionStorage.removeItem('categories');
     sessionStorage.removeItem('template');
     sessionStorage.removeItem('hasVisitedExport');
-    navigate(ROUTES.UPLOAD);
+    navigate(ROUTES.HOME);
   };
 
   // Handle header step click - only backward navigation allowed
@@ -292,15 +295,39 @@ const App: React.FC = () => {
 
   // Handle logo/brand click
   const handleLogoClick = () => {
-    if (hasStartedSession && location.pathname !== ROUTES.UPLOAD) {
+    if (hasStartedSession && location.pathname !== ROUTES.HOME) {
       setShowHeaderReuploadConfirm(true);
     } else {
-      navigate(ROUTES.UPLOAD);
+      navigate(ROUTES.HOME);
     }
   };
 
   // Determine current step index for header highlighting
   const currentStepIndex = STEP_INFO.findIndex(s => s.path === location.pathname);
+  const isLandingPage = location.pathname === ROUTES.HOME;
+  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.COMMUNITY].includes(location.pathname as typeof ROUTES.ABOUT);
+
+  // Landing page renders full-screen without header
+  if (isLandingPage) {
+    return (
+      <BackgroundsProvider>
+        <LandingPage onGetStarted={() => navigate(ROUTES.UPLOAD)} />
+      </BackgroundsProvider>
+    );
+  }
+
+  // Static pages (About, Blog, Community) render without app header
+  if (isStaticPage) {
+    return (
+      <BackgroundsProvider>
+        <Routes>
+          <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+          <Route path={ROUTES.BLOG} element={<BlogPage />} />
+          <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+        </Routes>
+      </BackgroundsProvider>
+    );
+  }
 
   return (
     <BackgroundsProvider>
@@ -362,7 +389,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 p-2 md:p-6 overflow-hidden">
+      <main className="flex-1 min-h-0 p-2 md:p-6 overflow-auto">
         <Routes>
           <Route
             path={ROUTES.UPLOAD}
@@ -372,7 +399,6 @@ const App: React.FC = () => {
                 onLoadSample={handleLoadSample}
                 onLoadMcGillSample={handleLoadMcGillSample}
                 onEnterManually={handleEnterManually}
-                onMockWaiting={handleMockWaiting}
                 isProcessing={isProcessing}
                 apiKeyError={apiKeyError}
                 onDismissApiKeyError={() => setApiKeyError(null)}
@@ -420,8 +446,8 @@ const App: React.FC = () => {
             }
           />
 
-          {/* Catch-all redirect to upload */}
-          <Route path="*" element={<Navigate to={ROUTES.UPLOAD} replace />} />
+          {/* Catch-all redirect to home */}
+          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
       </main>
 

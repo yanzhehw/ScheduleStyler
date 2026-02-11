@@ -9,7 +9,6 @@ interface UploadStepProps {
   onLoadSample: () => void;
   onLoadMcGillSample: () => void;
   onEnterManually: () => void;
-  onMockWaiting?: () => void; // DEV: Mock waiting state for testing
   isProcessing: boolean;
   apiKeyError?: string | null;
   onDismissApiKeyError?: () => void;
@@ -29,7 +28,7 @@ const EXTRACTION_MESSAGES = [
   "Initializing canvas ...",
 ];
 
-export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, onMockWaiting, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
+export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [activationToken, setActivationToken] = useState<string | null>(null);
@@ -230,9 +229,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                 </label>
 
               {isUploadLocked && !isByokMode && (
-                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[175px] text-center leading-tight">
+                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[180px] text-center leading-tight">
                   <Lock className="w-4 h-4 text-slate-300 shrink-0" />
-                  <span>Activate your code to unlock AI detection</span>
+                  <span>Activate your code to unlock auto extraction</span>
                 </div>
               )}
               {isByokMode && !isByokApplied && (
