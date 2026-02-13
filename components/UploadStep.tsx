@@ -2,13 +2,13 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer, Star } from 'lucide-react';
 import { TextShimmer } from './ui/text-shimmer';
 import { ElectricBorder } from './ui/electric-border';
+import { fetchExamples, type ExampleImage } from '../services/examplesApi';
 
 interface UploadStepProps {
   onFileSelect: (file: File, apiKey?: string, activationToken?: string) => void;
   onLoadSample: () => void;
   onLoadMcGillSample: () => void;
   onEnterManually: () => void;
-  onMockWaiting?: () => void; // DEV: Mock waiting state for testing
   isProcessing: boolean;
   apiKeyError?: string | null;
   onDismissApiKeyError?: () => void;
@@ -21,14 +21,14 @@ interface UploadStepProps {
 const GEMINI_API_KEY_REGEX = /^AIza[A-Za-z0-9_-]{35}$/;
 
 const EXTRACTION_MESSAGES = [
-  "Extracting Course Title",
-  "Extracting Course Type",
-  "Extracting Times",
-  "Extracting Location",
-  "Initializing canvas",
+  "Extracting Course Title ...",
+  "Extracting Course Type ...",
+  "Extracting Times ...",
+  "Extracting Location ...",
+  "Initializing canvas ...",
 ];
 
-export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, onMockWaiting, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
+export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSample, onLoadMcGillSample, onEnterManually, isProcessing, apiKeyError, onDismissApiKeyError, keyMode, onKeyModeChange, appliedApiKey, onAppliedApiKeyChange }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [activationToken, setActivationToken] = useState<string | null>(null);
@@ -36,6 +36,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
   const [apiKeyValidationError, setApiKeyValidationError] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
+  const [textureImages, setTextureImages] = useState<ExampleImage[]>([]);
+  const [currentTextureIndex, setCurrentTextureIndex] = useState(0);
 
   // Cycle through extraction messages every 2.2 seconds
   useEffect(() => {
@@ -50,6 +52,30 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
 
     return () => clearInterval(interval);
   }, [isProcessing]);
+
+  // Fetch texture images on mount
+  useEffect(() => {
+    fetchExamples()
+      .then((data) => {
+        setTextureImages(data.texture);
+      })
+      .catch((err) => {
+        console.error('Failed to load texture examples:', err);
+      });
+  }, []);
+
+  // Cycle through texture images every 3 seconds during processing
+  useEffect(() => {
+    if (!isProcessing || textureImages.length === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentTextureIndex((prev) => (prev + 1) % textureImages.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isProcessing, textureImages.length]);
 
   const isActivated = Boolean(activationToken);
   const isByokMode = keyMode === 'byok';
@@ -136,8 +162,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
   }, [isProcessing, isUploadLocked, onFileSelect, isByokApplied, appliedApiKey, activationToken]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[60vh] animate-fade-in">
-      <div className="w-full max-w-5xl">
+    <div className="flex flex-col items-center md:justify-center h-full min-h-0 animate-fade-in overflow-y-auto py-4 md:py-0">
+      <div className="w-full max-w-5xl px-2 md:px-0">
         {/* Upload + Manual options */}
         <div className="grid gap-6 lg:items-stretch lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="flex flex-col gap-4 h-full">
@@ -152,7 +178,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                     <div className="space-y-3">
-                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule...</h2>
+                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule</h2>
                       <div className="h-6 flex items-center justify-center">
                         <TextShimmer
                           duration={1.2}
@@ -169,8 +195,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
               /* Normal upload state */
               <div
                 className={`
-                  relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300
-                  border-gray-600 hover:border-blue-400 hover:bg-gray-800 bg-gray-900
+                  relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed
                   ${isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
                 `}
                 onDrop={handleDrop}
@@ -191,7 +216,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                   }`}
                 >
                   <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-6`}>
-                    <div className="mx-auto w-fit p-5 rounded-full bg-gray-800">
+                    <div className="mx-auto w-fit p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
                       <Upload className="w-10 h-10 text-blue-400" />
                     </div>
                     <div className="space-y-2">
@@ -204,9 +229,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                 </label>
 
               {isUploadLocked && !isByokMode && (
-                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[175px] text-center leading-tight">
+                <div className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 text-xs font-medium max-w-[180px] text-center leading-tight">
                   <Lock className="w-4 h-4 text-slate-300 shrink-0" />
-                  <span>Activate your code to unlock AI detection</span>
+                  <span>Activate your code to unlock auto extraction</span>
                 </div>
               )}
               {isByokMode && !isByokApplied && (
@@ -225,17 +250,17 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
             )}
 
             {!isProcessing && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-4">
+              <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: 'var(--sidebar-background)', borderColor: 'var(--sidebar-border)' }}>
                 <div className="flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-blue-400" />
-                  <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/80 p-1 text-xs font-semibold text-slate-300 w-fit">
+                  <div className="flex items-center gap-2 rounded-full border p-1 text-xs font-semibold text-slate-300 w-fit pill-themed">
                     <button
                     type="button"
                     onClick={() => onKeyModeChange('invite')}
                     className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
                       keyMode === 'invite'
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'tab-active-themed text-white shadow-sm'
+                        : 'tab-inactive-themed'
                     }`}
                   >
                     Invitation Code
@@ -245,8 +270,8 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                     onClick={() => onKeyModeChange('byok')}
                     className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
                       keyMode === 'byok'
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'tab-active-themed text-white shadow-sm'
+                        : 'tab-inactive-themed'
                     }`}
                   >
                     Your Own Gemini API key
@@ -270,17 +295,17 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                           }
                         }}
                         placeholder="Enter your invite code"
-                        className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        className="flex-1 rounded-xl border px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
                         disabled={isActivating || isActivated}
                       />
                       <button
                         type="button"
                         onClick={handleRedeem}
                         disabled={isActivating || isActivated}
-                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
                           isActivated
                             ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
-                            : 'bg-blue-600 text-white hover:bg-blue-500'
+                            : 'btn-accent text-white'
                         } ${isActivating ? 'opacity-70 cursor-wait' : ''}`}
                       >
                         {isActivated ? (
@@ -325,16 +350,16 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                           }
                         }}
                         placeholder="Paste your Gemini key (Kept Local)"
-                        className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        className="flex-1 rounded-xl border px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
                       />
                       <button
                         type="button"
                         onClick={handleApplyApiKey}
                         disabled={Boolean(appliedApiKey)}
-                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
                           appliedApiKey
                             ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
-                            : 'bg-blue-600 text-white hover:bg-blue-500'
+                            : 'btn-accent text-white'
                         }`}
                       >
                         {appliedApiKey ? (
@@ -356,20 +381,49 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
           </div>
 
           {isProcessing ? (
-            /* Inspiration Preview - empty placeholder during processing */
+            /* Inspiration Preview - texture slideshow during processing */
             <div
               id="inspirationPreview"
-              className="h-full min-h-[300px] rounded-3xl border-2 border-dashed border-slate-700 bg-slate-900/50"
+              className="relative h-full min-h-[300px] rounded-3xl border-2 border-slate-700 bg-slate-900/50 overflow-hidden"
             >
-              {/* Reserved for future inspiration preview content */}
+              {textureImages.length > 0 && (
+                <>
+                  {textureImages.map((img, index) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt={img.name}
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                        index === currentTextureIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+                  ))}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-slate-900/40" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                    <span className="text-xs text-slate-300 font-medium bg-slate-900/60 px-3 py-1 rounded-full backdrop-blur-sm">
+                      Available Styles
+                    </span>
+                    <div className="flex gap-1.5">
+                      {textureImages.map((_, index) => (
+                        <div
+                          key={index}
+                          className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                            index === currentTextureIndex ? 'bg-blue-400' : 'bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <button
               onClick={onEnterManually}
-              className="h-full min-h-[400px] p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 border-gray-600 hover:border-emerald-400 hover:bg-gray-800 bg-gray-900 cursor-pointer"
+              className="h-full min-h-[400px] p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed hover:border-emerald-400 cursor-pointer"
             >
               <div className="flex flex-col items-center gap-5">
-                <div className="p-5 rounded-full bg-gray-800">
+                <div className="p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
                   <PenLine className="w-10 h-10 text-emerald-400" />
                 </div>
                 <div className="space-y-2">
@@ -387,10 +441,10 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
       {/* Feature Pills */}
       {!isProcessing && (
         <div className="flex gap-4 mt-8 text-sm text-gray-500">
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-800/50 rounded-full border border-gray-700">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full border pill-themed">
             <FileImage size={14} /> <span>Smart Extraction</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-800/50 rounded-full border border-gray-700">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full border pill-themed">
             <div className="w-3 h-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-500"></div> <span>Auto Categorization</span>
           </div>
         </div>
@@ -401,24 +455,18 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
         <div className="flex gap-3 mt-6">
           <button
             onClick={onLoadSample}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <Play size={14} /> Sample Schedule
+            <Play size={14} /> Sample Schedule 1
           </button>
           <button
             onClick={onLoadMcGillSample}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <Play size={14} /> McGill Schedule
+            <Play size={14} /> Sample Schedule 2
           </button>
-          {onMockWaiting && (
-            <button
-              onClick={onMockWaiting}
-              className="px-4 py-2 text-sm text-amber-400 hover:text-amber-300 border border-amber-700/50 hover:border-amber-600 rounded-lg transition-colors flex items-center gap-2 bg-amber-900/20"
-            >
-              <Timer size={14} /> Mock Waiting
-            </button>
-          )}
         </div>
       )}
 

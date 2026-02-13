@@ -330,14 +330,70 @@ export enum AppStep {
 /** Theme family type */
 export type ThemeFamilyId = 'default' | 'glass' | 'acrylic' | 'solid-grain';
 
-/** Theme variant type */
-export type ThemeVariantId = 'light' | 'dark';
+/** Theme variant type (kept for backward compatibility, always 'dark') */
+export type ThemeVariantId = 'dark';
 
 /** Combined theme ID (family-variant) */
-export type ThemeId = `${ThemeFamilyId}-${ThemeVariantId}` | 'light' | 'dark' | 'glass';
+export type ThemeId = `${ThemeFamilyId}-dark` | 'dark' | 'glass';
 
 /** Grid line style type */
 export type GridLineStyle = 'bright' | 'dark';
+
+// =============================================================================
+// TEXT COLOR PRESETS
+// =============================================================================
+
+/** Text color preset ID */
+export type TextColorPresetId = 'light' | 'dark';
+
+/** Text color preset configuration */
+export interface TextColorPreset {
+  id: TextColorPresetId;
+  name: string;
+  /** Event block title text color */
+  titleColor: string;
+  /** Event block subtitle/class type text color */
+  subtitleColor: string;
+  /** Event block details text color */
+  detailsColor: string;
+  /** Day header text color */
+  headerColor: string;
+  /** Time column text color */
+  timeColumnColor: string;
+}
+
+/** Light text preset - light-colored text for dark backgrounds */
+export const TEXT_PRESET_LIGHT: TextColorPreset = {
+  id: 'light',
+  name: 'Light',
+  titleColor: 'rgba(255, 255, 255, 0.95)',
+  subtitleColor: 'rgba(255, 255, 255, 0.75)',
+  detailsColor: 'rgba(255, 255, 255, 0.6)',
+  headerColor: '#f3f4f6',
+  timeColumnColor: 'rgba(255, 255, 255, 0.5)',
+};
+
+/** Dark text preset - dark-colored text for light backgrounds */
+export const TEXT_PRESET_DARK: TextColorPreset = {
+  id: 'dark',
+  name: 'Dark',
+  titleColor: '#1f2937',
+  subtitleColor: '#374151',
+  detailsColor: '#4b5563',
+  headerColor: '#111827',
+  timeColumnColor: '#6b7280',
+};
+
+/** All available text color presets */
+export const TEXT_COLOR_PRESETS: Record<TextColorPresetId, TextColorPreset> = {
+  light: TEXT_PRESET_LIGHT,
+  dark: TEXT_PRESET_DARK,
+};
+
+/** Get text color preset by ID */
+export const getTextColorPreset = (presetId: TextColorPresetId): TextColorPreset => {
+  return TEXT_COLOR_PRESETS[presetId] ?? TEXT_PRESET_LIGHT;
+};
 
 /** Blur mode type - bar blurs entire row/column, cells blur each cell individually */
 export type BlurMode = 'bar' | 'cells';
@@ -359,13 +415,13 @@ export interface TemplateConfig {
   showNotes: boolean;
   compact: boolean;
 
-  /** Theme family (default, glass, matt) */
+  /** Theme family (default, glass, acrylic, solid-grain) */
   themeFamily: ThemeFamilyId;
 
-  /** Theme variant (light, dark) */
+  /** Theme variant (always 'dark' - kept for backward compatibility) */
   themeVariant: ThemeVariantId;
 
-  /** Sub-variant ID for families with extended variants (e.g., 'dark-slate', 'light-frost') */
+  /** Sub-variant ID for families with extended variants (deprecated) */
   themeSubVariant?: string;
 
   /** Legacy theme field for backward compatibility */
@@ -373,6 +429,9 @@ export interface TemplateConfig {
 
   /** Optional: Full theme override (takes precedence over theme ID) */
   customTheme?: CalendarCanvasTheme;
+
+  /** Text color preset - 'light' for light-colored text, 'dark' for dark-colored text */
+  textColorPreset: TextColorPresetId;
 
   primaryColor: string;
   borderRadius: string;

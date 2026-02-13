@@ -51,13 +51,15 @@ async function listBackgrounds(): Promise<BackgroundsResponse> {
     if (!obj.Key || obj.Key.endsWith('/')) continue;
     const filename = obj.Key.split('/').pop()!;
     const baseName = filename.replace(/\.[^.]+$/, '');
+    // Thumbnails are standardized to .jpg
+    const thumbnailFilename = `${baseName}.jpg`;
 
     landscape.push({
       id: `l${baseName}`,
       filename,
       type: 'landscape',
       url: `/api/backgrounds/landscape/${encodeURIComponent(filename)}`,
-      thumbnailUrl: `/api/backgrounds/thumbnails_landscape/${encodeURIComponent(filename)}`,
+      thumbnailUrl: `/api/backgrounds/thumbnails_landscape/${encodeURIComponent(thumbnailFilename)}`,
       name: `Landscape ${baseName}`,
     });
   }
@@ -71,13 +73,15 @@ async function listBackgrounds(): Promise<BackgroundsResponse> {
     if (!obj.Key || obj.Key.endsWith('/')) continue;
     const filename = obj.Key.split('/').pop()!;
     const baseName = filename.replace(/\.[^.]+$/, '');
+    // Thumbnails are standardized to .jpg
+    const thumbnailFilename = `${baseName}.jpg`;
 
     portrait.push({
       id: baseName,
       filename,
       type: 'portrait',
       url: `/api/backgrounds/portrait/${encodeURIComponent(filename)}`,
-      thumbnailUrl: `/api/backgrounds/thumbnails_portrait/${encodeURIComponent(filename)}`,
+      thumbnailUrl: `/api/backgrounds/thumbnails_portrait/${encodeURIComponent(thumbnailFilename)}`,
       name: `Portrait ${baseName}`,
     });
   }

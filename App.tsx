@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
-import { AppStep, CalendarEvent, Category, TemplateConfig, CATEGORY_COLORS } from './types';
+import { CalendarEvent, Category, TemplateConfig } from './types';
 import { extractCalendarFromImage } from './services/geminiService';
 import { convertFileToBase64 } from './services/imageUtils';
 import { SAMPLE_EVENTS, SAMPLE_CATEGORIES, MCGILL_RAW_API_RESPONSE } from './services/sampleData';
@@ -8,13 +9,41 @@ import { processRawEvents } from './services/geminiService';
 import { UploadStep } from './components/UploadStep';
 import { EditStep } from './components/EditStep';
 import { ExportStep } from './components/ExportStep';
+import { LandingPage } from './components/LandingPage';
+import { AboutPage } from './components/pages/AboutPage';
+import { BlogPage } from './components/pages/BlogPage';
+import { CommunityPage } from './components/pages/CommunityPage';
+import { MeetTheTeamPage } from './components/pages/MeetTheTeamPage';
+import { SupportPage } from './components/pages/SupportPage';
+import { ConfirmModal } from './components/popups';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
+import { ExamplesProvider } from './contexts/ExamplesContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 import { getDefaultLandscapeId } from './assets/backgrounds';
 import { LOG_RESPONSES } from './config';
 
 const GITHUB_REPO_URL = 'https://github.com/yanzhehw/ScheduleStyler';
+
+// Route paths
+const ROUTES = {
+  HOME: '/',
+  UPLOAD: '/upload',
+  EDIT: '/edit',
+  EXPORT: '/export',
+  ABOUT: '/about',
+  BLOG: '/blog',
+  COMMUNITY: '/community',
+  MEET_THE_TEAM: '/meet-the-team',
+  SUPPORT: '/support',
+} as const;
+
+// Step labels for header display
+const STEP_INFO = [
+  { path: ROUTES.UPLOAD, label: 'Upload' },
+  { path: ROUTES.EDIT, label: 'Edit' },
+  { path: ROUTES.EXPORT, label: 'Export' },
+];
 
 const DEFAULT_TEMPLATE: TemplateConfig = {
   id: 'default',
@@ -25,6 +54,7 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   themeFamily: 'default',
   themeVariant: 'dark',
   theme: 'default-dark',
+  textColorPreset: 'dark',
   primaryColor: '#3b82f6',
   borderRadius: '16px',
   showTime: true,
@@ -32,49 +62,74 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   showGrid: true,
   showClassType: true,
   viewMode: 'desktop',
-  aspectRatio: 0.6, // Default: near natural content ratio (0 = 16:9, 1 = 9:16)
-  differentiateTypes: false, // Differentiate Labs/Tutorials with different colors
-  showCourseSection: false, // Show full course section in title
-  eventBlockNoBorders: false, // Remove borders from event blocks
-  gridLineStyle: 'dark', // Grid line style: 'bright' or 'dark'
-  eventOpacity: 1, // Event block color layer opacity (0-1, default 100%)
-  titleFont: 'Inter', // Font for event block title
-  subtitleFont: 'Inter', // Font for event block subtitle
-  detailsFont: 'Inter', // Font for event block details
-  titleFontSize: 12, // Title font size in pixels
-  subtitleFontSize: 10, // Subtitle font size in pixels
-  detailsFontSize: 10, // Details font size in pixels
-  titleBold: true, // Bold for title text
-  titleItalic: false, // Italic for title text
-  subtitleBold: true, // Bold for subtitle text
-  subtitleItalic: false, // Italic for subtitle text
-  detailsBold: false, // Bold for details text
-  detailsItalic: false, // Italic for details text
-  textAlignHorizontal: 'left', // Horizontal text alignment
-  textAlignVertical: 'top', // Vertical text alignment
-  headerBlurAmount: 0, // Day header backdrop blur (0-20px)
-  headerBlurMode: 'bar', // 'bar' for entire row, 'cells' for individual cells
-  timeColumnBlurAmount: 0, // Time column backdrop blur (0-20px)
-  timeColumnBlurMode: 'bar', // 'bar' for entire column, 'cells' for individual cells
-  backgroundType: 'image', // Background type: 'none', 'image', or 'color'
-  backgroundImage: getDefaultLandscapeId() || 'l1', // First landscape background as default
-  backgroundBlur: 0, // Background blur amount (0-20px)
-  backgroundOverlay: 0, // Background overlay/highlight opacity (0-100)
-  calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 }, // Calendar card insets from background edges
-  lockscreenMockup: false, // Show iPhone lockscreen mockup overlay
+  aspectRatio: 0.6,
+  differentiateTypes: false,
+  showCourseSection: false,
+  eventBlockNoBorders: false,
+  gridLineStyle: 'dark',
+  eventOpacity: 1,
+  titleFont: 'Inter',
+  subtitleFont: 'Inter',
+  detailsFont: 'Inter',
+  titleFontSize: 12,
+  subtitleFontSize: 10,
+  detailsFontSize: 10,
+  titleBold: true,
+  titleItalic: false,
+  subtitleBold: true,
+  subtitleItalic: false,
+  detailsBold: false,
+  detailsItalic: false,
+  textAlignHorizontal: 'left',
+  textAlignVertical: 'top',
+  headerBlurAmount: 0,
+  headerBlurMode: 'bar',
+  timeColumnBlurAmount: 0,
+  timeColumnBlurMode: 'bar',
+  backgroundType: 'image',
+  backgroundImage: getDefaultLandscapeId() || 'l1',
+  backgroundBlur: 0,
+  backgroundOverlay: 0,
+  calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 },
+  lockscreenMockup: false,
 };
 
 const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>(AppStep.UPLOAD);
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [isProcessing, setIsProcessing] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [template, setTemplate] = useState<TemplateConfig>(DEFAULT_TEMPLATE);
-  const [hasVisitedExport, setHasVisitedExport] = useState(false);
+  // Restore persisted state from sessionStorage
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    const saved = sessionStorage.getItem('events');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = sessionStorage.getItem('categories');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [template, setTemplate] = useState<TemplateConfig>(() => {
+    const saved = sessionStorage.getItem('template');
+    return saved ? JSON.parse(saved) : DEFAULT_TEMPLATE;
+  });
+  const [hasVisitedExport, setHasVisitedExport] = useState(() => {
+    return sessionStorage.getItem('hasVisitedExport') === 'true';
+  });
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [keyMode, setKeyMode] = useState<'invite' | 'byok'>('invite');
   const [appliedApiKey, setAppliedApiKey] = useState<string | null>(null);
   const [starCount, setStarCount] = useState<number>(0);
+  // Reupload confirmation modal state for header navigation
+  const [showHeaderReuploadConfirm, setShowHeaderReuploadConfirm] = useState(false);
+  // Track if user has started a session (persisted in sessionStorage for page refresh)
+  const [hasStartedSession, setHasStartedSession] = useState(() => {
+    return sessionStorage.getItem('hasStartedSession') === 'true';
+  });
+  // Saved export settings (aspectRatio + calendarCardInsets) to restore when returning to Export
+  const [savedExportSettings, setSavedExportSettings] = useState<{
+    aspectRatio: number;
+    calendarCardInsets: { top: number; bottom: number; left: number; right: number };
+  } | null>(null);
 
   // Track unique users (once per browser) and fetch stats
   useEffect(() => {
@@ -90,50 +145,50 @@ const App: React.FC = () => {
       .catch(() => {});
   }, []);
 
+  // Persist session state for page refresh
+  useEffect(() => {
+    if (hasStartedSession) {
+      sessionStorage.setItem('hasStartedSession', 'true');
+    }
+  }, [hasStartedSession]);
+
+  // Persist events, categories, template, and hasVisitedExport to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('events', JSON.stringify(events));
+  }, [events]);
+
+  useEffect(() => {
+    sessionStorage.setItem('categories', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    sessionStorage.setItem('template', JSON.stringify(template));
+  }, [template]);
+
+  useEffect(() => {
+    sessionStorage.setItem('hasVisitedExport', hasVisitedExport ? 'true' : 'false');
+  }, [hasVisitedExport]);
+
   const handleFileUpload = async (file: File, apiKey?: string, activationToken?: string) => {
     setIsProcessing(true);
     setApiKeyError(null);
-    setStep(AppStep.PROCESSING); // Technically visual state within UploadStep
     try {
       const base64 = await convertFileToBase64(file);
-      const data = await extractCalendarFromImage(base64, apiKey);
+      // Pass activationToken to the API - token is marked as USED atomically after successful extraction
+      const data = await extractCalendarFromImage(base64, apiKey, activationToken);
       setEvents(data.events);
       setCategories(data.categories);
-      setStep(AppStep.EDIT);
-
-      // Mark the invitation code as used after successful extraction
-      if (activationToken) {
-        console.log('[mark-used] Calling /api/mark-used with activationToken:', activationToken);
-        try {
-          const markResponse = await fetch('/api/mark-used', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activationToken }),
-          });
-          const markResult = await markResponse.json();
-          console.log('[mark-used] Response status:', markResponse.status);
-          console.log('[mark-used] Response body:', markResult);
-          if (markResponse.ok) {
-            console.log('[mark-used] ✅ Invitation code successfully marked as USED');
-          } else {
-            console.warn('[mark-used] ⚠️ Failed to mark code as used:', markResult.error);
-          }
-        } catch (markError) {
-          // Log but don't fail the extraction if marking fails
-          console.error("[mark-used] ❌ Failed to mark invitation code as used:", markError);
-        }
-      }
+      setHasStartedSession(true);
+      navigate(ROUTES.EDIT);
     } catch (error) {
       console.error("Extraction error", error);
       if (apiKey) {
-        // BYOK mode - show error in the upload step and reset applied key so user can edit
         setApiKeyError("Request failed. Please double-check the validity of your API key.");
         setAppliedApiKey(null);
-        setStep(AppStep.UPLOAD);
       } else {
         alert("Failed to analyze the image. Please try a clearer screenshot.");
-        setStep(AppStep.UPLOAD);
       }
+      navigate(ROUTES.UPLOAD);
     } finally {
       setIsProcessing(false);
     }
@@ -142,12 +197,12 @@ const App: React.FC = () => {
   const handleLoadSample = () => {
     setEvents([...SAMPLE_EVENTS]);
     setCategories([...SAMPLE_CATEGORIES]);
-    setStep(AppStep.EDIT);
+    setHasStartedSession(true);
+    navigate(ROUTES.EDIT);
   };
 
   const handleLoadMcGillSample = () => {
     if (LOG_RESPONSES) {
-      // Process raw API data through the same pipeline as real API calls
       console.log('=== McGill Sample - Raw API Response ===');
       console.log(JSON.stringify(MCGILL_RAW_API_RESPONSE, null, 2));
     }
@@ -161,148 +216,266 @@ const App: React.FC = () => {
     }
     setEvents(processed.events);
     setCategories(processed.categories);
-    setStep(AppStep.EDIT);
+    setHasStartedSession(true);
+    navigate(ROUTES.EDIT);
   };
 
   const handleEnterManually = () => {
-    // Start with empty schedule - CalendarCanvas defaults to Mon-Fri, 8am-6pm
     setEvents([]);
     setCategories([]);
-    setStep(AppStep.EDIT);
+    setHasStartedSession(true);
+    navigate(ROUTES.EDIT);
   };
 
-  // DEV: Mock waiting state for testing the loading UI
-  const handleMockWaiting = () => {
-    setIsProcessing(true);
-    // Auto-reset after 15 seconds (or manually navigate away)
-    setTimeout(() => setIsProcessing(false), 15000);
+  const handleNavigateToExport = () => {
+    if (!hasVisitedExport) {
+      // Set acrylic theme and first landscape background as default when first arriving at Export
+      const defaultBg = getDefaultLandscapeId() || 'l1';
+      setTemplate(prev => ({
+        ...prev,
+        themeFamily: 'acrylic',
+        theme: 'acrylic-dark',
+        themeVariant: 'dark',
+        textColorPreset: 'light',
+        backgroundType: 'image',
+        backgroundImage: defaultBg,
+      }));
+    } else if (savedExportSettings) {
+      setTemplate((prev: TemplateConfig) => ({
+        ...prev,
+        aspectRatio: savedExportSettings.aspectRatio,
+        calendarCardInsets: { ...savedExportSettings.calendarCardInsets },
+      }));
+    }
+    setHasVisitedExport(true);
+    navigate(ROUTES.EXPORT);
   };
+
+  const handleNavigateBackToEdit = () => {
+    setSavedExportSettings({
+      aspectRatio: template.aspectRatio,
+      calendarCardInsets: { ...template.calendarCardInsets },
+    });
+    setTemplate((prev: TemplateConfig) => ({
+      ...prev,
+      calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 },
+    }));
+    navigate(ROUTES.EDIT);
+  };
+
+  const handleReupload = () => {
+    // Clear all session state when re-uploading
+    setHasStartedSession(false);
+    setEvents([]);
+    setCategories([]);
+    setTemplate(DEFAULT_TEMPLATE);
+    setHasVisitedExport(false);
+    setSavedExportSettings(null);
+    // Clear sessionStorage
+    sessionStorage.removeItem('hasStartedSession');
+    sessionStorage.removeItem('events');
+    sessionStorage.removeItem('categories');
+    sessionStorage.removeItem('template');
+    sessionStorage.removeItem('hasVisitedExport');
+    navigate(ROUTES.HOME);
+  };
+
+  // Handle header step click - only backward navigation allowed
+  const handleStepClick = (stepIndex: number) => {
+    const currentIdx = STEP_INFO.findIndex(s => s.path === location.pathname);
+    // Only allow backward navigation
+    if (stepIndex >= currentIdx) return;
+
+    if (stepIndex === 0) {
+      // Going to Upload - show confirmation if session started
+      if (hasStartedSession) {
+        setShowHeaderReuploadConfirm(true);
+      } else {
+        navigate(ROUTES.UPLOAD);
+      }
+    } else if (stepIndex === 1 && currentIdx === 2) {
+      // Going from Export to Edit
+      handleNavigateBackToEdit();
+    }
+  };
+
+  // Handle logo/brand click
+  const handleLogoClick = () => {
+    if (hasStartedSession && location.pathname !== ROUTES.HOME) {
+      setShowHeaderReuploadConfirm(true);
+    } else {
+      navigate(ROUTES.HOME);
+    }
+  };
+
+  // Determine current step index for header highlighting
+  const currentStepIndex = STEP_INFO.findIndex(s => s.path === location.pathname);
+  const isLandingPage = location.pathname === ROUTES.HOME;
+  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.COMMUNITY, ROUTES.MEET_THE_TEAM, ROUTES.SUPPORT].includes(location.pathname as typeof ROUTES.ABOUT);
+
+  // Landing page renders full-screen without header
+  if (isLandingPage) {
+    return (
+      <BackgroundsProvider>
+        <ExamplesProvider>
+          <LandingPage onGetStarted={() => navigate(ROUTES.UPLOAD)} />
+        </ExamplesProvider>
+      </BackgroundsProvider>
+    );
+  }
+
+  // Static pages (About, Blog, Community) render without app header
+  if (isStaticPage) {
+    return (
+      <BackgroundsProvider>
+        <Routes>
+          <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+          <Route path={ROUTES.BLOG} element={<BlogPage />} />
+          <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+          <Route path={ROUTES.MEET_THE_TEAM} element={<MeetTheTeamPage />} />
+          <Route path={ROUTES.SUPPORT} element={<SupportPage />} />
+        </Routes>
+      </BackgroundsProvider>
+    );
+  }
 
   return (
     <BackgroundsProvider>
-    <div className="h-screen overflow-hidden flex flex-col bg-[#0f172a] text-slate-100 font-sans selection:bg-blue-500/30">
-      
+    <div className="h-screen overflow-hidden flex flex-col text-slate-100 font-sans" style={{ backgroundColor: 'var(--surface-app)' }}>
+
       {/* Header */}
-      <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <picture className="w-8 h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
+      <header className="h-14 md:h-16 border-b flex items-center justify-between px-3 md:px-8 backdrop-blur-sm sticky top-0 z-50" style={{ backgroundColor: 'var(--surface-header)', borderColor: 'var(--border-default)' }}>
+        <button
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <picture className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
             <source srcSet={faviconLight} media="(prefers-color-scheme: dark)" />
-            <img src={faviconDark} alt="ScheduleStyler" className="w-6 h-6 object-contain" />
+            <img src={faviconDark} alt="ScheduleStyler" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
           </picture>
-          <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+          <span className="hidden sm:inline font-bold text-lg md:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             ScheduleStyler
           </span>
-        </div>
-        
-        <div className="flex gap-2">
-          {[AppStep.UPLOAD, AppStep.EDIT, AppStep.EXPORT].map((s, idx) => {
-             const isActive = step === s;
-             const isPast = [AppStep.UPLOAD, AppStep.EDIT, AppStep.EXPORT].indexOf(step) > idx;
+        </button>
+
+        <div className="flex gap-1 md:gap-2">
+          {STEP_INFO.map((step, idx) => {
+             const isActive = idx === currentStepIndex;
+             const isPast = currentStepIndex > idx;
+             const isClickable = isPast; // Only past steps are clickable
              return (
-               <div key={s} className="flex items-center gap-2">
-                 <div className={`
-                    px-3 py-1 rounded-full text-xs font-semibold transition-all
-                    ${isActive ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' :
-                      isPast ? 'bg-gray-800 text-gray-400' : 'text-gray-600'}
-                 `}>
-                   {idx + 1}. {s.charAt(0) + s.slice(1).toLowerCase()}
-                 </div>
-                 {idx < 2 && <div className="w-4 h-0.5 bg-gray-800"></div>}
+               <div key={step.path} className="flex items-center gap-1 md:gap-2">
+                 <button
+                   onClick={() => isClickable && handleStepClick(idx)}
+                   disabled={!isClickable}
+                   className={`
+                    px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-semibold transition-all whitespace-nowrap inline-btn
+                    ${isActive ? 'step-indicator-active text-white' :
+                      isPast ? 'cursor-pointer' : 'cursor-default'}
+                 `}
+                   style={!isActive ? {
+                     backgroundColor: isPast ? 'var(--surface-elevated)' : 'transparent',
+                     color: isPast ? 'var(--text-secondary)' : 'var(--text-muted)',
+                   } : undefined}
+                 >
+                   {idx + 1}. {step.label}
+                 </button>
+                 {idx < 2 && <div className="w-2 md:w-4 h-0.5" style={{ backgroundColor: 'var(--border-muted)' }}></div>}
                </div>
              )
           })}
         </div>
 
-        {/* GitHub Star Button */}
+        {/* GitHub Star Button - hidden on mobile */}
         <a
           href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-0 rounded-full border border-blue-500/50 bg-gradient-to-r from-blue-600/90 to-blue-700/90 hover:from-blue-500/90 hover:to-blue-600/90 transition-all shadow-lg shadow-blue-900/20 hover:shadow-blue-800/30 hover:scale-[1.02] active:scale-[0.98]"
+          className="github-star-btn hidden md:flex items-center gap-0 rounded-full"
         >
-          <div className="flex items-center gap-2 px-4 py-2">
-            <span className="text-sm font-semibold text-white">Star On GitHub</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2">
+            <span className="text-xs md:text-sm font-semibold">Star On GitHub</span>
           </div>
-          <div className="flex items-center gap-1 px-3 py-2 bg-slate-900/80 rounded-r-full border-l border-blue-500/30">
-            <Star size={16} className="text-white fill-white" />
-            <span className="text-sm font-medium text-slate-200">{starCount}</span>
+          <div className="flex items-center gap-1 px-2 md:px-3 py-1.5 md:py-2 sm:bg-slate-900/80 sm:rounded-r-full sm:border-l sm:border-blue-500/30">
+            <Star size={14} className="text-white fill-white md:w-4 md:h-4" />
+            <span className="text-xs md:text-sm font-medium text-slate-200">{starCount}</span>
           </div>
         </a>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 p-6 overflow-hidden">
-        {step === AppStep.UPLOAD && (
-          <UploadStep
-            onFileSelect={handleFileUpload}
-            onLoadSample={handleLoadSample}
-            onLoadMcGillSample={handleLoadMcGillSample}
-            onEnterManually={handleEnterManually}
-            onMockWaiting={handleMockWaiting}
-            isProcessing={isProcessing}
-            apiKeyError={apiKeyError}
-            onDismissApiKeyError={() => setApiKeyError(null)}
-            keyMode={keyMode}
-            onKeyModeChange={setKeyMode}
-            appliedApiKey={appliedApiKey}
-            onAppliedApiKeyChange={setAppliedApiKey}
+      <main className="flex-1 min-h-0 p-2 md:p-6 overflow-auto">
+        <Routes>
+          <Route
+            path={ROUTES.UPLOAD}
+            element={
+              <UploadStep
+                onFileSelect={handleFileUpload}
+                onLoadSample={handleLoadSample}
+                onLoadMcGillSample={handleLoadMcGillSample}
+                onEnterManually={handleEnterManually}
+                isProcessing={isProcessing}
+                apiKeyError={apiKeyError}
+                onDismissApiKeyError={() => setApiKeyError(null)}
+                keyMode={keyMode}
+                onKeyModeChange={setKeyMode}
+                appliedApiKey={appliedApiKey}
+                onAppliedApiKeyChange={setAppliedApiKey}
+              />
+            }
           />
-        )}
 
-        {step === AppStep.PROCESSING && (
-          <UploadStep
-            onFileSelect={() => {}}
-            onLoadSample={() => {}}
-            onLoadMcGillSample={() => {}}
-            onEnterManually={() => {}}
-            isProcessing={true}
-            keyMode={keyMode}
-            onKeyModeChange={() => {}}
-            appliedApiKey={appliedApiKey}
-            onAppliedApiKeyChange={() => {}}
+          <Route
+            path={ROUTES.EDIT}
+            element={
+              hasStartedSession ? (
+                <EditStep
+                  events={events}
+                  categories={categories}
+                  template={hasVisitedExport ? template : { ...template, backgroundType: 'none', backgroundIndependent: false }}
+                  onUpdateEvents={setEvents}
+                  onUpdateTemplate={setTemplate}
+                  onNext={handleNavigateToExport}
+                  onReupload={handleReupload}
+                />
+              ) : (
+                <Navigate to={ROUTES.UPLOAD} replace />
+              )
+            }
           />
-        )}
 
-        {step === AppStep.EDIT && (
-          <EditStep
-            events={events}
-            categories={categories}
-            template={hasVisitedExport ? template : { ...template, backgroundType: 'none', backgroundIndependent: false }}
-            onUpdateEvents={setEvents}
-            onUpdateTemplate={setTemplate}
-            onNext={() => {
-              // Set acrylic theme and appropriate background when entering Export view for the first time
-              if (!hasVisitedExport) {
-                const defaultBg = getDefaultLandscapeId() || 'l1';
-                setTemplate(prev => ({
-                  ...prev,
-                  // Switch to acrylic theme on first visit to Export
-                  themeFamily: 'acrylic',
-                  themeVariant: 'dark',
-                  themeSubVariant: 'dark-slate',
-                  theme: 'acrylic-dark',
-                  // Set image background for acrylic theme
-                  backgroundType: 'image',
-                  backgroundImage: prev.backgroundImage || defaultBg,
-                }));
-              }
-              setHasVisitedExport(true);
-              setStep(AppStep.EXPORT);
-            }}
-            onReupload={() => setStep(AppStep.UPLOAD)}
+          <Route
+            path={ROUTES.EXPORT}
+            element={
+              hasStartedSession ? (
+                <ExportStep
+                  events={events}
+                  template={template}
+                  onUpdateTemplate={setTemplate}
+                  onUpdateEvents={setEvents}
+                  onBack={handleNavigateBackToEdit}
+                />
+              ) : (
+                <Navigate to={ROUTES.UPLOAD} replace />
+              )
+            }
           />
-        )}
 
-        {step === AppStep.EXPORT && (
-          <ExportStep 
-            events={events}
-            template={template}
-            onUpdateTemplate={setTemplate}
-            onUpdateEvents={setEvents}
-            onBack={() => setStep(AppStep.EDIT)}
-          />
-        )}
+          {/* Catch-all redirect to home */}
+          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+        </Routes>
       </main>
+
+      {/* Reupload Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showHeaderReuploadConfirm}
+        onClose={() => setShowHeaderReuploadConfirm(false)}
+        onConfirm={handleReupload}
+        title="Start over?"
+        message="Your current progress will be lost. Are you sure you want to continue?"
+        confirmText="Yes, start over"
+        confirmVariant="danger"
+      />
     </div>
     </BackgroundsProvider>
   );

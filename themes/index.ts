@@ -1,9 +1,8 @@
 /**
  * Structured Theme System for CalendarCanvas
  *
- * Themes: Default, Glass, Acrylic
- * Each theme has Light and Dark variants
- * Acrylic has additional Thin/Thick variants
+ * Themes: Default, Glass, Acrylic, Solid-Grain
+ * All themes use dark variant only (light variant removed)
  *
  * Palettes: Separate color palettes that can be used with any theme
  */
@@ -14,29 +13,14 @@ import { CalendarCanvasTheme } from '../types';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 
 // =============================================================================
-// Theme Variant Type
+// Theme Family Type (simplified - no light/dark variants)
 // =============================================================================
-
-export type ThemeVariant = 'light' | 'dark';
-
-/** Extended variant for families with more than just light/dark */
-export interface ThemeVariantOption {
-  id: string;
-  name: string;
-  baseVariant: ThemeVariant;
-  theme: CalendarCanvasTheme;
-}
 
 export interface ThemeFamily {
   id: string;
   name: string;
   description: string;
-  variants: {
-    light: CalendarCanvasTheme;
-    dark: CalendarCanvasTheme;
-  };
-  /** Extended variants for families with more than light/dark (e.g., Acrylic) */
-  extendedVariants?: ThemeVariantOption[];
+  theme: CalendarCanvasTheme;
 }
 
 // =============================================================================
@@ -226,67 +210,13 @@ export const getPalette = (paletteId: string): ColorPalette => {
   return COLOR_PALETTES.find(p => p.id === paletteId) || PALETTE_SATURATED;
 };
 
-/** Get default palette ID for a theme variant */
-export const getDefaultPaletteForVariant = (variant: ThemeVariant): string => {
-  return variant === 'light' ? 'saturated' : 'saturated';
-};
-
 // =============================================================================
-// DEFAULT THEME FAMILY
+// DEFAULT THEME (Dark only)
 // =============================================================================
 
-const DEFAULT_LIGHT: CalendarCanvasTheme = {
-  id: 'default-light',
-  name: 'Default Light',
-  variant: 'light',
-  canvas: {
-    background: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '16px',
-    shadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
-    padding: '32px',
-  },
-  header: {
-    textColor: '#111827',
-    fontWeight: '600',
-    fontSize: '0.875rem',
-    letterSpacing: '0.05em',
-    opacity: 0.8,
-  },
-  timeColumn: {
-    textColor: '#9ca3af',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: '#f3f4f6',
-    dividerColor: '#f3f4f6',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '6px',
-    border: '1px solid rgba(0,0,0,0.05)',
-    shadow: '0 1px 3px rgba(0,0,0,0.1)',
-    padding: '8px',
-    marginX: '4px',
-    backgroundOpacity: 1,
-    titleColor: '#1f2937',
-    subtitleColor: '#374151',
-    detailsColor: '#4b5563',
-    titleFontWeight: '700',
-    hoverBrightness: 1.05,
-    hoverShadow: '0 4px 12px rgba(0,0,0,0.15)',
-  },
-  footer: {
-    textColor: '#6b7280',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-const DEFAULT_DARK: CalendarCanvasTheme = {
-  id: 'default-dark',
-  name: 'Default Dark',
+const DEFAULT_THEME: CalendarCanvasTheme = {
+  id: 'default',
+  name: 'Default',
   variant: 'dark',
   canvas: {
     background: '#111827',
@@ -337,70 +267,16 @@ export const THEME_DEFAULT: ThemeFamily = {
   id: 'default',
   name: 'Default',
   description: 'Clean and modern design',
-  variants: {
-    light: DEFAULT_LIGHT,
-    dark: DEFAULT_DARK,
-  },
+  theme: DEFAULT_THEME,
 };
 
 // =============================================================================
-// GLASS THEME FAMILY
+// GLASS THEME (Dark only)
 // =============================================================================
 
-const GLASS_LIGHT: CalendarCanvasTheme = {
-  id: 'glass-light',
-  name: 'Glass Light',
-  variant: 'light',
-  canvas: {
-    background: 'rgba(255,255,255,0.7)',
-    border: '1px solid rgba(255,255,255,0.8)',
-    borderRadius: '20px',
-    shadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
-    padding: '32px',
-    backdropFilter: 'blur(16px)',
-  },
-  header: {
-    textColor: '#1f2937',
-    fontWeight: '600',
-    fontSize: '0.875rem',
-    letterSpacing: '0.05em',
-    opacity: 0.9,
-  },
-  timeColumn: {
-    textColor: 'rgba(31,41,55,0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(0,0,0,0.08)',
-    dividerColor: 'rgba(0,0,0,0.08)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '12px',
-    border: '1px solid rgba(255,255,255,0.6)',
-    shadow: '0 4px 16px rgba(0,0,0,0.08)',
-    padding: '8px',
-    marginX: '4px',
-    backgroundOpacity: 0.8,
-    titleColor: '#1f2937',
-    subtitleColor: '#374151',
-    detailsColor: '#4b5563',
-    titleFontWeight: '700',
-    hoverBrightness: 1.05,
-    hoverShadow: '0 8px 24px rgba(0,0,0,0.12)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(31,41,55,0.6)',
-    fontSize: '0.75rem',
-    opacity: 0.6,
-  },
-};
-
-const GLASS_DARK: CalendarCanvasTheme = {
-  id: 'glass-dark',
-  name: 'Glass Dark',
+const GLASS_THEME: CalendarCanvasTheme = {
+  id: 'glass',
+  name: 'Glass',
   variant: 'dark',
   canvas: {
     background: 'rgba(255,255,255,0.1)',
@@ -453,23 +329,19 @@ export const THEME_GLASS: ThemeFamily = {
   id: 'glass',
   name: 'Glass',
   description: 'Translucent glassmorphism effect',
-  variants: {
-    light: GLASS_LIGHT,
-    dark: GLASS_DARK,
-  },
+  theme: GLASS_THEME,
 };
 
 // =============================================================================
-// ACRYLIC THEME FAMILY - Frosted Glass Effect (Thin/Thick variants)
+// ACRYLIC THEME (Dark only - Frosted Glass Effect)
 // =============================================================================
 
 // Texture path for acrylic noise effect (imported for Vite bundling)
 const ACRYLIC_TEXTURE = acrylicTextureUrl;
 
-// Thin Dark (minimal frosted effect)
-const ACRYLIC_THIN_DARK: CalendarCanvasTheme = {
-  id: 'acrylic-thin-dark',
-  name: 'Acrylic Thin Dark',
+const ACRYLIC_THEME: CalendarCanvasTheme = {
+  id: 'acrylic',
+  name: 'Acrylic',
   variant: 'dark',
   canvas: {
     background: 'transparent',
@@ -514,163 +386,6 @@ const ACRYLIC_THIN_DARK: CalendarCanvasTheme = {
   },
   footer: {
     textColor: 'rgba(255, 255, 255, 0.5)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-// Thin Light (minimal frosted effect)
-const ACRYLIC_THIN_LIGHT: CalendarCanvasTheme = {
-  id: 'acrylic-thin-light',
-  name: 'Acrylic Thin Light',
-  variant: 'light',
-  canvas: {
-    background: 'transparent',
-    border: '1px solid rgba(255, 255, 255, 0.6)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-    padding: '32px',
-  },
-  header: {
-    textColor: 'rgba(55, 65, 81, 0.9)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.85,
-  },
-  timeColumn: {
-    textColor: 'rgba(107, 114, 128, 0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(0, 0, 0, 0.04)',
-    dividerColor: 'rgba(0, 0, 0, 0.06)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    shadow: '0px 10px 14px rgba(0, 0, 0, 0.25)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 1,
-    titleColor: '#111827',
-    subtitleColor: '#1f2937',
-    detailsColor: '#374151',
-    titleFontWeight: '600',
-    hoverBrightness: 1.02,
-    hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-    backdropFilter: 'blur(30px)',
-    acrylicBackground: `rgba(255, 255, 255, 0.35)`,
-    backgroundBlendMode: 'normal',
-  },
-  footer: {
-    textColor: 'rgba(107, 114, 128, 0.6)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-// Solid Grain Dark (transparent canvas, fully opaque event blocks with grain texture)
-const ACRYLIC_THICK_DARK: CalendarCanvasTheme = {
-  id: 'acrylic-thick-dark',
-  name: 'Acrylic Thick Dark',
-  variant: 'dark',
-  canvas: {
-    // Transparent canvas - grain is on blocks only, blocks are fully opaque
-    background: 'transparent',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-    padding: '32px',
-  },
-  header: {
-    textColor: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.85,
-  },
-  timeColumn: {
-    textColor: 'rgba(255, 255, 255, 0.5)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(255, 255, 255, 0.06)',
-    dividerColor: 'rgba(255, 255, 255, 0.08)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    shadow: '0px 10px 14px rgba(0, 0, 0, 0.25)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 1, // Fully opaque event blocks
-    titleColor: 'rgba(255, 255, 255, 0.95)',
-    subtitleColor: 'rgba(255, 255, 255, 0.75)',
-    detailsColor: 'rgba(255, 255, 255, 0.6)',
-    titleFontWeight: '600',
-    hoverBrightness: 1.08,
-    hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(255, 255, 255, 0.5)',
-    fontSize: '0.75rem',
-    opacity: 0.5,
-  },
-};
-
-// Solid Grain Light (transparent canvas, fully opaque event blocks with grain texture)
-const ACRYLIC_THICK_LIGHT: CalendarCanvasTheme = {
-  id: 'acrylic-thick-light',
-  name: 'Acrylic Thick Light',
-  variant: 'light',
-  canvas: {
-    // Transparent canvas - grain is on blocks only, blocks are fully opaque
-    background: 'transparent',
-    border: '1px solid rgba(255, 255, 255, 0.6)',
-    borderRadius: '24px',
-    shadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-    padding: '32px',
-  },
-  header: {
-    textColor: 'rgba(55, 65, 81, 0.9)',
-    fontWeight: '500',
-    fontSize: '0.85rem',
-    letterSpacing: '0.12em',
-    opacity: 0.85,
-  },
-  timeColumn: {
-    textColor: 'rgba(107, 114, 128, 0.6)',
-    fontSize: '0.75rem',
-    width: '48px',
-  },
-  grid: {
-    lineColor: 'rgba(0, 0, 0, 0.04)',
-    dividerColor: 'rgba(0, 0, 0, 0.06)',
-    lineWidth: '1px',
-  },
-  eventBlock: {
-    borderRadius: '14px',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    shadow: '0px 10px 14px rgba(0, 0, 0, 0.25)',
-    padding: '10px',
-    marginX: '4px',
-    backgroundOpacity: 1, // Fully opaque event blocks
-    titleColor: '#111827',
-    subtitleColor: '#1f2937',
-    detailsColor: '#374151',
-    titleFontWeight: '600',
-    hoverBrightness: 1.02,
-    hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-    backdropFilter: 'blur(8px)',
-  },
-  footer: {
-    textColor: 'rgba(107, 114, 128, 0.6)',
     fontSize: '0.75rem',
     opacity: 0.5,
   },
@@ -680,9 +395,60 @@ export const THEME_ACRYLIC: ThemeFamily = {
   id: 'acrylic',
   name: 'Acrylic',
   description: 'Frosted glass effect with subtle blur',
-  variants: {
-    light: ACRYLIC_THIN_LIGHT,
-    dark: ACRYLIC_THIN_DARK,
+  theme: ACRYLIC_THEME,
+};
+
+// =============================================================================
+// SOLID GRAIN THEME (Dark only - Textured grain effect)
+// =============================================================================
+
+const SOLID_GRAIN_THEME: CalendarCanvasTheme = {
+  id: 'solid-grain',
+  name: 'Solid Grain',
+  variant: 'dark',
+  canvas: {
+    background: 'transparent',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '24px',
+    shadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+    padding: '32px',
+  },
+  header: {
+    textColor: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+    fontSize: '0.85rem',
+    letterSpacing: '0.12em',
+    opacity: 0.85,
+  },
+  timeColumn: {
+    textColor: 'rgba(255, 255, 255, 0.5)',
+    fontSize: '0.75rem',
+    width: '48px',
+  },
+  grid: {
+    lineColor: 'rgba(255, 255, 255, 0.06)',
+    dividerColor: 'rgba(255, 255, 255, 0.08)',
+    lineWidth: '1px',
+  },
+  eventBlock: {
+    borderRadius: '14px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    shadow: '0px 10px 14px rgba(0, 0, 0, 0.25)',
+    padding: '10px',
+    marginX: '4px',
+    backgroundOpacity: 1,
+    titleColor: 'rgba(255, 255, 255, 0.95)',
+    subtitleColor: 'rgba(255, 255, 255, 0.75)',
+    detailsColor: 'rgba(255, 255, 255, 0.6)',
+    titleFontWeight: '600',
+    hoverBrightness: 1.08,
+    hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+    backdropFilter: 'blur(8px)',
+  },
+  footer: {
+    textColor: 'rgba(255, 255, 255, 0.5)',
+    fontSize: '0.75rem',
+    opacity: 0.5,
   },
 };
 
@@ -690,10 +456,7 @@ export const THEME_SOLID_GRAIN: ThemeFamily = {
   id: 'solid-grain',
   name: 'Solid Grain',
   description: 'Textured grain effect with rich colors',
-  variants: {
-    light: ACRYLIC_THICK_LIGHT,
-    dark: ACRYLIC_THICK_DARK,
-  },
+  theme: SOLID_GRAIN_THEME,
 };
 
 // =============================================================================
@@ -703,70 +466,62 @@ export const THEME_SOLID_GRAIN: ThemeFamily = {
 /** All theme families indexed by ID */
 export const THEME_FAMILIES: Record<string, ThemeFamily> = {
   default: THEME_DEFAULT,
-  glass: THEME_GLASS, // Kept for backward compatibility, not exposed in UI
+  glass: THEME_GLASS,
   acrylic: THEME_ACRYLIC,
   'solid-grain': THEME_SOLID_GRAIN,
 };
 
 /** Ordered list of theme families for UI iteration (Glass hidden for now) */
 export const THEME_FAMILY_LIST: ThemeFamily[] = [
-  THEME_DEFAULT,
   THEME_ACRYLIC,
+  THEME_DEFAULT,
   THEME_SOLID_GRAIN,
 ];
 
-/** Get a specific theme by family ID, variant, and optional sub-variant */
-export const getTheme = (familyId: string, variant: ThemeVariant, subVariant?: string): CalendarCanvasTheme => {
+/** Get a specific theme by family ID (variant parameter kept for backward compatibility but ignored) */
+export const getTheme = (familyId: string, _variant?: string, _subVariant?: string): CalendarCanvasTheme => {
   const family = THEME_FAMILIES[familyId];
   if (!family) {
-    return THEME_DEFAULT.variants[variant];
+    return THEME_DEFAULT.theme;
   }
-  // Check extended variants first
-  if (subVariant && family.extendedVariants) {
-    const extended = family.extendedVariants.find(v => v.id === subVariant);
-    if (extended) return extended.theme;
-  }
-  return family.variants[variant];
+  return family.theme;
 };
 
 /** Get all flat themes (for backward compatibility) */
 export const getAllThemes = (): CalendarCanvasTheme[] => {
-  return THEME_FAMILY_LIST.flatMap(family => [
-    family.variants.light,
-    family.variants.dark,
-  ]);
+  return THEME_FAMILY_LIST.map(family => family.theme);
 };
 
 /** Legacy theme map for backward compatibility */
 export const CANVAS_THEMES: Record<string, CalendarCanvasTheme> = {
-  'light': DEFAULT_LIGHT,
-  'dark': DEFAULT_DARK,
-  'glass': GLASS_DARK,
-  // New structured IDs
-  'default-light': DEFAULT_LIGHT,
-  'default-dark': DEFAULT_DARK,
-  'glass-light': GLASS_LIGHT,
-  'glass-dark': GLASS_DARK,
-  // Acrylic themes (formerly Thin)
-  'acrylic-light': ACRYLIC_THIN_LIGHT,
-  'acrylic-dark': ACRYLIC_THIN_DARK,
-  'acrylic-thin-dark': ACRYLIC_THIN_DARK,
-  'acrylic-thin-light': ACRYLIC_THIN_LIGHT,
-  // Solid Grain themes (formerly Acrylic Thick)
-  'solid-grain-light': ACRYLIC_THICK_LIGHT,
-  'solid-grain-dark': ACRYLIC_THICK_DARK,
-  'acrylic-thick-dark': ACRYLIC_THICK_DARK,
-  'acrylic-thick-light': ACRYLIC_THICK_LIGHT,
+  'light': DEFAULT_THEME,
+  'dark': DEFAULT_THEME,
+  'glass': GLASS_THEME,
+  // New structured IDs (all point to dark themes)
+  'default-light': DEFAULT_THEME,
+  'default-dark': DEFAULT_THEME,
+  'glass-light': GLASS_THEME,
+  'glass-dark': GLASS_THEME,
+  // Acrylic themes
+  'acrylic-light': ACRYLIC_THEME,
+  'acrylic-dark': ACRYLIC_THEME,
+  'acrylic-thin-dark': ACRYLIC_THEME,
+  'acrylic-thin-light': ACRYLIC_THEME,
+  // Solid Grain themes
+  'solid-grain-light': SOLID_GRAIN_THEME,
+  'solid-grain-dark': SOLID_GRAIN_THEME,
+  'acrylic-thick-dark': SOLID_GRAIN_THEME,
+  'acrylic-thick-light': SOLID_GRAIN_THEME,
   // Legacy acrylic variant names (for backward compatibility)
-  'acrylic-dark-slate': ACRYLIC_THIN_DARK,
-  'acrylic-light-frost': ACRYLIC_THIN_LIGHT,
-  'acrylic-light-silk': ACRYLIC_THICK_LIGHT,
-  'acrylic-ocean-mist': ACRYLIC_THICK_DARK,
+  'acrylic-dark-slate': ACRYLIC_THEME,
+  'acrylic-light-frost': ACRYLIC_THEME,
+  'acrylic-light-silk': SOLID_GRAIN_THEME,
+  'acrylic-ocean-mist': SOLID_GRAIN_THEME,
 };
 
 /** Helper to get theme by ID with fallback */
 export const getCanvasTheme = (themeId: string): CalendarCanvasTheme => {
-  return CANVAS_THEMES[themeId] ?? DEFAULT_DARK;
+  return CANVAS_THEMES[themeId] ?? DEFAULT_THEME;
 };
 
 /** Get colors for a palette by ID */
@@ -779,14 +534,14 @@ export const getPaletteColors = (paletteId: string): string[] => {
  * Get theme colors - now takes optional paletteId
  * Falls back to default palette if not specified
  */
-export const getThemeColors = (familyId: string, variant?: ThemeVariant, paletteId?: string): string[] => {
+export const getThemeColors = (familyId: string, _variant?: string, paletteId?: string): string[] => {
   // If palette specified, use it
   if (paletteId) {
     return getPaletteColors(paletteId);
   }
-  // Default palettes based on theme/variant
-  if (familyId === 'acrylic') {
-    return variant === 'dark' ? PALETTE_DARK_SLATE.colors : PALETTE_LIGHT_SILK.colors;
+  // Default palettes based on theme family
+  if (familyId === 'acrylic' || familyId === 'solid-grain') {
+    return PALETTE_DARK_SLATE.colors;
   }
   if (familyId === 'glass') {
     return PALETTE_FRESH_TINT.colors;

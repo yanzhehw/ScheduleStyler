@@ -1,7 +1,7 @@
 // Debug/development configuration flags
 
 /** Log raw API responses and processed events to console */
-export const LOG_RESPONSES = false;
+export const LOG_RESPONSES = true;
 /**
  * When false, onboarding is always shown (localStorage cleared on each visit).
  * When true, onboarding respects localStorage and only shows once.

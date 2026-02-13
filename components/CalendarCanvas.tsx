@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { CalendarEvent, TemplateConfig, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, ResizeEdge, OnboardingComponent, getTextColorPreset } from '../types';
 import { MapPin, AlignLeft, Plus, MousePointerClick, MoveUp, MoveDown } from 'lucide-react';
 import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
+import { currentTheme as siteTheme } from '../lib/site_themes';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -68,6 +69,12 @@ interface CalendarCanvasProps {
   showResetToFill?: boolean;
   /** Callback to reset calendar card insets */
   onResetToFill?: () => void;
+  /** Border radius for mockup mode clipping (clips content but not selection overlay) */
+  mockupClipBorderRadius?: string;
+  /** Override the template's border radius for the background container */
+  overrideBorderRadius?: string;
+  /** Mockup overlay to render between events and callouts/selection (for proper z-layering) */
+  mockupOverlay?: React.ReactNode;
 }
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -90,7 +97,7 @@ const LANDSCAPE_RATIO = 16 / 9;  // ~1.778 (slider = 0)
 const PORTRAIT_RATIO = 9 / 16;   // ~0.5625 (slider = 1)
 
 /** Event block internal padding (left-1 right-1 + p-1.5 = 4px + 6px each side) */
-const EVENT_BLOCK_PADDING = 20;
+const EVENT_BLOCK_PADDING = 30; // Account for block padding, margins, and tracking-wide letter-spacing
 
 /**
  * Calculate minimum width per column needed to keep text to max 2 lines.
@@ -104,45 +111,52 @@ const calculateMinBlockWidth = (
   showFullTitle: boolean
 ): number => {
   if (events.length === 0) return ABSOLUTE_MIN_BLOCK_WIDTH;
-  
+
   // Use individual font sizes for character width calculations
   const titleFontSize = template.titleFontSize;
   const detailFontSize = template.detailsFontSize;
-  
+
   // Average char width is roughly 0.55x font size for proportional fonts
-  const titleCharWidth = titleFontSize * 0.55;
+  // Use 0.8 for uppercase (titles are uppercase) as they're wider, plus letter-spacing
+  const titleCharWidth = titleFontSize * 0.8;
   const detailCharWidth = detailFontSize * 0.55;
-  
+
   let maxRequiredWidth = ABSOLUTE_MIN_BLOCK_WIDTH;
-  
+
   events.forEach(event => {
-    // Title text
+    // Title text - find the longest word to ensure no word wrapping
     const title = showFullTitle ? event.title : event.displayTitle;
-    // Width needed for title to fit in 2 lines: (chars * charWidth) / 2
-    const titleWidth = (title.length * titleCharWidth) / 2;
-    
-    // Class type text
+    const words = title.split(/\s+/);
+    const longestWordLength = Math.max(...words.map(w => w.length));
+    // Width needed for the longest word to fit without wrapping
+    const titleWidth = longestWordLength * titleCharWidth;
+
+    // Class type text - also find longest word
     let classTypeWidth = 0;
     if (template.showClassType) {
       const classTypeText = event.classType === 'Custom' ? (event.customClassType || '') : event.classType;
-      classTypeWidth = (classTypeText.length * detailCharWidth) / 2;
+      const classTypeWords = classTypeText.split(/\s+/);
+      const longestClassWord = Math.max(...classTypeWords.map(w => w.length), 0);
+      classTypeWidth = longestClassWord * detailCharWidth;
     }
-    
-    // Location text
+
+    // Location text - find longest word
     let locationWidth = 0;
     if (template.showLocation && event.location && !template.compact) {
+      const locationWords = event.location.split(/\s+/);
+      const longestLocationWord = Math.max(...locationWords.map(w => w.length), 0);
       // Account for icon width (~14px)
-      locationWidth = ((event.location.length * detailCharWidth) / 2) + 14;
+      locationWidth = (longestLocationWord * detailCharWidth) + 14;
     }
-    
+
     // Time is usually fixed length "HH:MM - HH:MM" = 13 chars, rarely wraps
     // Notes can be multi-line so we don't constrain based on notes
-    
+
     // Required block width = max of all fields + padding
     const requiredWidth = Math.max(titleWidth, classTypeWidth, locationWidth) + EVENT_BLOCK_PADDING;
     maxRequiredWidth = Math.max(maxRequiredWidth, requiredWidth);
   });
-  
+
   return maxRequiredWidth;
 };
 
@@ -268,44 +282,98 @@ const formatTimeFromHours = (timeInHours: number): string => {
 };
 
 // Calculate minimum height needed for an event's content in pixels
+// Uses line-height multiplier of 1.4 because CSS renders text with line-height: 1.4
+// (standard typographic spacing - actual rendered line box = fontSize × 1.4)
 const calculateMinEventHeight = (
   event: CalendarEvent,
   template: TemplateConfig,
-  showFullTitle: boolean
+  showFullTitle: boolean,
+  debug: boolean = false
 ): number => {
-  const baseFontSize = template.titleFontSize;
-  const smallFontSize = template.detailsFontSize;
+  // Each text field uses its own font size from template
+  const titleFontSize = template.titleFontSize;       // Title text
+  const subtitleFontSize = template.subtitleFontSize; // Class type label
+  const detailsFontSize = template.detailsFontSize;   // Time, location, notes
+
+  // Line-height multiplier matches CSS leading-none + visual spacing
+  // In the event block, we use leading-none (line-height: 1) but have gaps between elements
+  // The 1.4 factor accounts for the effective vertical space each text line occupies
   const lineHeight = 1.4;
-  
-  let totalHeight = 16; // Base padding (p-2 = 8px top + 8px bottom)
-  
-  // Title height
+  const locationLineHeight = 1.25; // Matches CSS leading-tight for location field
+
+  const breakdown: { component: string; height: number; detail?: string }[] = [];
+
+  let totalHeight = 16; // Base padding (p-1.5 = 6px × 2 = 12px, plus ~4px internal margins)
+  breakdown.push({ component: 'basePadding', height: 16 });
+
+  // Title height - estimate lines based on character count
   const title = showFullTitle ? event.title : event.displayTitle;
-  const titleLines = Math.ceil(title.length / 12); // Rough estimate of line wrapping
-  totalHeight += baseFontSize * lineHeight * Math.min(titleLines, 2);
-  
-  // Class type height
-  if (template.showClassType) {
-    totalHeight += smallFontSize * lineHeight + 4; // +4 for mb-1
-  }
-  
+  const titleLines = Math.ceil(title.length / 12); // ~12 chars per line estimate
+  const titleHeight = titleFontSize * lineHeight * Math.min(titleLines, 2);
+  totalHeight += titleHeight;
+  breakdown.push({
+    component: 'title',
+    height: titleHeight,
+    detail: `"${title}" (${title.length} chars → ${titleLines} lines, capped at 2) × ${titleFontSize}px × ${lineHeight}`,
+  });
+
   if (!template.compact) {
+    // Class type uses subtitleFontSize (not detailsFontSize)
+    if (template.showClassType) {
+      const classTypeHeight = subtitleFontSize * lineHeight + 2;
+      totalHeight += classTypeHeight;
+      breakdown.push({
+        component: 'classType',
+        height: classTypeHeight,
+        detail: `${subtitleFontSize}px × ${lineHeight} + 2px margin`,
+      });
+    }
+
     // Time height
     if (template.showTime) {
-      totalHeight += smallFontSize * lineHeight + 2;
+      const timeHeight = detailsFontSize * lineHeight + 2;
+      totalHeight += timeHeight;
+      breakdown.push({
+        component: 'time',
+        height: timeHeight,
+        detail: `${detailsFontSize}px × ${lineHeight} + 2px margin`,
+      });
     }
-    
-    // Location height
+
+    // Location height - uses locationLineHeight (leading-tight) for tighter spacing
     if (template.showLocation && event.location) {
-      totalHeight += smallFontSize * lineHeight + 2;
+      const locationHeight = detailsFontSize * locationLineHeight + 2;
+      totalHeight += locationHeight;
+      breakdown.push({
+        component: 'location',
+        height: locationHeight,
+        detail: `"${event.location}" - ${detailsFontSize}px × ${locationLineHeight} + 2px margin`,
+      });
     }
-    
+
     // Notes height (estimate 2 lines max for calculation)
     if ((event.includeNotes ?? template.showNotes) && event.notes) {
-      totalHeight += smallFontSize * lineHeight * 2 + 8; // +8 for margin/border
+      const notesHeight = detailsFontSize * lineHeight * 2 + 8;
+      totalHeight += notesHeight;
+      breakdown.push({
+        component: 'notes',
+        height: notesHeight,
+        detail: `2 lines × ${detailsFontSize}px × ${lineHeight} + 8px margin`,
+      });
     }
+  } else {
+    breakdown.push({ component: 'compact', height: 0, detail: 'compact mode - skipping details' });
   }
-  
+
+  if (debug) {
+    console.log('[calculateMinEventHeight] Breakdown:', {
+      title,
+      fontSizes: { title: titleFontSize, subtitle: subtitleFontSize, details: detailsFontSize },
+      breakdown,
+      totalHeight,
+    });
+  }
+
   return totalHeight;
 };
 
@@ -343,6 +411,9 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   hoverResetToken,
   showResetToFill = false,
   onResetToFill,
+  mockupClipBorderRadius,
+  overrideBorderRadius,
+  mockupOverlay,
 }) => {
   // Get background image map from context
   const { imageMap } = useBackgrounds();
@@ -451,30 +522,33 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   // Calculate dynamic hour height based on content that needs to fit
   const hourHeight = useMemo(() => {
     const baseHourHeight = 60; // Base height per hour in pixels
-    
+
     if (events.length === 0) return baseHourHeight;
-    
+
     let maxRequiredHourHeight = baseHourHeight;
-    
+
     events.forEach(event => {
       const minContentHeight = calculateMinEventHeight(event, template, showFullTitle);
-      
+
       // Calculate event duration using aligned times (same as rendering)
       const startVal = parseInt(event.startTime.split(':')[0]) + parseInt(event.startTime.split(':')[1]) / 60;
       const endVal = parseInt(event.endTime.split(':')[0]) + parseInt(event.endTime.split(':')[1]) / 60;
       const alignedStart = roundToNearestHalfHour(startVal);
       const alignedEnd = roundToNearestHalfHour(endVal);
       const durationHours = Math.max(0.5, alignedEnd - alignedStart);
-      
+
       // Calculate what hourHeight would give us enough space for this event
       // eventHeight = durationHours * hourHeight
       // We need: eventHeight >= minContentHeight
       // So: hourHeight >= minContentHeight / durationHours
       const requiredHourHeight = minContentHeight / durationHours;
-      
-      maxRequiredHourHeight = Math.max(maxRequiredHourHeight, requiredHourHeight);
+
+      if (requiredHourHeight > maxRequiredHourHeight) {
+        maxRequiredHourHeight = requiredHourHeight;
+      }
     });
-    
+
+
     // Apply reasonable bounds
     return Math.max(baseHourHeight, Math.min(maxRequiredHourHeight, 200));
   }, [events, template, showFullTitle]);
@@ -501,80 +575,52 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return getTheme(template.themeFamily, template.themeVariant, template.themeSubVariant);
   }, [template.themeFamily, template.themeVariant, template.themeSubVariant]);
 
-  // Theme styles
+  // Get the text color preset
+  const textColorPreset = useMemo(() => {
+    return getTextColorPreset(template.textColorPreset);
+  }, [template.textColorPreset]);
+
+  // Theme styles (all themes are dark now)
   const themeClasses = useMemo(() => {
-    // Handle both legacy single theme strings and new structured theme format
-    const themeId = template.theme;
-    const variant = template.themeVariant;
     const family = template.themeFamily;
     const hasCustomBg = template.backgroundType !== 'none';
 
     // For acrylic and solid-grain, we'll handle background via inline styles
     if (family === 'acrylic' || family === 'solid-grain') {
-      return variant === 'light'
-        ? 'text-gray-900 border-gray-200'
-        : 'text-gray-100 border-gray-700';
+      return 'text-gray-100 border-gray-700';
     }
 
     // Check if it's glass family
-    if (themeId?.includes('glass') || family === 'glass') {
+    if (family === 'glass') {
       return hasCustomBg
         ? 'backdrop-blur-xl text-white border-white/20'
         : 'bg-white/10 backdrop-blur-xl text-white border-white/20';
     }
 
-    // Check variant for light/dark
-    if (variant === 'light' || themeId === 'light' || themeId?.includes('light')) {
-      return hasCustomBg
-        ? 'text-gray-900 border-gray-200'
-        : 'bg-white text-gray-900 border-gray-200';
-    }
+    // Default to dark - background handled via inline styles in canvasStyles
+    return 'text-gray-100 border-gray-700';
+  }, [template.themeFamily, template.backgroundType]);
 
-    // Default to dark
-    return hasCustomBg
-      ? 'text-gray-100 border-gray-700'
-      : 'bg-gray-900 text-gray-100 border-gray-700';
-  }, [template.theme, template.themeVariant, template.themeFamily, template.backgroundType]);
-
-  // Grid line color based on gridLineStyle setting (independent of theme variant)
+  // Grid line color based on gridLineStyle setting
   const gridBorderColor = useMemo(() => {
     return template.gridLineStyle === 'bright'
       ? 'border-gray-300'
       : 'border-gray-700';
   }, [template.gridLineStyle]);
 
-  // Time column text color - use custom color or fall back to theme-based default
-  const hourTextColor = useMemo(() => {
-    if (template.timeColumnTextColor) {
-      return ''; // Will use inline style instead
-    }
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
-      ? 'text-gray-400'
-      : 'text-gray-500';
-  }, [template.theme, template.themeVariant, template.timeColumnTextColor]);
-
-  // Header text color - use custom color or fall back to theme-based default
+  // Header text color - use custom color or fall back to preset
   const headerTextColor = useMemo(() => {
     if (template.headerTextColor) {
       return template.headerTextColor;
     }
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return (variant === 'light' || themeId === 'light' || themeId?.includes('light'))
-      ? '#111827'
-      : '#f3f4f6';
-  }, [template.theme, template.themeVariant, template.headerTextColor]);
+    return textColorPreset.headerColor;
+  }, [template.headerTextColor, textColorPreset]);
 
   const effectiveScale = Math.max(0.25, visualScale ?? 1);
   const blurScale = 1 / effectiveScale;
 
-  const isLightTheme = useMemo(() => {
-    const variant = template.themeVariant;
-    const themeId = template.theme;
-    return variant === 'light' || themeId === 'light' || themeId?.includes('light');
-  }, [template.theme, template.themeVariant]);
+  // All themes are dark now, so this is always false
+  const isLightTheme = false;
 
   // Get background image URL based on template settings
   const backgroundImageUrl = useMemo(() => {
@@ -709,8 +755,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       };
     }
 
-    return baseStyles;
-  }, [template.borderRadius, template.themeFamily, template.backgroundType, cardDimensions, currentTheme]);
+    // For default theme with no background, use themed calendar card background
+    const isLight = template.themeVariant === 'light' || template.theme?.includes('light');
+    return {
+      ...baseStyles,
+      background: isLight ? '#ffffff' : `var(--calendar-card-background, ${siteTheme.surface.calendarCard})`,
+    };
+  }, [template.borderRadius, template.themeFamily, template.backgroundType, template.themeVariant, template.theme, cardDimensions, currentTheme]);
 
   const addSlotStyle = useMemo(() => {
     return {
@@ -747,13 +798,16 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   useEffect(() => {
     if (!draggingEventId || !onEventTimeChange) return;
 
-    const handleMove = (e: MouseEvent) => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
       const dragInfo = dragInfoRef.current;
       if (!dragInfo || !dayColumnsRef.current) return;
 
       const rect = dayColumnsRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top - dragInfo.offsetY;
+      // Handle both mouse and touch events
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top - dragInfo.offsetY;
       const dayWidth = rect.width / visibleDays.length;
       const rawDayIndex = Math.floor(x / dayWidth);
       const nextDayIndex = Math.min(visibleDays.length - 1, Math.max(0, rawDayIndex));
@@ -785,9 +839,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleUp);
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
     };
   }, [draggingEventId, onEventDragEnd, onEventTimeChange, hourRange, startHour, visibleDays.length]);
 
@@ -855,6 +913,42 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     e.stopPropagation();
   };
 
+  // Touch handler for mobile dragging
+  const handleEventTouchStart = (event: CalendarEvent, e: React.TouchEvent<HTMLDivElement>) => {
+    if (!interactive || !onEventTimeChange || selectedEventId !== event.id) return;
+    if (!dayColumnsRef.current) return;
+    if (e.touches.length !== 1) return; // Only single touch
+
+    const touch = e.touches[0];
+    const startVal = parseTimeToHours(event.startTime);
+    const endVal = parseTimeToHours(event.endTime);
+    const alignedStart = roundToNearestHalfHour(startVal);
+    const alignedEnd = roundToNearestHalfHour(endVal);
+    const durationHours = Math.max(0.5, alignedEnd - alignedStart);
+
+    const rect = dayColumnsRef.current.getBoundingClientRect();
+    const eventTop = ((alignedStart - startHour) / hourRange) * rect.height;
+    const offsetY = touch.clientY - (rect.top + eventTop);
+
+    dragInfoRef.current = {
+      eventId: event.id,
+      durationHours,
+      offsetY,
+      original: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
+      latest: {
+        startTime: event.startTime,
+        endTime: event.endTime,
+        dayIndex: event.dayIndex,
+      },
+    };
+    setDraggingEventId(event.id);
+    setHoveredSlot(null);
+  };
+
   // Render background layer component
   const renderBackgroundLayer = () => (
     <div
@@ -917,7 +1011,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       } else if (variant === 'light') {
         outerBgStyle.background = '#ffffff';
       } else {
-        outerBgStyle.background = '#111827';
+        // Use theme calendar card background color
+        outerBgStyle.background = `var(--calendar-card-background, ${siteTheme.surface.calendarCard})`;
       }
     }
 
@@ -931,7 +1026,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         style={{
           width: `${backgroundDimensions.width}px`,
           height: `${backgroundDimensions.height}px`,
-          borderRadius: template.borderRadius,
+          borderRadius: overrideBorderRadius || template.borderRadius,
           ...outerBgStyle,
         }}
         onClick={(e: React.MouseEvent) => {
@@ -949,9 +1044,21 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           }
         }}
       >
-        {/* Background fills the outer container (only when there's an image or color background) */}
-        {template.backgroundType !== 'none' && renderBackgroundLayer()}
-        {/* Calendar card positioned within */}
+        {/* Background clipper - ONLY clips the background layer, not content or callouts */}
+        <div
+          data-component="BackgroundClipper"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: mockupClipBorderRadius || 'inherit',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Background fills the outer container (only when there's an image or color background) */}
+          {template.backgroundType !== 'none' && renderBackgroundLayer()}
+        </div>
+        {/* Calendar card positioned within - NOT inside clipper so callouts can escape */}
         <div
           data-component="CalendarCardWrapper"
           className={`transition-all duration-200 ease-in relative ${
@@ -983,6 +1090,42 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           )}
           {children}
         </div>
+        {/* Mockup overlay - renders between events and callouts/selection for proper z-layering */}
+        {mockupOverlay}
+        {/* Time column onboarding callout - positioned at top level to escape stacking contexts */}
+        {isOnboardingActive('timeColumn') && (
+          <div
+            data-component="OnboardingCallout-timeColumn"
+            style={{
+              position: 'absolute',
+              left: cardDimensions.x + 32 + 48, // card padding (32px) + time column width (48px) = right edge
+              top: cardTop + 46 + cardDimensions.gridHeight / 2, // header area (~46px) + half grid height
+              transform: 'translateY(-50%)',
+              zIndex: 200,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-0">
+              {/* Arrow pointing left */}
+              <div
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderTop: '6px solid transparent',
+                  borderBottom: '6px solid transparent',
+                  borderRight: '8px solid rgba(245, 158, 11, 0.4)',
+                }}
+              />
+              <div className="relative group bg-amber-500/20 border border-amber-500/35 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md max-w-[350px]">
+                <p className="break-words">
+                  <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />
+                  Click to edit time labels
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Selection overlay for CC resizing - dotted lines with corner extensions and arrows */}
         {isCalendarCardSelected && (() => {
           const cardLeft = cardDimensions.x;
@@ -1019,7 +1162,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-x',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1032,7 +1175,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(90deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-x',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1045,7 +1188,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-y',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
               <div
@@ -1058,7 +1201,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   backgroundImage: `repeating-linear-gradient(180deg, ${lineColor} 0 ${dashLength}px, transparent ${dashLength}px ${dashLength + dashGap}px)`,
                   backgroundRepeat: 'repeat-y',
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               />
 
@@ -1069,7 +1212,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   left: arrowLeft,
                   top: topArrowTop,
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               >
                 <MoveUp size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
@@ -1080,7 +1223,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   left: arrowLeft,
                   top: bottomArrowTop,
                   pointerEvents: 'none',
-                  zIndex: 100,
+                  zIndex: 200,
                 }}
               >
                 <MoveDown size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
@@ -1183,7 +1326,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               border: '3px dotted rgba(168, 85, 247, 0.6)',
               borderRadius: template.borderRadius,
               pointerEvents: 'none',
-              zIndex: 50,
+              zIndex: 200,
             }}
           />
         )}
@@ -1202,7 +1345,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               border: '2px solid rgba(59, 130, 246, 0.55)',
               borderRadius: template.borderRadius,
               pointerEvents: 'none',
-              zIndex: 70,
+              zIndex: 200,
             }}
           />
         )}
@@ -1281,6 +1424,19 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           onCalendarCardSelect();
         }
       }}
+      onTouchEnd={(e: React.TouchEvent) => {
+        // Only trigger card selection if tapping on the card background (not on events/header/time column)
+        const target = e.target as HTMLElement;
+        const isEventBlock = target.closest('[data-component="EventBlock"]');
+        const isDayHeader = target.closest('[data-component="DayHeader"]');
+        const isTimeColumn = target.closest('[data-component="TimeColumn"]');
+        const isEmptySlot = target.closest('[data-component="EmptySlot"]');
+
+        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive && onCalendarCardSelect) {
+          e.stopPropagation();
+          onCalendarCardSelect();
+        }
+      }}
     >
       {/* BACKGROUND LAYER - Renders background image or color (only when not using outer container) */}
       {template.backgroundType !== 'none' && !useOuterContainer && renderBackgroundLayer()}
@@ -1295,6 +1451,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
           <div className="w-12 shrink-0"></div>
           <div
             onClick={() => interactive && onHeaderClick && onHeaderClick()}
+            onTouchEnd={(e: React.TouchEvent) => {
+              if (interactive && onHeaderClick) {
+                e.preventDefault();
+                e.stopPropagation();
+                onHeaderClick();
+              }
+            }}
             onMouseEnter={() => {
               if (interactive && onHeaderClick) {
                 setHoveredComponent('dayHeader');
@@ -1401,6 +1564,13 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         <div
           data-component="TimeColumn"
           onClick={() => interactive && onTimeColumnClick && onTimeColumnClick()}
+          onTouchEnd={(e: React.TouchEvent) => {
+            if (interactive && onTimeColumnClick) {
+              e.preventDefault();
+              e.stopPropagation();
+              onTimeColumnClick();
+            }
+          }}
           onMouseEnter={() => {
             if (interactive && onTimeColumnClick) {
               setHoveredComponent('timeColumn');
@@ -1456,9 +1626,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 key={hour}
                 style={{
                   height: `${cardDimensions.gridHeight / hourRange}px`,
-                  ...(template.timeColumnTextColor ? { color: template.timeColumnTextColor } : {}),
+                  color: template.timeColumnTextColor || textColorPreset.timeColumnColor,
                 }}
-                className={hourTextColor}
               >
                 {isCellBlur ? (
                   <span
@@ -1486,34 +1655,6 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
               </div>
             );
           })}
-          {/* Onboarding callout for time column */}
-          {isOnboardingActive('timeColumn') && (
-            <div
-              data-component="OnboardingCallout-timeColumn"
-              className="absolute -left-2 top-1/2 -translate-y-1/2 -translate-x-full z-[200]"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-0">
-                <div className="relative group bg-amber-500/20 border border-amber-500/35 rounded-lg p-2.5 text-xs text-amber-200/90 backdrop-blur-md max-w-[350px]">
-                  <p className="break-words">
-                    <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-amber-400" />
-                    Click to edit time labels
-                  </p>
-                </div>
-                {/* Arrow pointing right */}
-                <div
-                  style={{
-                    width: 0,
-                    height: 0,
-                    borderTop: '6px solid transparent',
-                    borderBottom: '6px solid transparent',
-                    borderLeft: '8px solid rgba(245, 158, 11, 0.4)',
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* DAY COLUMNS CONTAINER - Contains grid lines and event blocks */}
@@ -1549,6 +1690,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 style={{ height: `${cardDimensions.gridHeight}px` }}
                 onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                   if (interactive && onBlankClick && e.target === e.currentTarget) {
+                    onBlankClick();
+                  }
+                }}
+                onTouchEnd={(e: React.TouchEvent<HTMLDivElement>) => {
+                  if (interactive && onBlankClick && e.target === e.currentTarget) {
+                    e.stopPropagation();
                     onBlankClick();
                   }
                 }}
@@ -1609,9 +1756,18 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         data-event-id={event.id}
                         onClick={() => interactive && onEventClick && onEventClick(event)}
                         onMouseDown={(e) => handleEventMouseDown(event, e)}
+                        onTouchStart={(e) => handleEventTouchStart(event, e)}
+                        onTouchEnd={(e: React.TouchEvent) => {
+                          // Handle tap on mobile - only trigger if not dragging
+                          if (interactive && onEventClick && !isDragging && selectedEventId !== event.id) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onEventClick(event);
+                          }
+                        }}
                         className={`absolute left-1 right-1 rounded-md p-1.5 shadow-sm border flex flex-col
                           ${template.textAlignVertical === 'center' ? 'justify-center' : template.textAlignVertical === 'bottom' ? 'justify-end' : 'justify-start'}
-                          ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-50 transition-all' : ''}
+                          ${interactive ? 'cursor-pointer hover:brightness-110 hover:shadow-md hover:z-[200] transition-all' : ''}
                           ${canDrag ? 'cursor-grab' : ''}
                           ${isDragging ? 'cursor-grabbing' : ''}
                           ${event.isConfidenceLow && interactive ? 'ring-2 ring-red-500 ring-offset-1' : ''}
@@ -1728,18 +1884,22 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                         {!hideTextContent && (
                           <div
                             className="flex flex-col min-w-0 overflow-hidden gap-0 relative z-10"
-                            style={{ textAlign: template.textAlignHorizontal }}
+                            style={{
+                              textAlign: template.textAlignHorizontal,
+                              // Add padding for italic text overhang, especially when right-aligned
+                              paddingRight: (template.titleItalic || template.subtitleItalic) && template.textAlignHorizontal === 'right' ? '0.15em' : undefined,
+                            }}
                           >
                             <div
-                              className="leading-none uppercase tracking-wide break-words"
+                              className="leading-none uppercase tracking-wide"
                               style={{
+                                wordBreak: 'keep-all',
+                                overflowWrap: 'normal',
                                 fontSize: `${template.titleFontSize}px`,
                                 fontFamily: template.titleFont,
                                 fontWeight: template.titleBold ? 700 : 400,
                                 fontStyle: template.titleItalic ? 'italic' : 'normal',
-                                color: template.titleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                  ? currentTheme.eventBlock.titleColor
-                                  : '#1f2937')
+                                color: template.titleTextColor || textColorPreset.titleColor
                               }}
                               title={showFullTitle ? event.title : event.displayTitle}
                             >
@@ -1755,9 +1915,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                                   fontFamily: template.subtitleFont,
                                   fontWeight: template.subtitleBold ? 600 : 400,
                                   fontStyle: template.subtitleItalic ? 'italic' : 'normal',
-                                  color: template.subtitleTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                    ? currentTheme.eventBlock.subtitleColor
-                                    : '#1f2937'),
+                                  color: template.subtitleTextColor || textColorPreset.subtitleColor,
                                   marginTop: '2px'
                                 }}
                               >
@@ -1775,11 +1933,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                               fontFamily: template.detailsFont,
                               fontWeight: template.detailsBold ? 600 : 400,
                               fontStyle: template.detailsItalic ? 'italic' : 'normal',
-                              color: template.detailsTextColor || (template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain'
-                                ? currentTheme.eventBlock.detailsColor
-                                : '#374151'),
+                              color: template.detailsTextColor || textColorPreset.detailsColor,
                               marginTop: '2px',
                               textAlign: template.textAlignHorizontal,
+                              // Add padding for italic text overhang, especially when right-aligned
+                              paddingRight: template.detailsItalic && template.textAlignHorizontal === 'right' ? '0.15em' : undefined,
                             }}
                           >
                             {template.showTime && (
@@ -1789,10 +1947,17 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                             )}
 
                             {template.showLocation && event.location && (
-                              <div className={`flex items-start gap-1 opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'justify-center' : template.textAlignHorizontal === 'right' ? 'justify-end' : ''}`}>
-                                <MapPin size={10} className="mt-0.5 shrink-0" />
-                                <span className="break-words">{event.location}</span>
-                              </div>
+                              template.textAlignHorizontal === 'left' ? (
+                                <div className="flex items-start gap-1 opacity-75 w-full">
+                                  <MapPin size={10} className="mt-0.5 shrink-0" />
+                                  <span className="break-words leading-tight">{event.location}</span>
+                                </div>
+                              ) : (
+                                <div className={`opacity-75 w-full ${template.textAlignHorizontal === 'center' ? 'text-center' : 'text-right'}`}>
+                                  <MapPin size={10} className="inline-block align-middle mr-1" />
+                                  <span className="break-words leading-tight">{event.location}</span>
+                                </div>
+                              )
                             )}
 
                             {(event.includeNotes ?? template.showNotes) && event.notes && (

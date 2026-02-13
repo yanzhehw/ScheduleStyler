@@ -19,9 +19,12 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "framer-motion": "^12.33.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-router-dom": "^7.13.0",
+    "styled-components": "^6.3.8",
     "tailwindcss": "^4.1.18",
     "vite-imagetools": "^9.0.2"
   },

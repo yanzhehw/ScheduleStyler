@@ -106,19 +106,22 @@ export const VerticalSlider: React.FC<VerticalSliderProps> = ({
     >
       {/* Track */}
       <div
-        className="absolute inset-0 bg-gray-500 rounded-full"
+        className="absolute inset-0 rounded-full"
         style={{
           width: `${trackWidth}px`,
           height: `${height}px`,
+          backgroundColor: 'var(--slider-track)',
         }}
       />
       {/* Thumb */}
       <div
-        className="absolute left-0 bg-gray-800 rounded-full transition-colors hover:bg-gray-700"
+        className="absolute left-0 rounded-full transition-all"
         style={{
           width: `${trackWidth}px`,
           height: `${thumbHeight}px`,
           bottom: `${thumbBottom}%`,
+          background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
+          boxShadow: '0 0 8px rgba(var(--accent-primary-rgb), 0.5)',
         }}
       />
     </div>

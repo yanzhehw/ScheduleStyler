@@ -10,6 +10,9 @@ import * as redeem from "../api/redeem";
 import * as markUsed from "../api/mark-used";
 import * as backgroundsIndex from "../api/backgrounds/index";
 import * as backgroundsFile from "../api/backgrounds/[type]/[filename]";
+import * as examplesIndex from "../api/examples/index";
+import * as examplesFile from "../api/examples/[type]/[filename]";
+import * as extract from "../api/extract/index";
 import * as trackDownload from "../api/track/download";
 import * as trackUser from "../api/track/user";
 import * as trackStats from "../api/track/stats";
@@ -23,13 +26,16 @@ app.use(cors({
   origin: ["http://localhost:5173", "http://localhost:3000"],
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased for base64 image uploads
 
 // Routes - adapted from Vercel serverless functions
 app.all("/api/redeem", adaptVercelHandler(redeem));
 app.all("/api/mark-used", adaptVercelHandler(markUsed));
 app.all("/api/backgrounds", adaptVercelHandler(backgroundsIndex));
 app.all("/api/backgrounds/:type/:filename", adaptVercelHandlerWithParams(backgroundsFile));
+app.all("/api/examples", adaptVercelHandler(examplesIndex));
+app.all("/api/examples/:type/:filename", adaptVercelHandlerWithParams(examplesFile));
+app.all("/api/extract", adaptVercelHandler(extract));
 app.all("/api/track/download", adaptVercelHandler(trackDownload));
 app.all("/api/track/user", adaptVercelHandler(trackUser));
 app.all("/api/track/stats", adaptVercelHandler(trackStats));

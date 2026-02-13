@@ -3,24 +3,119 @@
 
 /* Tailwind v4 Theme Configuration */
 @theme {
-  /* Custom gray shades */
-  --color-gray-750: #2d3748;
-  --color-gray-850: #1a202c;
-  --color-gray-950: #0d1117;
+  /* Custom gray shades - NEUTRAL DARK */
+  --color-gray-750: #2a2a2a;
+  --color-gray-850: #1a1a1a;
+  --color-gray-950: #141414;
 
-  /* Brand colors */
-  --color-brand-primary: #3b82f6;
-  --color-brand-secondary: #8b5cf6;
-  --color-brand-accent: #06b6d4;
+  /* Brand colors - kept for backward compatibility */
+  --color-brand-primary: #dadada;
+  --color-brand-secondary: #e0c28e;
+  --color-brand-accent: #f8d9a4;
 
-  /* Surface colors */
-  --color-surface-dark: #0f172a;
-  --color-surface-card: #1e293b;
-  --color-surface-elevated: #334155;
+  /* Surface colors - NEUTRAL DARK */
+  --color-surface-dark: #141414;
+  --color-surface-card: #1e1e1e;
+  --color-surface-elevated: #2a2a2a;
 
   /* Fonts */
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', Menlo, monospace;
+}
+
+/*
+ * =============================================
+ * SITE THEME VARIABLES - Edit these to A/B test
+ * =============================================
+ * To change the entire site's accent color scheme,
+ * simply modify the values below.
+ *
+ * See lib/site_themes.ts for predefined themes.
+ */
+:root {
+  /* Primary Accent Colors - from dark1Theme */
+  --accent-primary: #dadada;
+  --accent-secondary: #e0c28e;
+  --accent-glow: #f8d9a481;
+
+  /* RGB values for rgba() usage */
+  --accent-primary-rgb: 218, 218, 218;
+  --accent-secondary-rgb: 224, 194, 142;
+  --accent-glow-rgb: 248, 217, 164;
+
+  /* Surface Colors - from dark1Theme.surface */
+  --surface-app: #09090b;
+  --surface-header: rgba(34, 43, 49, 0.5);
+  --surface-card: #1e293b;
+  --surface-elevated: #2b3b43;
+  --surface-input: #192626;
+  --surface-input-border: #374151;
+  --calendar-card-background: #0d1a1a40;
+
+  /* Text Colors - from dark1Theme.text */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-on-accent: #09090b;
+
+  /* Semantic Colors - from dark1Theme.semantic */
+  --color-error: #ef4444;
+  --color-error-muted: #fecaca;
+  --color-warning: #f59e0b;
+  --color-success: #22c55e;
+  --color-success-muted: #bbf7d0;
+  --color-info: #3b82f6;
+
+  /* Border Colors - from dark1Theme.border */
+  --border-default: #374951;
+  --border-muted: #1f2937;
+  --border-accent: #4e8ff8;
+
+  /* Sidebar/Panel Colors - from dark1Theme.sidebar */
+  --sidebar-background: #141414;
+  --sidebar-border: #1f2937;
+  --sidebar-header-bg: #111827;
+  --panel-background: #141414;
+  --panel-border: #1f2937;
+  --panel-header-bg: #111827;
+
+  /* Card Section Colors - from dark1Theme.sidebar.cardSection */
+  --card-section-background: #1e1e1e;
+  --card-section-border: #374951;
+
+  /* Upload Box Colors - from dark1Theme.uploadBox */
+  --upload-box-background: #161616;
+  --upload-box-border: #4b5563;
+  --upload-box-hover-border: #ffdca1;
+  --upload-box-hover-background: #1f2937;
+
+  /* Toolbar/Zoom Controls Colors - from dark1Theme.zoomControls */
+  --toolbar-background: rgba(22, 22, 24, 0.69);
+  --toolbar-border: rgba(85, 85, 85, 0.7);
+  --toolbar-button-bg: rgba(37, 37, 41, 0.69);
+  --toolbar-button-hover-bg: rgba(71, 72, 72, 0.8);
+
+  /* Pill Colors - from dark1Theme.pill */
+  --pill-background: #161618;
+  --pill-border: #374b51;
+
+  /* Toggle/Slider Colors - from dark1Theme.widget */
+  --toggle-off-bg: #313a48;
+  --slider-track: #313a48;
+
+  /* Popup Colors - from dark1Theme.popup */
+  --popup-background: #111827;
+  --popup-border: #374d51;
+  --popup-overlay: rgba(0, 0, 0, 0.55);
+
+  /* Button Colors - from dark1Theme.accent */
+  --button-ghost: #29353d;
+  --button-ghost-hover: #383e48;
+
+  /* Tab Colors - from dark1Theme.pill.selected */
+  --tab-active-bg: #263a40;
+  --tab-inactive-text: #80999f;
+  --tab-hover-text: #e2e8f0;
 }
 
 /* Source paths for Tailwind to scan */
@@ -37,12 +132,42 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-surface-dark);
-    color: #f8fafc;
+    background-color: var(--surface-app);
+    color: var(--text-primary);
   }
 
   ::selection {
-    background-color: rgb(59 130 246 / 0.3);
+    background-color: rgba(var(--accent-primary-rgb), 0.3);
+  }
+
+  /* Global scrollbar styles - applies to all scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-elevated) var(--surface-card);
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--surface-card);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--surface-elevated);
+    border-radius: 4px;
+    border: 2px solid var(--surface-card);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--surface-card);
   }
 }
 
@@ -50,7 +175,7 @@
 @layer utilities {
   .scrollbar-custom {
     scrollbar-width: thin;
-    scrollbar-color: #475569 #1e293b;
+    scrollbar-color: #475569 var(--surface-card);
   }
 
   .scrollbar-custom::-webkit-scrollbar {
@@ -59,7 +184,7 @@
   }
 
   .scrollbar-custom::-webkit-scrollbar-track {
-    background: #1e293b;
+    background: var(--surface-card);
     border-radius: 4px;
   }
 
@@ -69,7 +194,7 @@
   }
 
   .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
+    background: var(--text-muted);
   }
 }
 
@@ -87,3 +212,390 @@
   animation: shimmer var(--shimmer-duration, 2s) linear infinite;
 }
 
+/* =============================================
+ * ACCENT COLOR COMPONENTS
+ * These all use CSS variables for easy theming
+ * =============================================
+ */
+
+/* Glow Button - Primary CTA with glow effect */
+.glow-btn {
+  position: relative;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-on-accent);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-glow) 100%);
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow:
+    0 0 20px rgba(var(--accent-primary-rgb), 0.4),
+    0 0 40px rgba(var(--accent-glow-rgb), 0.2),
+    0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.glow-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.glow-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 30px rgba(var(--accent-primary-rgb), 0.6),
+    0 0 60px rgba(var(--accent-glow-rgb), 0.4),
+    0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.glow-btn:hover::before {
+  left: 100%;
+}
+
+.glow-btn:active,
+.glow-btn[data-state="clicked"] {
+  transform: translateY(0) scale(0.98);
+  box-shadow:
+    0 0 15px rgba(var(--accent-primary-rgb), 0.5),
+    0 0 30px rgba(var(--accent-glow-rgb), 0.3),
+    0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.glow-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.glow-btn:disabled:hover {
+  transform: none;
+  box-shadow:
+    0 0 20px rgba(var(--accent-primary-rgb), 0.4),
+    0 0 40px rgba(var(--accent-glow-rgb), 0.2),
+    0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Toggle Switch Background */
+.toggle-accent-bg {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  box-shadow: 0 0 12px rgba(var(--accent-primary-rgb), 0.4);
+}
+
+/* Standard Accent Button */
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
+  box-shadow:
+    0 0 15px rgba(var(--accent-primary-rgb), 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.btn-accent:hover {
+  box-shadow:
+    0 0 20px rgba(var(--accent-primary-rgb), 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-accent:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 10px rgba(var(--accent-primary-rgb), 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Step Indicator (Upload/Edit/Export) */
+.step-indicator-active {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
+  box-shadow:
+    0 0 15px rgba(var(--accent-primary-rgb), 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* GitHub Star Button */
+.github-star-btn {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: var(--text-on-accent) !important;
+  border: 1px solid rgba(var(--accent-secondary-rgb), 0.5);
+  box-shadow:
+    0 0 20px rgba(var(--accent-primary-rgb), 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.github-star-btn:hover {
+  box-shadow:
+    0 0 25px rgba(var(--accent-primary-rgb), 0.6),
+    0 6px 16px rgba(0, 0, 0, 0.3);
+  transform: scale(1.02);
+}
+
+.github-star-btn:active {
+  transform: scale(0.98);
+}
+
+/* Slider Thumb Styling */
+.slider-accent {
+  accent-color: var(--accent-primary);
+}
+
+.slider-accent::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(var(--accent-primary-rgb), 0.5);
+  border: none;
+}
+
+.slider-accent::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(var(--accent-primary-rgb), 0.5);
+  border: none;
+}
+
+/* Glass Radio Group Glider */
+.glass-glider-accent {
+  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.33), var(--accent-secondary));
+  box-shadow:
+    0 0 18px rgba(var(--accent-primary-rgb), 0.5),
+    0 0 10px rgba(var(--accent-secondary-rgb), 0.4) inset;
+}
+
+/* Upload Box / Dropzone Theming */
+.dropzone-themed {
+  background-color: var(--upload-box-background);
+  border-color: var(--upload-box-border);
+}
+
+.dropzone-themed:hover {
+  border-color: var(--upload-box-hover-border);
+  background-color: var(--upload-box-hover-background);
+}
+
+/* Toolbar Theming */
+.toolbar-themed {
+  background-color: var(--toolbar-background);
+  border-color: var(--toolbar-border);
+  backdrop-filter: blur(12px);
+}
+
+.toolbar-button-themed {
+  background-color: var(--toolbar-button-bg);
+  border-color: var(--toolbar-border);
+}
+
+.toolbar-button-themed:hover {
+  background-color: var(--toolbar-button-hover-bg);
+}
+
+/* Card Section Theming (sidebar sections) */
+.card-section-themed {
+  background-color: var(--card-section-background);
+  border-color: var(--card-section-border);
+}
+
+/* Pill Theming */
+.pill-themed {
+  background-color: var(--pill-background);
+  border-color: var(--pill-border);
+}
+
+/* Input Theming */
+.input-themed {
+  background-color: var(--surface-input);
+  border: 1px solid var(--surface-input-border);
+}
+
+.input-themed:focus {
+  border-color: var(--border-accent);
+}
+
+/* Number Input - Hide native spinners (using custom spinners) */
+.font-size-input {
+  -moz-appearance: textfield;
+}
+
+.font-size-input::-webkit-outer-spin-button,
+.font-size-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Toggle Off State */
+.toggle-off-bg {
+  background-color: var(--toggle-off-bg);
+}
+
+/* Popup Theming */
+.popup-themed {
+  background-color: var(--popup-background);
+  border-color: var(--popup-border);
+}
+
+.popup-overlay-themed {
+  background-color: var(--popup-overlay);
+}
+
+/* Slider Track Theming */
+.slider-track-themed {
+  background-color: var(--slider-track);
+}
+
+/* Ghost Button Theming */
+.button-ghost-themed {
+  background-color: var(--button-ghost);
+}
+
+.button-ghost-themed:hover {
+  background-color: var(--button-ghost-hover);
+}
+
+/* Tab Button Theming */
+.tab-active-themed {
+  background-color: var(--tab-active-bg);
+}
+
+.tab-inactive-themed {
+  color: var(--tab-inactive-text);
+}
+
+.tab-inactive-themed:hover {
+  color: var(--tab-hover-text);
+}
+
+/* =============================================
+ * MOBILE RESPONSIVE STYLES
+ * =============================================
+ */
+
+/* Safe area padding for devices with notches/home indicators */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Mobile footer toolbar active tab */
+.mobile-tab-active {
+  position: relative;
+}
+
+.mobile-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+}
+
+/* Mobile-specific scrollbar (thinner) */
+@media (max-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #374151;
+  }
+
+  /* Prevent body scroll when modal is open */
+  body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* Touch-friendly tap targets */
+  button,
+  [role="button"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Smaller min-height for inline buttons */
+  .inline-btn {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Hide desktop sidebar on mobile */
+@media (max-width: 768px) {
+  [data-component="ExportSidebar"],
+  [data-component="EditSidebar"] {
+    display: none;
+  }
+}
+
+/* Mobile panel slide-up animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Mobile touch feedback */
+@media (max-width: 768px) {
+  .touch-feedback:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Adjust header for mobile */
+@media (max-width: 768px) {
+  header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Hide step indicators text on very small screens */
+  @media (max-width: 480px) {
+    .step-indicator-active,
+    .step-indicator {
+      padding: 0.5rem;
+      font-size: 0.7rem;
+    }
+  }
+}
