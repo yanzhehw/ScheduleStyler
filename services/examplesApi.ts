@@ -6,6 +6,7 @@
 export interface ExampleImage {
   id: string;
   url: string;
+  webpUrl?: string;
   name: string;
   type: 'products' | 'texture';
 }

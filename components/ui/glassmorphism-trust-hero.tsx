@@ -13,7 +13,7 @@ import {
   Gem,
   Cpu
 } from "lucide-react";
-import heroImage from "../../assets/examples/hero_1.png";
+import heroImage from "../../assets/examples/okok.webp";
 
 // --- MOCK BRANDS ---
 // Replaced PNGs with Lucide icons to simulate tech logos
@@ -41,7 +41,7 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onGetStarted }: HeroSectionProps) {
   return (
-    <div className="relative w-full bg-zinc-950 text-white overflow-hidden font-sans">
+    <div className="relative grid h-full w-full place-items-center bg-zinc-950 text-white overflow-hidden font-sans">
       {/*
         SCOPED ANIMATIONS
       */}
@@ -66,6 +66,18 @@ export default function HeroSection({ onGetStarted }: HeroSectionProps) {
         .delay-300 { animation-delay: 0.3s; }
         .delay-400 { animation-delay: 0.4s; }
         .delay-500 { animation-delay: 0.5s; }
+
+        /* Add more left padding below 1300px */
+        @media (max-width: 1300px) {
+          .hero-left-column {
+            padding-left: 4rem;
+          }
+        }
+        @media (max-width: 768px) {
+          .hero-left-column {
+            padding-left: 0;
+          }
+        }
       `}</style>
 
       {/* Background Image with Gradient Mask */}
@@ -79,11 +91,11 @@ export default function HeroSection({ onGetStarted }: HeroSectionProps) {
 
 
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 pt-24 pb-12 sm:px-6 md:pt-32 md:pb-20 lg:px-8">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8 items-start">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16 lg:px-8">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-0 items-center">
 
           {/* --- LEFT COLUMN --- */}
-          <div className="lg:col-span-6 flex flex-col justify-center space-y-8 pt-8">
+          <div className="hero-left-column lg:col-span-6 flex flex-col justify-center space-y-8 pt-8 relative z-10">
 
             {/* Badge */}
             <div className="animate-fade-in delay-100">
@@ -132,14 +144,14 @@ export default function HeroSection({ onGetStarted }: HeroSectionProps) {
           </div>
 
           {/* --- RIGHT COLUMN --- */}
-          <div className="lg:col-span-6 relative">
+          <div className="lg:col-span-6 relative z-0 lg:-ml-8 py-8">
 
             {/* Hero Image */}
             <div className="animate-fade-in delay-500">
               <img
                 src={heroImage}
-                alt="ScheduleStyler preview"
-                className="rounded-3xl shadow-2xl w-full"
+                alt="Before-After Comparison preview"
+                className="rounded-3xl shadow-2xl w-full pointer-events-none"
               />
             </div>
 

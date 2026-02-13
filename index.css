@@ -3,20 +3,20 @@
 
 /* Tailwind v4 Theme Configuration */
 @theme {
-  /* Custom gray shades */
-  --color-gray-750: #2d3748;
-  --color-gray-850: #1a202c;
-  --color-gray-950: #0d1117;
+  /* Custom gray shades - NEUTRAL DARK */
+  --color-gray-750: #2a2a2a;
+  --color-gray-850: #1a1a1a;
+  --color-gray-950: #141414;
 
   /* Brand colors - kept for backward compatibility */
-  --color-brand-primary: #3b82f6;
-  --color-brand-secondary: #8b5cf6;
-  --color-brand-accent: #06b6d4;
+  --color-brand-primary: #dadada;
+  --color-brand-secondary: #e0c28e;
+  --color-brand-accent: #f8d9a4;
 
-  /* Surface colors */
-  --color-surface-dark: #0f172a;
-  --color-surface-card: #1e293b;
-  --color-surface-elevated: #334155;
+  /* Surface colors - NEUTRAL DARK */
+  --color-surface-dark: #141414;
+  --color-surface-card: #1e1e1e;
+  --color-surface-elevated: #2a2a2a;
 
   /* Fonts */
   --font-sans: 'Inter', system-ui, sans-serif;
@@ -33,93 +33,88 @@
  * See lib/site_themes.ts for predefined themes.
  */
 :root {
-  /* Primary Accent Colors - TEAL THEME */
-  --accent-primary: #14b8a6;
-  --accent-secondary: #5eead4;
-  --accent-glow: #2dd4bf;
+  /* Primary Accent Colors - from dark1Theme */
+  --accent-primary: #dadada;
+  --accent-secondary: #e0c28e;
+  --accent-glow: #f8d9a481;
 
   /* RGB values for rgba() usage */
-  --accent-primary-rgb: 20, 184, 166;
-  --accent-secondary-rgb: 94, 234, 212;
-  --accent-glow-rgb: 45, 212, 191;
+  --accent-primary-rgb: 218, 218, 218;
+  --accent-secondary-rgb: 224, 194, 142;
+  --accent-glow-rgb: 248, 217, 164;
 
-  /* Surface Colors - TEAL THEME */
-  --surface-app: #0a1a1a;
-  --surface-card: #142525;
-  --surface-elevated: #1f3d3d;
-  --surface-input: #1a2e2e;
-  --surface-input-border: #2d4a4a;
+  /* Surface Colors - from dark1Theme.surface */
+  --surface-app: #09090b;
+  --surface-header: rgba(34, 43, 49, 0.5);
+  --surface-card: #1e293b;
+  --surface-elevated: #2b3b43;
+  --surface-input: #192626;
+  --surface-input-border: #374151;
+  --calendar-card-background: #0d1a1a40;
 
-  /* Text Colors */
+  /* Text Colors - from dark1Theme.text */
   --text-primary: #f8fafc;
-  --text-secondary: #94b8b8;
-  --text-muted: #648080;
-  --text-on-accent: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-on-accent: #09090b;
 
-  /* Semantic Colors */
+  /* Semantic Colors - from dark1Theme.semantic */
   --color-error: #ef4444;
   --color-error-muted: #fecaca;
   --color-warning: #f59e0b;
   --color-success: #22c55e;
   --color-success-muted: #bbf7d0;
-  --color-info: #14b8a6;
+  --color-info: #3b82f6;
 
-  /* Border Colors - TEAL THEME */
-  --border-default: #2d4a4a;
-  --border-muted: #1f3d3d;
-  --border-accent: #14b8a6;
+  /* Border Colors - from dark1Theme.border */
+  --border-default: #374951;
+  --border-muted: #1f2937;
+  --border-accent: #4e8ff8;
 
-  /* Panel Colors - TEAL THEME */
-  --panel-background: #0d1a1a;
-  --panel-border: #1a2e2e;
-  --panel-header-bg: #0d1a1a;
+  /* Sidebar/Panel Colors - from dark1Theme.sidebar */
+  --sidebar-background: #141414;
+  --sidebar-border: #1f2937;
+  --sidebar-header-bg: #111827;
+  --panel-background: #141414;
+  --panel-border: #1f2937;
+  --panel-header-bg: #111827;
 
-  /* Highlight Section Colors - TEAL THEME */
-  --highlight-gradient-from: rgba(13, 78, 72, 0.3);
-  --highlight-gradient-to: rgba(17, 94, 89, 0.2);
-  --highlight-border: rgba(20, 115, 108, 0.5);
+  /* Card Section Colors - from dark1Theme.sidebar.cardSection */
+  --card-section-background: #1e1e1e;
+  --card-section-border: #374951;
 
-  /* Dropzone Colors - TEAL THEME */
-  --dropzone-background: #0d1a1a;
-  --dropzone-border: #4b5563;
-  --dropzone-hover-border: #2dd4bf;
-  --dropzone-hover-background: #1a2e2e;
+  /* Upload Box Colors - from dark1Theme.uploadBox */
+  --upload-box-background: #161616;
+  --upload-box-border: #4b5563;
+  --upload-box-hover-border: #ffdca1;
+  --upload-box-hover-background: #1f2937;
 
-  /* Toolbar Colors - TEAL THEME */
-  --toolbar-background: rgba(13, 26, 26, 0.7);
-  --toolbar-border: rgba(45, 74, 74, 0.7);
-  --toolbar-button-bg: rgba(26, 46, 46, 0.8);
-  --toolbar-button-hover-bg: rgba(31, 61, 61, 0.8);
+  /* Toolbar/Zoom Controls Colors - from dark1Theme.zoomControls */
+  --toolbar-background: rgba(22, 22, 24, 0.69);
+  --toolbar-border: rgba(85, 85, 85, 0.7);
+  --toolbar-button-bg: rgba(37, 37, 41, 0.69);
+  --toolbar-button-hover-bg: rgba(71, 72, 72, 0.8);
 
-  /* Card Section Colors - TEAL THEME */
-  --card-section-background: rgba(26, 46, 46, 0.5);
-  --card-section-border: #2d4a4a;
+  /* Pill Colors - from dark1Theme.pill */
+  --pill-background: #161618;
+  --pill-border: #374b51;
 
-  /* Pill Colors - TEAL THEME */
-  --pill-background: rgba(26, 46, 46, 0.5);
-  --pill-border: #2d4a4a;
+  /* Toggle/Slider Colors - from dark1Theme.widget */
+  --toggle-off-bg: #313a48;
+  --slider-track: #313a48;
 
-  /* Calendar Card Colors - TEAL THEME */
-  --calendar-card-background: #141515;
+  /* Popup Colors - from dark1Theme.popup */
+  --popup-background: #111827;
+  --popup-border: #374d51;
+  --popup-overlay: rgba(0, 0, 0, 0.55);
 
-  /* Toggle Colors - TEAL THEME */
-  --toggle-off-bg: #2d4a4a;
+  /* Button Colors - from dark1Theme.accent */
+  --button-ghost: #29353d;
+  --button-ghost-hover: #383e48;
 
-  /* Modal Colors - TEAL THEME */
-  --modal-background: #0d1a1a;
-  --modal-border: #2d4a4a;
-  --modal-overlay: rgba(0, 0, 0, 0.55);
-
-  /* Slider Colors - TEAL THEME */
-  --slider-track: #2d4a4a;
-
-  /* Button Colors - TEAL THEME */
-  --button-ghost: #2d4a4a;
-  --button-ghost-hover: #3d5a5a;
-
-  /* Tab Colors - TEAL THEME */
-  --tab-active-bg: #1a2e2e;
-  --tab-inactive-text: #94b8b8;
+  /* Tab Colors - from dark1Theme.pill.selected */
+  --tab-active-bg: #263a40;
+  --tab-inactive-text: #80999f;
   --tab-hover-text: #e2e8f0;
 }
 
@@ -389,15 +384,15 @@
     0 0 10px rgba(var(--accent-secondary-rgb), 0.4) inset;
 }
 
-/* Dropzone Theming */
+/* Upload Box / Dropzone Theming */
 .dropzone-themed {
-  background-color: var(--dropzone-background);
-  border-color: var(--dropzone-border);
+  background-color: var(--upload-box-background);
+  border-color: var(--upload-box-border);
 }
 
 .dropzone-themed:hover {
-  border-color: var(--dropzone-hover-border);
-  background-color: var(--dropzone-hover-background);
+  border-color: var(--upload-box-hover-border);
+  background-color: var(--upload-box-hover-background);
 }
 
 /* Toolbar Theming */
@@ -431,11 +426,11 @@
 /* Input Theming */
 .input-themed {
   background-color: var(--surface-input);
-  border-color: var(--surface-input-border);
+  border: 1px solid var(--surface-input-border);
 }
 
 .input-themed:focus {
-  border-color: var(--accent-primary);
+  border-color: var(--border-accent);
 }
 
 /* Number Input - Hide native spinners (using custom spinners) */
@@ -454,14 +449,14 @@
   background-color: var(--toggle-off-bg);
 }
 
-/* Modal/Popup Theming */
-.modal-themed {
-  background-color: var(--modal-background);
-  border-color: var(--modal-border);
+/* Popup Theming */
+.popup-themed {
+  background-color: var(--popup-background);
+  border-color: var(--popup-border);
 }
 
-.modal-overlay-themed {
-  background-color: var(--modal-overlay);
+.popup-overlay-themed {
+  background-color: var(--popup-overlay);
 }
 
 /* Slider Track Theming */

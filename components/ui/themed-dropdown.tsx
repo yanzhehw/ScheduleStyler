@@ -101,8 +101,8 @@ export function ThemedDropdown<T extends string>({
             }}
             className="absolute z-50 mt-1 w-full overflow-hidden"
             style={{
-              background: 'var(--modal-background)',
-              border: '1px solid var(--modal-border)',
+              background: 'var(--popup-background)',
+              border: '1px solid var(--popup-border)',
               borderRadius: '0.5rem',
               boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(var(--accent-primary-rgb), 0.15)',
               backdropFilter: 'blur(12px)',

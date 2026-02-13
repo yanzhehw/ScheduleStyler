@@ -250,7 +250,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
             )}
 
             {!isProcessing && (
-              <div className="rounded-2xl border p-4 space-y-4 card-section-themed">
+              <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: 'var(--sidebar-background)', borderColor: 'var(--sidebar-border)' }}>
                 <div className="flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-blue-400" />
                   <div className="flex items-center gap-2 rounded-full border p-1 text-xs font-semibold text-slate-300 w-fit pill-themed">

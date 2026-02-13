@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { CalendarEvent, TemplateConfig, ThemeFamilyId, BackgroundType, SelectableExportComponent, ResizeEdge, OnboardingComponent } from '../types';
 import { DETECT_IF_ON_BOARDED } from '../config';
 import { useMobileDetect } from '../hooks/useMobileDetect';
@@ -17,8 +17,9 @@ import { useBackgrounds } from '../contexts/BackgroundsContext';
 import { getDefaultLandscapeId } from '../assets/backgrounds';
 import { ExportSidebar, FontSection, SidebarSection, FontPair, FontPairId, TextColorField } from './export/sidebar';
 
-// Import lockscreen mockup overlay
-import lockscreenMockupImg from '../assets/backgrounds/lock-screen-mockup.png';
+// Import lockscreen mockup overlay (webp with png fallback)
+import lockscreenMockupWebp from '../assets/backgrounds/lock-screen-mockup.webp';
+import lockscreenMockupPng from '../assets/backgrounds/lock-screen-mockup.png';
 
 interface ExportStepProps {
   events: CalendarEvent[];
@@ -596,6 +597,48 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     minCardHeight: 400,
   });
 
+  // Calculate optimal zoom to fit canvas in container
+  const calculateAutoFitZoom = useCallback(() => {
+    if (!previewPanelRef.current) return 1;
+    const container = previewPanelRef.current;
+    const containerWidth = container.clientWidth - 48; // padding
+    const containerHeight = container.clientHeight - 48;
+
+    const scaleX = containerWidth / canvasDimensions.width;
+    const scaleY = containerHeight / canvasDimensions.height;
+
+    return Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
+  }, [canvasDimensions.width, canvasDimensions.height]);
+
+  // Track if initial auto-fit zoom has been applied
+  const hasAppliedInitialZoomRef = useRef(false);
+
+  // Apply auto-fit zoom on initial load (when canvas dimensions are ready)
+  useEffect(() => {
+    if (hasAppliedInitialZoomRef.current) return;
+    if (canvasDimensions.width > 0 && canvasDimensions.height > 0 && previewPanelRef.current) {
+      // Small delay to ensure container is properly sized
+      const timer = setTimeout(() => {
+        if (!hasAppliedInitialZoomRef.current) {
+          const newZoom = calculateAutoFitZoom();
+          setZoom(newZoom);
+          hasAppliedInitialZoomRef.current = true;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [canvasDimensions.width, canvasDimensions.height, calculateAutoFitZoom]);
+
+  // Recalculate zoom on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const newZoom = calculateAutoFitZoom();
+      setZoom(newZoom);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateAutoFitZoom]);
+
   // Handle resize start
   const handleResizeStart = (edge: ResizeEdge, mousePos: { x: number; y: number }) => {
     if (!edge) return;
@@ -948,7 +991,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   // Zoom controls
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.3));
-  const handleZoomReset = () => setZoom(1);
+  const handleZoomReset = () => setZoom(calculateAutoFitZoom());
 
   const handleDownload = async () => {
     // Fire-and-forget download tracking
@@ -1744,11 +1787,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                             zIndex: 30,
                           }}
                         >
-                          <img
-                            src={lockscreenMockupImg}
-                            alt="iPhone Lockscreen Frame"
-                            className="w-full h-auto"
-                          />
+                          <picture>
+                            <source srcSet={lockscreenMockupWebp} type="image/webp" />
+                            <img
+                              src={lockscreenMockupPng}
+                              alt="iPhone Lockscreen Frame"
+                              className="w-full h-auto"
+                            />
+                          </picture>
                         </div>
                       }
                       onHeaderClick={() => {
@@ -1855,7 +1901,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         {showBackgroundGallery && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
             <div
-              className="relative border rounded-2xl modal-themed shadow-2xl w-[95vw] max-w-lg max-h-[80vh] flex flex-col mx-4"
+              className="relative border rounded-2xl popup-themed shadow-2xl w-[95vw] max-w-lg max-h-[80vh] flex flex-col mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-[var(--border-muted)]">
@@ -2038,11 +2084,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                           zIndex: 30,
                         }}
                       >
-                        <img
-                          src={lockscreenMockupImg}
-                          alt="iPhone Lockscreen Frame"
-                          className="w-full h-auto"
-                        />
+                        <picture>
+                          <source srcSet={lockscreenMockupWebp} type="image/webp" />
+                          <img
+                            src={lockscreenMockupPng}
+                            alt="iPhone Lockscreen Frame"
+                            className="w-full h-auto"
+                          />
+                        </picture>
                       </div>
                     }
                       onHeaderClick={() => {
@@ -2199,29 +2248,29 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative">
+            <div className="backdrop-blur-xl rounded-xl border popup-themed shadow-2xl p-3 relative">
               {/* Arrow pointer - direction based on placement, with offset */}
               {colorPickerPosition.placement === 'top' && (
                 <div
-                  className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed"
+                  className="absolute -bottom-2 w-4 h-4 border-r border-b popup-themed"
                   style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'bottom' && (
                 <div
-                  className="absolute -top-2 w-4 h-4 border-l border-t modal-themed"
+                  className="absolute -top-2 w-4 h-4 border-l border-t popup-themed"
                   style={{ left: `calc(50% + ${colorPickerPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'right' && (
                 <div
-                  className="absolute -left-2 w-4 h-4 border-l border-b modal-themed"
+                  className="absolute -left-2 w-4 h-4 border-l border-b popup-themed"
                   style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
                 />
               )}
               {colorPickerPosition.placement === 'left' && (
                 <div
-                  className="absolute -right-2 w-4 h-4 border-r border-t modal-themed"
+                  className="absolute -right-2 w-4 h-4 border-r border-t popup-themed"
                   style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }}
                 />
               )}
@@ -2523,7 +2572,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative w-[240px]">
+            <div className="backdrop-blur-xl rounded-xl border popup-themed shadow-2xl p-3 relative w-[240px]">
               <button
                 type="button"
                 onClick={(e) => {
@@ -2537,21 +2586,21 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
               </button>
               {headerEditorPosition.placement === 'top' && (
                 <div
-                  className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed"
+                  className="absolute -bottom-2 w-4 h-4 border-r border-b popup-themed"
                   style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {headerEditorPosition.placement === 'bottom' && (
                 <div
-                  className="absolute -top-2 w-4 h-4 border-l border-t modal-themed"
+                  className="absolute -top-2 w-4 h-4 border-l border-t popup-themed"
                   style={{ left: `calc(50% + ${headerEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }}
                 />
               )}
               {headerEditorPosition.placement === 'right' && (
-                <div className="absolute -left-2 w-4 h-4 border-l border-b modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -left-2 w-4 h-4 border-l border-b popup-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
               {headerEditorPosition.placement === 'left' && (
-                <div className="absolute -right-2 w-4 h-4 border-r border-t modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -right-2 w-4 h-4 border-r border-t popup-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
 
               <div className="text-xs text-gray-400 font-medium italic mb-2">Day Header</div>
@@ -2623,7 +2672,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                          'translate(-100%, -50%)'
             }}
           >
-            <div className="backdrop-blur-xl rounded-xl border modal-themed shadow-2xl p-3 relative w-[240px]">
+            <div className="backdrop-blur-xl rounded-xl border popup-themed shadow-2xl p-3 relative w-[240px]">
               <button
                 type="button"
                 onClick={(e) => {
@@ -2636,16 +2685,16 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                 <X size={14} />
               </button>
               {timeEditorPosition.placement === 'top' && (
-                <div className="absolute -bottom-2 w-4 h-4 border-r border-b modal-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+                <div className="absolute -bottom-2 w-4 h-4 border-r border-b popup-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'bottom' && (
-                <div className="absolute -top-2 w-4 h-4 border-l border-t modal-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
+                <div className="absolute -top-2 w-4 h-4 border-l border-t popup-themed" style={{ left: `calc(50% + ${timeEditorPosition.arrowOffset}px - 8px)`, transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'right' && (
-                <div className="absolute -left-2 w-4 h-4 border-l border-b modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -left-2 w-4 h-4 border-l border-b popup-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
               {timeEditorPosition.placement === 'left' && (
-                <div className="absolute -right-2 w-4 h-4 border-r border-t modal-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
+                <div className="absolute -right-2 w-4 h-4 border-r border-t popup-themed" style={{ top: 'calc(50% - 8px)', transform: 'rotate(45deg)' }} />
               )}
 
               <div className="text-xs text-gray-400 font-medium italic mb-2">Time Column</div>
@@ -2840,7 +2889,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBackgroundGallery(false)}>
           <div
             data-component="BackgroundGallery"
-            className="relative border rounded-2xl modal-themed shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
+            className="relative border rounded-2xl popup-themed shadow-2xl w-[95vw] max-w-4xl max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Gallery Header */}

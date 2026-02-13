@@ -13,7 +13,11 @@ import { LandingPage } from './components/LandingPage';
 import { AboutPage } from './components/pages/AboutPage';
 import { BlogPage } from './components/pages/BlogPage';
 import { CommunityPage } from './components/pages/CommunityPage';
+import { MeetTheTeamPage } from './components/pages/MeetTheTeamPage';
+import { SupportPage } from './components/pages/SupportPage';
+import { ConfirmModal } from './components/popups';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
+import { ExamplesProvider } from './contexts/ExamplesContext';
 import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 import { getDefaultLandscapeId } from './assets/backgrounds';
@@ -30,6 +34,8 @@ const ROUTES = {
   ABOUT: '/about',
   BLOG: '/blog',
   COMMUNITY: '/community',
+  MEET_THE_TEAM: '/meet-the-team',
+  SUPPORT: '/support',
 } as const;
 
 // Step labels for header display
@@ -305,13 +311,15 @@ const App: React.FC = () => {
   // Determine current step index for header highlighting
   const currentStepIndex = STEP_INFO.findIndex(s => s.path === location.pathname);
   const isLandingPage = location.pathname === ROUTES.HOME;
-  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.COMMUNITY].includes(location.pathname as typeof ROUTES.ABOUT);
+  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.COMMUNITY, ROUTES.MEET_THE_TEAM, ROUTES.SUPPORT].includes(location.pathname as typeof ROUTES.ABOUT);
 
   // Landing page renders full-screen without header
   if (isLandingPage) {
     return (
       <BackgroundsProvider>
-        <LandingPage onGetStarted={() => navigate(ROUTES.UPLOAD)} />
+        <ExamplesProvider>
+          <LandingPage onGetStarted={() => navigate(ROUTES.UPLOAD)} />
+        </ExamplesProvider>
       </BackgroundsProvider>
     );
   }
@@ -324,6 +332,8 @@ const App: React.FC = () => {
           <Route path={ROUTES.ABOUT} element={<AboutPage />} />
           <Route path={ROUTES.BLOG} element={<BlogPage />} />
           <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+          <Route path={ROUTES.MEET_THE_TEAM} element={<MeetTheTeamPage />} />
+          <Route path={ROUTES.SUPPORT} element={<SupportPage />} />
         </Routes>
       </BackgroundsProvider>
     );
@@ -334,7 +344,7 @@ const App: React.FC = () => {
     <div className="h-screen overflow-hidden flex flex-col text-slate-100 font-sans" style={{ backgroundColor: 'var(--surface-app)' }}>
 
       {/* Header */}
-      <header className="h-14 md:h-16 border-b border-gray-800 flex items-center justify-between px-3 md:px-8 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="h-14 md:h-16 border-b flex items-center justify-between px-3 md:px-8 backdrop-blur-sm sticky top-0 z-50" style={{ backgroundColor: 'var(--surface-header)', borderColor: 'var(--border-default)' }}>
         <button
           onClick={handleLogoClick}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -361,11 +371,16 @@ const App: React.FC = () => {
                    className={`
                     px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-semibold transition-all whitespace-nowrap inline-btn
                     ${isActive ? 'step-indicator-active text-white' :
-                      isPast ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300 cursor-pointer' : 'text-gray-600 cursor-default'}
-                 `}>
+                      isPast ? 'cursor-pointer' : 'cursor-default'}
+                 `}
+                   style={!isActive ? {
+                     backgroundColor: isPast ? 'var(--surface-elevated)' : 'transparent',
+                     color: isPast ? 'var(--text-secondary)' : 'var(--text-muted)',
+                   } : undefined}
+                 >
                    {idx + 1}. {step.label}
                  </button>
-                 {idx < 2 && <div className="w-2 md:w-4 h-0.5 bg-gray-800"></div>}
+                 {idx < 2 && <div className="w-2 md:w-4 h-0.5" style={{ backgroundColor: 'var(--border-muted)' }}></div>}
                </div>
              )
           })}
@@ -379,7 +394,7 @@ const App: React.FC = () => {
           className="github-star-btn hidden md:flex items-center gap-0 rounded-full"
         >
           <div className="hidden sm:flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2">
-            <span className="text-xs md:text-sm font-semibold text-white">Star On GitHub</span>
+            <span className="text-xs md:text-sm font-semibold">Star On GitHub</span>
           </div>
           <div className="flex items-center gap-1 px-2 md:px-3 py-1.5 md:py-2 sm:bg-slate-900/80 sm:rounded-r-full sm:border-l sm:border-blue-500/30">
             <Star size={14} className="text-white fill-white md:w-4 md:h-4" />
@@ -452,37 +467,15 @@ const App: React.FC = () => {
       </main>
 
       {/* Reupload Confirmation Modal */}
-      {showHeaderReuploadConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4" style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-white font-semibold">Start over?</h4>
-                <p className="text-sm text-gray-400 mt-1">
-                  Your current progress will be lost. Are you sure you want to continue?
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-5">
-              <button
-                onClick={() => setShowHeaderReuploadConfirm(false)}
-                className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowHeaderReuploadConfirm(false);
-                  handleReupload();
-                }}
-                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-              >
-                Yes, start over
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showHeaderReuploadConfirm}
+        onClose={() => setShowHeaderReuploadConfirm(false)}
+        onConfirm={handleReupload}
+        title="Start over?"
+        message="Your current progress will be lost. Are you sure you want to continue?"
+        confirmText="Yes, start over"
+        confirmVariant="danger"
+      />
     </div>
     </BackgroundsProvider>
   );

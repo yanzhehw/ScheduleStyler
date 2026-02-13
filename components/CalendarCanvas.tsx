@@ -759,7 +759,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     const isLight = template.themeVariant === 'light' || template.theme?.includes('light');
     return {
       ...baseStyles,
-      background: isLight ? '#ffffff' : `var(--calendar-card-background, ${siteTheme.calendarCard.background})`,
+      background: isLight ? '#ffffff' : `var(--calendar-card-background, ${siteTheme.surface.calendarCard})`,
     };
   }, [template.borderRadius, template.themeFamily, template.backgroundType, template.themeVariant, template.theme, cardDimensions, currentTheme]);
 
@@ -1012,7 +1012,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         outerBgStyle.background = '#ffffff';
       } else {
         // Use theme calendar card background color
-        outerBgStyle.background = `var(--calendar-card-background, ${siteTheme.calendarCard.background})`;
+        outerBgStyle.background = `var(--calendar-card-background, ${siteTheme.surface.calendarCard})`;
       }
     }
 

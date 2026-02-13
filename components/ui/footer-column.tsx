@@ -14,22 +14,15 @@ const data = {
   instaLink: 'https://instagram.com/schedulestyler',
   twitterLink: 'https://twitter.com/schedulestyler',
   githubLink: 'https://github.com/yanzhehw/ScheduleStyler',
-  services: {
-    webdev: '/web-development',
-    webdesign: '/web-design',
-    marketing: '/marketing',
-    googleads: '/google-ads',
-  },
   about: {
-    history: '/company-history',
     team: '/meet-the-team',
-    handbook: '/employee-handbook',
-    careers: '/careers',
+    community: '/community',
+    about: '/about',
   },
   help: {
     faqs: '/faqs',
     support: '/support',
-    livechat: '/live-chat',
+    blog: '/blog',
   },
   contact: {
     email: 'notYetSetup@schedulestyler.com',
@@ -39,8 +32,8 @@ const data = {
   company: {
     name: 'ScheduleStyler',
     description:
-      'Building beautiful and functional web experiences with modern technologies. We help startups and businesses create their digital presence.',
-    logo: '/logo.webp',
+      'Your time is precious, and so is how you share it. We make it effortless to transform messy calendars into polished, professional visuals in seconds.',
+    logo: '../../assets/FavIcon_WhiteLine.webp',
   },
 };
 
@@ -52,23 +45,15 @@ const socialLinks = [
 ];
 
 const aboutLinks = [
-  { text: 'Company History', href: data.about.history },
+  { text: 'About', href: data.about.about },
   { text: 'Meet the Team', href: data.about.team },
-  { text: 'Employee Handbook', href: data.about.handbook },
-  { text: 'Careers', href: data.about.careers },
-];
-
-const serviceLinks = [
-  { text: 'Web Development', href: data.services.webdev },
-  { text: 'Web Design', href: data.services.webdesign },
-  { text: 'Marketing', href: data.services.marketing },
-  { text: 'Google Ads', href: data.services.googleads },
+  { text: 'Community', href: data.about.community },
 ];
 
 const helpfulLinks = [
   { text: 'FAQs', href: data.help.faqs },
   { text: 'Support', href: data.help.support },
-  { text: 'Live Chat', href: data.help.livechat, hasIndicator: true },
+  { text: 'Blog', href: data.help.blog },
 ];
 
 const contactInfo = [
@@ -81,13 +66,13 @@ export default function Footer4Col() {
   return (
     <footer className="bg-secondary dark:bg-secondary/20 mt-16 w-full place-self-end rounded-t-xl">
       <div className="mx-auto max-w-screen-xl px-4 pt-16 pb-6 sm:px-6 lg:px-8 lg:pt-24">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_1fr_1fr_1fr] lg:gap-8">
+          <div className="lg:mr-5">
             <div className="text-primary flex justify-center gap-2 sm:justify-start">
               <img
                 src={data.company.logo || '/placeholder.svg'}
                 alt="logo"
-                className="h-8 w-8 rounded-full"
+                className="h-8 w-8 "
               />
               <span className="text-2xl font-semibold">
                 {data.company.name}
@@ -113,91 +98,61 @@ export default function Footer4Col() {
             </ul>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 lg:col-span-2">
-            <div className="text-center sm:text-left">
-              <p className="text-lg font-medium">About Us</p>
-              <ul className="mt-8 space-y-4 text-sm">
-                {aboutLinks.map(({ text, href }) => (
-                  <li key={text}>
-                    <a
-                      className="text-secondary-foreground/70 transition"
-                      href={href}
-                    >
-                      {text}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="text-center sm:text-left">
+            <p className="text-lg font-medium">About Us</p>
+            <ul className="mt-8 space-y-4 text-sm">
+              {aboutLinks.map(({ text, href }) => (
+                <li key={text}>
+                  <a
+                    className="text-secondary-foreground/70 transition"
+                    href={href}
+                  >
+                    {text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-            <div className="text-center sm:text-left">
-              <p className="text-lg font-medium">Our Services</p>
-              <ul className="mt-8 space-y-4 text-sm">
-                {serviceLinks.map(({ text, href }) => (
-                  <li key={text}>
-                    <a
-                      className="text-secondary-foreground/70 transition"
-                      href={href}
-                    >
+          <div className="text-center sm:text-left">
+            <p className="text-lg font-medium">Helpful Links</p>
+            <ul className="mt-8 space-y-4 text-sm">
+              {helpfulLinks.map(({ text, href}) => (
+                <li key={text}>
+                  <a
+                    href={href}
+                  >
+                    <span className="text-secondary-foreground/70 transition">
                       {text}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-            <div className="text-center sm:text-left">
-              <p className="text-lg font-medium">Helpful Links</p>
-              <ul className="mt-8 space-y-4 text-sm">
-                {helpfulLinks.map(({ text, href, hasIndicator }) => (
-                  <li key={text}>
-                    <a
-                      href={href}
-                      className={`${
-                        hasIndicator
-                          ? 'group flex justify-center gap-1.5 sm:justify-start'
-                          : 'text-secondary-foreground/70 transition'
-                      }`}
-                    >
-                      <span className="text-secondary-foreground/70 transition">
+          <div className="text-center sm:text-left">
+            <p className="text-lg font-medium">Contact Us</p>
+            <ul className="mt-8 space-y-4 text-sm">
+              {contactInfo.map(({ icon: Icon, text, isAddress }) => (
+                <li key={text}>
+                  <div
+                    className="flex items-center justify-center gap-1.5 sm:justify-start"
+                  >
+                    <Icon className="text-primary size-5 shrink-0 shadow-sm" />
+                    {isAddress ? (
+                      <address className="text-secondary-foreground/70 -mt-0.5 flex-1 not-italic">
+                        {text}
+                      </address>
+                    ) : (
+                      <span className="text-secondary-foreground/70 flex-1">
                         {text}
                       </span>
-                      {hasIndicator && (
-                        <span className="relative flex size-2">
-                          <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                          <span className="bg-primary relative inline-flex size-2 rounded-full" />
-                        </span>
-                      )}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="text-center sm:text-left">
-              <p className="text-lg font-medium">Contact Us</p>
-              <ul className="mt-8 space-y-4 text-sm">
-                {contactInfo.map(({ icon: Icon, text, isAddress }) => (
-                  <li key={text}>
-                    <a
-                      className="flex items-center justify-center gap-1.5 sm:justify-start"
-                      href="#"
-                    >
-                      <Icon className="text-primary size-5 shrink-0 shadow-sm" />
-                      {isAddress ? (
-                        <address className="text-secondary-foreground/70 -mt-0.5 flex-1 not-italic transition">
-                          {text}
-                        </address>
-                      ) : (
-                        <span className="text-secondary-foreground/70 flex-1 transition">
-                          {text}
-                        </span>
-                      )}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 

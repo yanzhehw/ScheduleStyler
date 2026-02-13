@@ -11,6 +11,7 @@ import { getThemeColors } from '../themes';
 import { useMobileDetect } from '../hooks/useMobileDetect';
 import { MobileFooterToolbar, MobileTab } from './MobileFooterToolbar';
 import { EditSidebar, AddCourseDraft, AddCourseErrors, CachedToggles } from './edit/sidebar';
+import { ConfirmModal } from './popups';
 
 interface EditStepProps {
   events: CalendarEvent[];
@@ -1188,7 +1189,7 @@ export const EditStep: React.FC<EditStepProps> = ({
     <div
       ref={canvasContainerRef}
       className={`flex-1 min-h-0 rounded-2xl border relative ${isMobile ? 'mb-[72px]' : ''}`}
-      style={{ backgroundColor: 'rgba(var(--accent-primary-rgb), 0.05)', borderColor: 'var(--border-muted)' }}
+      style={{ backgroundColor: 'var(--surface-app)', borderColor: 'var(--border-muted)' }}
     >
       {/* Zoom Toolbar - positioned outside scrollable area */}
       {isZoomToolbarOpen && (
@@ -1353,8 +1354,8 @@ export const EditStep: React.FC<EditStepProps> = ({
 
         {/* Modals */}
         {showOverlapWarning && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center popup-overlay-themed backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 popup-themed">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h4 className="text-white font-semibold">Overlaps detected</h4>
@@ -1384,48 +1385,26 @@ export const EditStep: React.FC<EditStepProps> = ({
           </div>
         )}
 
-        {showReuploadConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h4 className="text-white font-semibold">Re-upload schedule?</h4>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Your current progress will be lost. Are you sure you want to continue?
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-5">
-                <button
-                  onClick={() => setShowReuploadConfirm(false)}
-                  className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowReuploadConfirm(false);
-                    onReupload();
-                  }}
-                  className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-                >
-                  Proceed
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          isOpen={showReuploadConfirm}
+          onClose={() => setShowReuploadConfirm(false)}
+          onConfirm={onReupload}
+          title="Re-upload schedule?"
+          message="Your current progress will be lost. Are you sure you want to continue?"
+          confirmText="Proceed"
+          confirmVariant="danger"
+        />
 
         {newEventSlot && newEventDraft && (
           <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center popup-overlay-themed backdrop-blur-sm"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 closeNewEventModal();
               }
             }}
           >
-            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 modal-themed">
+            <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 popup-themed">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h4 className="text-white font-semibold">Add Class</h4>
@@ -1529,7 +1508,7 @@ export const EditStep: React.FC<EditStepProps> = ({
       <div
         ref={canvasContainerRef}
         className="flex-1 min-h-0 rounded-2xl border relative"
-        style={{ backgroundColor: 'rgba(var(--accent-primary-rgb), 0.05)', borderColor: 'var(--border-muted)' }}
+        style={{ backgroundColor: 'var(--surface-app)', borderColor: 'var(--border-muted)' }}
       >
         {/* Zoom Toolbar - positioned outside scrollable area */}
         {isZoomToolbarOpen && (
@@ -1678,8 +1657,8 @@ export const EditStep: React.FC<EditStepProps> = ({
       />
 
       {showOverlapWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
+        <div className="fixed inset-0 z-50 flex items-center justify-center popup-overlay-themed backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 popup-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-white font-semibold">Overlaps detected</h4>
@@ -1709,48 +1688,26 @@ export const EditStep: React.FC<EditStepProps> = ({
         </div>
       )}
 
-      {showReuploadConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-white font-semibold">Re-upload schedule?</h4>
-                <p className="text-sm text-gray-400 mt-1">
-                  Your current progress will be lost. Are you sure you want to continue?
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-5">
-              <button
-                onClick={() => setShowReuploadConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowReuploadConfirm(false);
-                  onReupload();
-                }}
-                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-              >
-                Proceed
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showReuploadConfirm}
+        onClose={() => setShowReuploadConfirm(false)}
+        onConfirm={onReupload}
+        title="Re-upload schedule?"
+        message="Your current progress will be lost. Are you sure you want to continue?"
+        confirmText="Proceed"
+        confirmVariant="danger"
+      />
 
       {newEventSlot && newEventDraft && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center popup-overlay-themed backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               closeNewEventModal();
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 modal-themed">
+          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 popup-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-white font-semibold">Add Class</h4>

@@ -79,7 +79,7 @@ export const BackgroundSection: React.FC<BackgroundSectionExtendedProps> = ({
             )}
             {/* Side-by-side columns */}
             {!isBackgroundsLoading && !backgroundsError && (
-              <div className="flex gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+              <div className="flex gap-2 max-h-55 overflow-y-auto custom-scrollbar pr-1">
                 {/* Landscape column */}
                 <div className="w-[48%] shrink-0 space-y-1">
                   <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Landscape</span>

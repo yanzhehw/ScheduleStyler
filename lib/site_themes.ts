@@ -17,34 +17,36 @@ export interface SiteTheme {
     primary: string;      // Main accent color
     secondary: string;    // Lighter accent for gradients
     glow: string;         // Color for glow effects (can be different, e.g., purple)
+    ghost: string;        // Ghost button background
+    ghostHover: string;   // Ghost button hover background
   };
 
   // Surface/background colors
   surface: {
     app: string;          // Main app background
+    header: string;       // Header background
     card: string;         // Card/panel backgrounds
     elevated: string;     // Elevated elements (popovers, modals)
     input: string;        // Input field backgrounds
     inputBorder: string;  // Input border color
+    calendarCard: string; // Calendar card default background
   };
 
-  // Panel/sidebar colors
-  panel: {
+  // Sidebar colors
+  sidebar: {
     background: string;   // Sidebar and panel backgrounds
-    border: string;       // Panel borders
-    headerBg: string;     // Panel header background
+    border: string;       // Sidebar borders
+    headerBg: string;     // Sidebar header background
+    // Card sections within sidebar (e.g., "Content Display" section)
+    cardSection: {
+      background: string;   // Semi-transparent section background
+      border: string;       // Section border
+    };
   };
 
-  // Highlight section (e.g., "Add Course" section)
-  highlight: {
-    gradientFrom: string; // Gradient start (with opacity)
-    gradientTo: string;   // Gradient end (with opacity)
-    border: string;       // Highlight section border
-  };
-
-  // Dropzone/upload area
-  dropzone: {
-    background: string;   // Dropzone background
+  // Upload box area
+  uploadBox: {
+    background: string;   // Upload box background
     border: string;       // Default border
     hoverBorder: string;  // Border on hover
     hoverBackground: string; // Background on hover
@@ -75,59 +77,36 @@ export interface SiteTheme {
     accent: string;
   };
 
-  // Toolbar/floating UI (zoom controls, floating panels)
-  toolbar: {
-    background: string;   // Toolbar background
-    border: string;       // Toolbar border
-    buttonBg: string;     // Button background within toolbar
+  // Zoom controls/floating UI
+  zoomControls: {
+    background: string;   // Zoom controls background
+    border: string;       // Zoom controls border
+    buttonBg: string;     // Button background within zoom controls
     buttonHoverBg: string; // Button hover background
-  };
-
-  // Card sections within panels (e.g., "Content Display" section)
-  cardSection: {
-    background: string;   // Semi-transparent section background
-    border: string;       // Section border
   };
 
   // Feature pills and small UI elements
   pill: {
     background: string;   // Pill background
     border: string;       // Pill border
+    // Selected/tab states within pills
+    selected: {
+      activeBg: string;     // Active/selected background
+      inactiveText: string; // Inactive text color
+      hoverText: string;    // Text color on hover
+    };
   };
 
-  // Calendar card default background
-  calendarCard: {
-    background: string;   // Default calendar card background
+  // Popup windows
+  popup: {
+    background: string;   // Popup background (e.g., bg-gray-900)
+    border: string;       // Popup border
+    overlay: string;      // Overlay behind popup
   };
 
-  // Toggle switch
-  toggle: {
-    offBg: string;        // Background when toggle is off
-  };
-
-  // Modal/popup windows
-  modal: {
-    background: string;   // Modal background (e.g., bg-gray-900)
-    border: string;       // Modal border
-    overlay: string;      // Overlay behind modal
-  };
-
-  // Slider/range input
-  slider: {
-    track: string;        // Slider track background
-  };
-
-  // Button variants
-  button: {
-    ghost: string;        // Ghost button background
-    ghostHover: string;   // Ghost button hover background
-  };
-
-  // Tab button states
-  tab: {
-    activeBg: string;     // Active tab background
-    inactiveText: string; // Inactive tab text color
-    hoverText: string;    // Tab text color on hover
+  // Widget controls (toggles, sliders)
+  widget: {
+    background: string;   // Background for toggle off state and slider track
   };
 }
 
@@ -140,33 +119,34 @@ export const darkTheme: SiteTheme = {
     primary: "#8cfbb2",      // Bright lime green
     secondary: "#61f193",    // Lighter lime for gradients
     glow: "#d9ff5019",       // Same lime for glow effects
+    ghost: "transparent",
+    ghostHover: "rgba(212, 255, 58, 0.1)",
   },
 
   // Surface/background colors
   surface: {
     app: "#1e1e1e",          // Very dark background
+    header: "#141414cc",     // Header background (semi-transparent)
     card: "#2a2a2a",         // Card backgrounds (slightly lighter)
     elevated: "#101010",     // Elevated elements
     input: "#1e1e1e",        // Input fields
     inputBorder: "#2b2b2b",  // Input borders
+    calendarCard: "#1e1e1e",
   },
 
-  // Panel/sidebar colors
-  panel: {
+  // Sidebar colors
+  sidebar: {
     background: "#141414",   // Sidebar background
-    border: "#2a2a2a",       // Panel borders
-    headerBg: "#1a1a1a",     // Panel headers
+    border: "#2a2a2a",       // Sidebar borders
+    headerBg: "#1a1a1a",     // Sidebar headers
+    cardSection: {
+      background: "#2a2a2a",
+      border: "#252525",
+    },
   },
 
-  // Highlight section
-  highlight: {
-    gradientFrom: "rgba(212, 255, 58, 0.08)",  // Lime gradient start
-    gradientTo: "rgba(212, 255, 58, 0.02)",    // Lime gradient end
-    border: "#2a3310",       // Subtle lime-tinted border
-  },
-
-  // Dropzone/upload area
-  dropzone: {
+  // Upload box area
+  uploadBox: {
     background: "#1a1a1a",
     border: "#333333",
     hoverBorder: "#fffa78",  // Lime on hover
@@ -198,59 +178,35 @@ export const darkTheme: SiteTheme = {
     accent: "#d4ff3a",
   },
 
-  // Toolbar/floating UI
-  toolbar: {
+  // Zoom controls/floating UI
+  zoomControls: {
     background: "#1a1a1a",
     border: "#333333",
     buttonBg: "#252525",
     buttonHoverBg: "#303030",
   },
 
-  // Card sections within panels
-  cardSection: {
-    background: "#2a2a2a",
-    border: "#252525",
-  },
-
   // Feature pills
   pill: {
     background: "#252525",
     border: "#333333",
+    selected: {
+      activeBg: "#151515",
+      inactiveText: "#808080",
+      hoverText: "#cccccc",
+    },
   },
 
-  // Calendar card
-  calendarCard: {
-    background: "#1e1e1e",
-  },
-
-  // Toggle switch
-  toggle: {
-    offBg: "#333333",
-  },
-
-  // Modal/popup windows
-  modal: {
+  // Popup windows
+  popup: {
     background: "#1a1a1a",
     border: "#333333",
     overlay: "rgba(0, 0, 0, 0.75)",
   },
 
-  // Slider
-  slider: {
-    track: "#333333",
-  },
-
-  // Button variants
-  button: {
-    ghost: "transparent",
-    ghostHover: "rgba(212, 255, 58, 0.1)",
-  },
-
-  // Tab states
-  tab: {
-    activeBg: "#151515",
-    inactiveText: "#808080",
-    hoverText: "#cccccc",
+  // Widget controls (toggles, sliders)
+  widget: {
+    background: "#333333",
   },
 };
 
@@ -262,29 +218,31 @@ export const blueTheme: SiteTheme = {
     primary: '#3b82f6',
     secondary: '#60a5fa',
     glow: '#8b5cf6',
+    ghost: '#374151',                          // gray-700
+    ghostHover: '#4b5563',                     // gray-600
   },
 
   surface: {
     app: '#0f172a',
+    header: 'rgba(17, 24, 39, 0.5)',          // gray-900/50
     card: '#1e293b',
     elevated: '#334155',
     input: '#1f2937',
     inputBorder: '#374151',
+    calendarCard: '#1e293b',                   // slate-800
   },
 
-  panel: {
+  sidebar: {
     background: '#111827',
     border: '#1f2937',
     headerBg: '#111827',
+    cardSection: {
+      background: 'rgba(31, 41, 55, 0.5)',      // gray-800/50
+      border: '#374151',                         // gray-700
+    },
   },
 
-  highlight: {
-    gradientFrom: 'rgba(30, 58, 138, 0.3)',  // blue-900/30
-    gradientTo: 'rgba(30, 64, 175, 0.2)',    // blue-800/20
-    border: 'rgba(29, 78, 216, 0.5)',        // blue-700/50
-  },
-
-  dropzone: {
+  uploadBox: {
     background: '#111827',
     border: '#4b5563',                        // gray-600
     hoverBorder: '#60a5fa',                   // blue-400
@@ -313,50 +271,31 @@ export const blueTheme: SiteTheme = {
     accent: '#3b82f6',
   },
 
-  toolbar: {
+  zoomControls: {
     background: 'rgba(15, 23, 42, 0.7)',      // slate-900/70
     border: 'rgba(71, 85, 105, 0.7)',          // slate-600/70
     buttonBg: 'rgba(30, 41, 59, 0.8)',         // slate-800/80
     buttonHoverBg: 'rgba(51, 65, 85, 0.8)',    // slate-700/80
   },
 
-  cardSection: {
-    background: 'rgba(31, 41, 55, 0.5)',      // gray-800/50
-    border: '#374151',                         // gray-700
-  },
-
   pill: {
     background: 'rgba(31, 41, 55, 0.5)',      // gray-800/50
     border: '#374151',                         // gray-700
+    selected: {
+      activeBg: '#26344a',                     // slate-800
+      inactiveText: '#94a3b8',                 // slate-400
+      hoverText: '#e2e8f0',                    // slate-200
+    },
   },
 
-  calendarCard: {
-    background: '#1e293b',                     // slate-800
-  },
-
-  toggle: {
-    offBg: '#374151',                          // gray-700
-  },
-
-  modal: {
+  popup: {
     background: '#111827',                     // gray-900
     border: '#374151',                         // gray-700
     overlay: 'rgba(0, 0, 0, 0.55)',            // black/55
   },
 
-  slider: {
-    track: '#374151',                          // gray-700
-  },
-
-  button: {
-    ghost: '#374151',                          // gray-700
-    ghostHover: '#4b5563',                     // gray-600
-  },
-
-  tab: {
-    activeBg: '#26344a',                       // slate-800
-    inactiveText: '#94a3b8',                   // slate-400
-    hoverText: '#e2e8f0',                      // slate-200
+  widget: {
+    background: '#374151',                     // gray-700
   },
 };
 
@@ -368,29 +307,31 @@ export const purpleTheme: SiteTheme = {
     primary: '#8b5cf6',
     secondary: '#a78bfa',
     glow: '#c084fc',
+    ghost: '#3d3456',                          // purple-border
+    ghostHover: '#4b4264',                     // lighter purple
   },
 
   surface: {
     app: '#0f0a1a',
+    header: 'rgba(18, 13, 30, 0.5)',          // purple-panel/50
     card: '#1a1425',
     elevated: '#2d2440',
     input: '#1f1a2e',
     inputBorder: '#3d3456',
+    calendarCard: '#1a1425',                   // purple-card
   },
 
-  panel: {
+  sidebar: {
     background: '#120d1e',
     border: '#1f1a2e',
     headerBg: '#120d1e',
+    cardSection: {
+      background: 'rgba(31, 26, 46, 0.5)',      // purple-input/50
+      border: '#3d3456',
+    },
   },
 
-  highlight: {
-    gradientFrom: 'rgba(88, 28, 135, 0.3)',  // purple-900/30
-    gradientTo: 'rgba(107, 33, 168, 0.2)',    // purple-800/20
-    border: 'rgba(126, 34, 206, 0.5)',        // purple-700/50
-  },
-
-  dropzone: {
+  uploadBox: {
     background: '#120d1e',
     border: '#4b5563',                        // gray-600
     hoverBorder: '#a78bfa',                   // purple-400
@@ -419,50 +360,31 @@ export const purpleTheme: SiteTheme = {
     accent: '#8b5cf6',
   },
 
-  toolbar: {
+  zoomControls: {
     background: 'rgba(18, 13, 30, 0.7)',      // purple-dark/70
     border: 'rgba(61, 52, 86, 0.7)',           // purple-border/70
     buttonBg: 'rgba(31, 26, 46, 0.8)',         // purple-input/80
     buttonHoverBg: 'rgba(45, 36, 64, 0.8)',    // purple-elevated/80
   },
 
-  cardSection: {
-    background: 'rgba(31, 26, 46, 0.5)',      // purple-input/50
-    border: '#3d3456',
-  },
-
   pill: {
     background: 'rgba(31, 26, 46, 0.5)',      // purple-input/50
     border: '#3d3456',
+    selected: {
+      activeBg: '#1f1a2e',                     // purple-input
+      inactiveText: '#a5a0b8',                 // purple-secondary
+      hoverText: '#e2e8f0',
+    },
   },
 
-  calendarCard: {
-    background: '#1a1425',                     // purple-card
-  },
-
-  toggle: {
-    offBg: '#3d3456',                          // purple-border
-  },
-
-  modal: {
+  popup: {
     background: '#120d1e',                     // purple-panel
     border: '#3d3456',                         // purple-border
     overlay: 'rgba(0, 0, 0, 0.55)',
   },
 
-  slider: {
-    track: '#3d3456',                          // purple-border
-  },
-
-  button: {
-    ghost: '#3d3456',                          // purple-border
-    ghostHover: '#4b4264',                     // lighter purple
-  },
-
-  tab: {
-    activeBg: '#1f1a2e',                       // purple-input
-    inactiveText: '#a5a0b8',                   // purple-secondary
-    hoverText: '#e2e8f0',
+  widget: {
+    background: '#3d3456',                     // purple-border
   },
 };
 
@@ -474,29 +396,31 @@ export const tealTheme: SiteTheme = {
     primary: '#126b60',
     secondary: '#44bfad',
     glow: '#2dd4bf',
+    ghost: '#2d4a4a',                          // teal-border
+    ghostHover: '#3d5a5a',                     // lighter teal
   },
 
   surface: {
     app: '#08080F',
+    header: 'rgba(13, 26, 26, 0.5)',          // teal-panel/50
     card: '#142525',
     elevated: '#1f3d3d',
     input: '#1a2e2e',
     inputBorder: '#2d4a4a',
+    calendarCard: '#121212',                   // teal-card
   },
 
-  panel: {
+  sidebar: {
     background: '#0d1a1a',
     border: '#1a2e2e',
     headerBg: '#0d1a1a',
+    cardSection: {
+      background: 'rgba(26, 46, 46, 0.5)',      // teal-input/50
+      border: '#2d4a4a',
+    },
   },
 
-  highlight: {
-    gradientFrom: 'rgba(13, 78, 72, 0.3)',   // teal-900/30
-    gradientTo: 'rgba(17, 94, 89, 0.2)',     // teal-800/20
-    border: 'rgba(20, 115, 108, 0.5)',       // teal-700/50
-  },
-
-  dropzone: {
+  uploadBox: {
     background: '#0d1a1a',
     border: '#4b5563',                        // gray-600
     hoverBorder: '#2dd4bf',                   // teal-400
@@ -525,57 +449,126 @@ export const tealTheme: SiteTheme = {
     accent: '#14b8a6',
   },
 
-  toolbar: {
+  zoomControls: {
     background: 'rgba(13, 26, 26, 0.7)',       // teal-dark/70
     border: 'rgba(45, 74, 74, 0.7)',           // teal-border/70
     buttonBg: 'rgba(26, 46, 46, 0.8)',         // teal-input/80
     buttonHoverBg: 'rgba(31, 61, 61, 0.8)',    // teal-elevated/80
   },
 
-  cardSection: {
-    background: 'rgba(26, 46, 46, 0.5)',      // teal-input/50
-    border: '#2d4a4a',
-  },
-
   pill: {
     background: 'rgba(26, 46, 46, 0.5)',      // teal-input/50
     border: '#2d4a4a',
+    selected: {
+      activeBg: '#1a2e2e',                     // teal-input
+      inactiveText: '#94b8b8',                 // teal-secondary
+      hoverText: '#e2e8f0',
+    },
   },
 
-  calendarCard: {
-    background: '#121212',                     // teal-card
-  },
-
-  toggle: {
-    offBg: '#2d4a4a',                          // teal-border
-  },
-
-  modal: {
+  popup: {
     background: '#0d1a1a',                     // teal-panel
     border: '#2d4a4a',                         // teal-border
     overlay: 'rgba(0, 0, 0, 0.55)',
   },
 
-  slider: {
-    track: '#2d4a4a',                          // teal-border
-  },
-
-  button: {
-    ghost: '#2d4a4a',                          // teal-border
-    ghostHover: '#3d5a5a',                     // lighter teal
-  },
-
-  tab: {
-    activeBg: '#1a2e2e',                       // teal-input
-    inactiveText: '#94b8b8',                   // teal-secondary
-    hoverText: '#e2e8f0',
+  widget: {
+    background: '#2d4a4a',                     // teal-border
   },
 };
 
+//Dark 1 Theme
+export const dark1Theme: SiteTheme = {
+  name: 'Dark1',
+
+  accent: {
+    primary: '#dadada',
+    secondary: '#b6d1f2',
+    glow: '#f8d9a481',
+    ghost: '#29353d',
+    ghostHover: '#383e48',
+  },
+
+  surface: {
+    app: '#09090b',
+    header: 'rgba(34, 43, 49, 0.5)',          // gray-900/50
+    card: '#1e293b',
+    elevated: '#2b3b43',
+    input: '#192626',
+    inputBorder: '#374151',
+    calendarCard: '#0d1a1a40',
+  },
+
+  sidebar: {
+    background: '#141414',
+    border: '#1f2937',
+    headerBg: '#111827',
+    cardSection: {
+      background: '#1e1e1e',
+      border: '#374951',
+    },
+  },
+
+  uploadBox: {
+    background: '#161616',
+    border: '#4b5563',
+    hoverBorder: '#ffdca1',
+    hoverBackground: '#ffffff1a',
+  },
+
+  text: {
+    primary: '#f8fafc',
+    secondary: '#94a3b8',
+    muted: '#64748b',
+    onAccent: '#09090b',
+  },
+
+  semantic: {
+    error: '#ef4444',
+    errorMuted: '#fecaca',
+    warning: '#f59e0b',
+    success: '#22c55e',
+    successMuted: '#bbf7d0',
+    info: '#3b82f6',
+  },
+
+  border: {
+    default: '#374951',
+    muted: '#1f2937',
+    accent: '#4e8ff8',
+  },
+
+  zoomControls: {
+    background: 'rgba(22, 22, 24, 0.69)',      // slate-900/70
+    border: 'rgba(85, 85, 85, 0.7)',          // slate-600/70
+    buttonBg: 'rgba(37, 37, 41, 0.69)',         // slate-800/80
+    buttonHoverBg: 'rgba(71, 72, 72, 0.8)',    // slate-700/80
+  },
+
+  pill: {
+    background: '#161618',      // gray-800/50
+    border: '#374b51',                         // gray-700
+    selected: {
+      activeBg: '#263a40',                     // slate-800
+      inactiveText: '#80999f',                 // slate-400
+      hoverText: '#e2e8f0',                    // slate-200
+    },
+  },
+
+  popup: {
+    background: '#141414',                     // gray-900
+    border: '#374d51',                         // gray-700
+    overlay: 'rgba(0, 0, 0, 0.55)',            // black/55
+  },
+
+  widget: {
+    background: '#313a48',                     // gray-700
+  },
+};
 // ============================================
 // ACTIVE THEME - Change this to switch themes
 // ============================================
-export const currentTheme: SiteTheme = blueTheme;  // Default theme is blue. Change to purpleTheme or tealTheme for A/B testing.
+export const currentTheme: SiteTheme = dark1Theme;  // Default theme is blue. Change to purpleTheme or tealTheme for A/B testing.
 
 /**
  * Generates CSS custom properties from the current theme
@@ -637,7 +630,8 @@ export const availableThemes: SiteTheme[] = [
   blueTheme,
   purpleTheme,
   tealTheme,
-  darkTheme
+  darkTheme,
+  dark1Theme,
 ];
 
 /**
@@ -661,26 +655,23 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
 
   // Surface colors
   root.style.setProperty('--surface-app', theme.surface.app);
+  root.style.setProperty('--surface-header', theme.surface.header);
   root.style.setProperty('--surface-card', theme.surface.card);
   root.style.setProperty('--surface-elevated', theme.surface.elevated);
   root.style.setProperty('--surface-input', theme.surface.input);
   root.style.setProperty('--surface-input-border', theme.surface.inputBorder);
+  root.style.setProperty('--calendar-card-background', theme.surface.calendarCard);
 
-  // Panel colors
-  root.style.setProperty('--panel-background', theme.panel.background);
-  root.style.setProperty('--panel-border', theme.panel.border);
-  root.style.setProperty('--panel-header-bg', theme.panel.headerBg);
+  // Sidebar colors
+  root.style.setProperty('--sidebar-background', theme.sidebar.background);
+  root.style.setProperty('--sidebar-border', theme.sidebar.border);
+  root.style.setProperty('--sidebar-header-bg', theme.sidebar.headerBg);
 
-  // Highlight section colors
-  root.style.setProperty('--highlight-gradient-from', theme.highlight.gradientFrom);
-  root.style.setProperty('--highlight-gradient-to', theme.highlight.gradientTo);
-  root.style.setProperty('--highlight-border', theme.highlight.border);
-
-  // Dropzone colors
-  root.style.setProperty('--dropzone-background', theme.dropzone.background);
-  root.style.setProperty('--dropzone-border', theme.dropzone.border);
-  root.style.setProperty('--dropzone-hover-border', theme.dropzone.hoverBorder);
-  root.style.setProperty('--dropzone-hover-background', theme.dropzone.hoverBackground);
+  // Upload box colors
+  root.style.setProperty('--upload-box-background', theme.uploadBox.background);
+  root.style.setProperty('--upload-box-border', theme.uploadBox.border);
+  root.style.setProperty('--upload-box-hover-border', theme.uploadBox.hoverBorder);
+  root.style.setProperty('--upload-box-hover-background', theme.uploadBox.hoverBackground);
 
   // Text colors
   root.style.setProperty('--text-primary', theme.text.primary);
@@ -701,42 +692,37 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
   root.style.setProperty('--border-muted', theme.border.muted);
   root.style.setProperty('--border-accent', theme.border.accent);
 
-  // Toolbar colors
-  root.style.setProperty('--toolbar-background', theme.toolbar.background);
-  root.style.setProperty('--toolbar-border', theme.toolbar.border);
-  root.style.setProperty('--toolbar-button-bg', theme.toolbar.buttonBg);
-  root.style.setProperty('--toolbar-button-hover-bg', theme.toolbar.buttonHoverBg);
+  // Zoom controls colors
+  root.style.setProperty('--toolbar-background', theme.zoomControls.background);
+  root.style.setProperty('--toolbar-border', theme.zoomControls.border);
+  root.style.setProperty('--toolbar-button-bg', theme.zoomControls.buttonBg);
+  root.style.setProperty('--toolbar-button-hover-bg', theme.zoomControls.buttonHoverBg);
 
-  // Card section colors
-  root.style.setProperty('--card-section-background', theme.cardSection.background);
-  root.style.setProperty('--card-section-border', theme.cardSection.border);
+  // Card section colors (within sidebar)
+  root.style.setProperty('--card-section-background', theme.sidebar.cardSection.background);
+  root.style.setProperty('--card-section-border', theme.sidebar.cardSection.border);
 
   // Pill colors
   root.style.setProperty('--pill-background', theme.pill.background);
   root.style.setProperty('--pill-border', theme.pill.border);
 
-  // Calendar card colors
-  root.style.setProperty('--calendar-card-background', theme.calendarCard.background);
+  // Selected/tab colors (within pill)
+  root.style.setProperty('--tab-active-bg', theme.pill.selected.activeBg);
+  root.style.setProperty('--tab-inactive-text', theme.pill.selected.inactiveText);
+  root.style.setProperty('--tab-hover-text', theme.pill.selected.hoverText);
 
-  // Toggle colors
-  root.style.setProperty('--toggle-off-bg', theme.toggle.offBg);
+  // Popup colors
+  root.style.setProperty('--popup-background', theme.popup.background);
+  root.style.setProperty('--popup-border', theme.popup.border);
+  root.style.setProperty('--popup-overlay', theme.popup.overlay);
 
-  // Modal colors
-  root.style.setProperty('--modal-background', theme.modal.background);
-  root.style.setProperty('--modal-border', theme.modal.border);
-  root.style.setProperty('--modal-overlay', theme.modal.overlay);
+  // Widget colors (toggle, slider)
+  root.style.setProperty('--toggle-off-bg', theme.widget.background);
+  root.style.setProperty('--slider-track', theme.widget.background);
 
-  // Slider colors
-  root.style.setProperty('--slider-track', theme.slider.track);
-
-  // Button colors
-  root.style.setProperty('--button-ghost', theme.button.ghost);
-  root.style.setProperty('--button-ghost-hover', theme.button.ghostHover);
-
-  // Tab colors
-  root.style.setProperty('--tab-active-bg', theme.tab.activeBg);
-  root.style.setProperty('--tab-inactive-text', theme.tab.inactiveText);
-  root.style.setProperty('--tab-hover-text', theme.tab.hoverText);
+  // Ghost button colors (from accent)
+  root.style.setProperty('--button-ghost', theme.accent.ghost);
+  root.style.setProperty('--button-ghost-hover', theme.accent.ghostHover);
 
   console.log(`[Theme] Applied: ${theme.name}`);
 }

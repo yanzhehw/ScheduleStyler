@@ -6,6 +6,7 @@ export interface ExampleImage {
   filename: string;
   type: 'products' | 'texture';
   url: string;
+  webpUrl?: string; // webp version if available
   name: string;
 }
 
@@ -40,7 +41,20 @@ async function listExamples(): Promise<ExamplesResponse> {
   const bucket = process.env.R2_BUCKET_NAME || 'schedule-styler-backgrounds';
   const client = getR2Client();
 
-  // List product examples
+  // List webp product examples first to build a map
+  const webpMap = new Map<string, string>();
+  const productsWebpResponse = await client.send(
+    new ListObjectsV2Command({ Bucket: bucket, Prefix: 'examples/products_webp/' })
+  );
+
+  for (const obj of productsWebpResponse.Contents || []) {
+    if (!obj.Key || obj.Key.endsWith('/')) continue;
+    const filename = obj.Key.split('/').pop()!;
+    const baseName = filename.replace(/\.[^.]+$/, '');
+    webpMap.set(baseName, `/api/examples/products_webp/${encodeURIComponent(filename)}`);
+  }
+
+  // List product examples (png fallback)
   const productsResponse = await client.send(
     new ListObjectsV2Command({ Bucket: bucket, Prefix: 'examples/products/' })
   );
@@ -55,6 +69,7 @@ async function listExamples(): Promise<ExamplesResponse> {
       filename,
       type: 'products',
       url: `/api/examples/products/${encodeURIComponent(filename)}`,
+      webpUrl: webpMap.get(baseName),
       name: baseName.replace(/[-_]/g, ' '),
     });
   }
