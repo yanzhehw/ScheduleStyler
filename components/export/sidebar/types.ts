@@ -37,7 +37,9 @@ export interface BackgroundSectionProps extends SidebarSectionProps {
   SOLID_BG_COLORS: string[];
 }
 
-export interface ScaleSectionProps extends SidebarSectionProps {}
+export interface ScaleSectionProps extends SidebarSectionProps {
+  onAspectRatioChange?: (aspectRatio: number) => void;
+}
 
 export interface LayoutSectionProps extends SidebarSectionProps {}
 

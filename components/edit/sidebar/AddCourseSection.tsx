@@ -92,7 +92,7 @@ export const AddCourseSection: React.FC<AddCourseSectionProps> = ({
                   setDraft({ ...draft, courseCode: e.target.value });
                   if (errors.courseCode) setErrors({ ...errors, courseCode: undefined });
                 }}
-                className={`w-37 shrink-0 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
+                className={`w-35 shrink-0 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
                   errors.courseCode ? 'border-red-500' : ''
                 }`}
                 placeholder="e.g. CS 101"

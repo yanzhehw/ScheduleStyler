@@ -20,10 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Always return success immediately (fire-and-forget semantics)
-  res.json({ success: true });
-
-  // Increment counter in background - errors are logged but don't affect response
+  // Await database operation BEFORE responding (Vercel terminates after response)
   try {
     const supabase = getSupabase();
     const { error } = await supabase.rpc('increment_counter', { counter_id: 'users' });
@@ -36,4 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[track/user] Unexpected error:', err);
   }
+
+  // Always return success - tracking failures should not break the UX
+  return res.json({ success: true });
 }

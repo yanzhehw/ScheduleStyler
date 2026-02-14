@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { CalendarEvent, TemplateConfig, Category, ClassType } from '../types';
 import { CalendarCanvas } from './CalendarCanvas';
 import { ToggleSwitch } from './ToggleSwitch';
@@ -1501,9 +1502,14 @@ export const EditStep: React.FC<EditStepProps> = ({
 
   // Desktop layout
   return (
-    <div
-      className="flex h-full min-h-0 gap-6"
-    >
+    <>
+      <Helmet>
+        <title>Create Timetable Wallpaper | Schedule Styler</title>
+        <meta name="description" content="Design your perfect lockscreen schedule. Upload a screenshot or create from scratch." />
+      </Helmet>
+      <div
+        className="flex h-full min-h-0 gap-6"
+      >
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
       <div
         ref={canvasContainerRef}
@@ -1798,6 +1804,7 @@ export const EditStep: React.FC<EditStepProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };

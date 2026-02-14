@@ -18,7 +18,6 @@ import { SupportPage } from './components/pages/SupportPage';
 import { ConfirmModal } from './components/popups';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import { ExamplesProvider } from './contexts/ExamplesContext';
-import faviconDark from './assets/Favicon_BlackLine.png';
 import faviconLight from './assets/FavIcon_WhiteLine.png';
 import { getDefaultLandscapeId } from './assets/backgrounds';
 import { LOG_RESPONSES } from './config';
@@ -55,6 +54,8 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   themeVariant: 'dark',
   theme: 'default-dark',
   textColorPreset: 'dark',
+  headerTextColor: '#f3f4f6',
+  timeColumnTextColor: 'rgba(255, 255, 255, 0.5)',
   primaryColor: '#3b82f6',
   borderRadius: '16px',
   showTime: true,
@@ -237,6 +238,8 @@ const App: React.FC = () => {
         theme: 'acrylic-dark',
         themeVariant: 'dark',
         textColorPreset: 'light',
+        headerTextColor: undefined,
+        timeColumnTextColor: undefined,
         backgroundType: 'image',
         backgroundImage: defaultBg,
       }));
@@ -277,7 +280,7 @@ const App: React.FC = () => {
     sessionStorage.removeItem('categories');
     sessionStorage.removeItem('template');
     sessionStorage.removeItem('hasVisitedExport');
-    navigate(ROUTES.HOME);
+    navigate(ROUTES.UPLOAD);
   };
 
   // Handle header step click - only backward navigation allowed
@@ -349,10 +352,9 @@ const App: React.FC = () => {
           onClick={handleLogoClick}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
-          <picture className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
-            <source srcSet={faviconLight} media="(prefers-color-scheme: dark)" />
-            <img src={faviconDark} alt="ScheduleStyler" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
-          </picture>
+          <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden bg-gray-900/60 flex items-center justify-center">
+            <img src={faviconLight} alt="ScheduleStyler" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
+          </div>
           <span className="hidden sm:inline font-bold text-lg md:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             ScheduleStyler
           </span>
@@ -428,19 +430,21 @@ const App: React.FC = () => {
           <Route
             path={ROUTES.EDIT}
             element={
-              hasStartedSession ? (
-                <EditStep
-                  events={events}
-                  categories={categories}
-                  template={hasVisitedExport ? template : { ...template, backgroundType: 'none', backgroundIndependent: false }}
-                  onUpdateEvents={setEvents}
-                  onUpdateTemplate={setTemplate}
-                  onNext={handleNavigateToExport}
-                  onReupload={handleReupload}
-                />
-              ) : (
-                <Navigate to={ROUTES.UPLOAD} replace />
-              )
+              <EditStep
+                events={events}
+                categories={categories}
+                template={hasVisitedExport ? template : { ...template, backgroundType: 'none', backgroundIndependent: false }}
+                onUpdateEvents={setEvents}
+                onUpdateTemplate={setTemplate}
+                onNext={() => {
+                  // Mark session as started when navigating from edit (for direct /edit access)
+                  if (!hasStartedSession) {
+                    setHasStartedSession(true);
+                  }
+                  handleNavigateToExport();
+                }}
+                onReupload={handleReupload}
+              />
             }
           />
 

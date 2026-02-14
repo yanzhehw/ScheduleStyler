@@ -31,7 +31,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     : 'btn-accent';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center popup-overlay-themed backdrop-blur-sm">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center popup-overlay-themed backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 popup-themed">
         <div className="flex items-start justify-between gap-3">
           <div>

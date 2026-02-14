@@ -200,7 +200,6 @@ const applyForegroundLayerVisibility = (clone: HTMLElement) => {
     '[data-component="BackgroundLayer"]',
     '[data-component="GridLines"]',
     '[data-component="EmptySlot"]',
-    '[data-component="CalendarFooter"]',
   ];
 
   hideSelectors.forEach((selector) => {

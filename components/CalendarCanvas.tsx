@@ -5,6 +5,7 @@ import { getTheme } from '../themes';
 import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
 import { useBackgrounds } from '../contexts/BackgroundsContext';
 import { currentTheme as siteTheme } from '../lib/site_themes';
+import { SHOW_WATERMARK } from '../config';
 
 interface CalendarCanvasProps {
   events: CalendarEvent[];
@@ -430,7 +431,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     offsetY: number;
     original: { startTime: string; endTime: string; dayIndex: number };
     latest?: { startTime: string; endTime: string; dayIndex: number };
+    event: CalendarEvent;
   } | null>(null);
+  const onEventClickRef = useRef(onEventClick);
+  onEventClickRef.current = onEventClick;
+  const justHandledDragRef = useRef(false);
   const overlappingSet = useMemo(() => new Set(overlappingEventIds ?? []), [overlappingEventIds]);
 
   const getHoveredComponentFromTarget = (target: HTMLElement | null): SelectableExportComponent => {
@@ -829,12 +834,25 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
     const handleUp = () => {
       const dragInfo = dragInfoRef.current;
-      if (dragInfo && onEventDragEnd) {
-        const updated = dragInfo.latest ?? dragInfo.original;
-        onEventDragEnd(dragInfo.eventId, dragInfo.original, updated);
+      if (dragInfo) {
+        const latest = dragInfo.latest ?? dragInfo.original;
+        const didMove =
+          latest.startTime !== dragInfo.original.startTime ||
+          latest.endTime !== dragInfo.original.endTime ||
+          latest.dayIndex !== dragInfo.original.dayIndex;
+
+        if (didMove && onEventDragEnd) {
+          onEventDragEnd(dragInfo.eventId, dragInfo.original, latest);
+        } else if (!didMove && onEventClickRef.current) {
+          onEventClickRef.current(dragInfo.event);
+        }
       }
       setDraggingEventId(null);
       dragInfoRef.current = null;
+      justHandledDragRef.current = true;
+      requestAnimationFrame(() => {
+        justHandledDragRef.current = false;
+      });
     };
 
     window.addEventListener('mousemove', handleMove);
@@ -879,7 +897,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
   };
 
   const handleEventMouseDown = (event: CalendarEvent, e: React.MouseEvent<HTMLDivElement>) => {
-    if (!interactive || !onEventTimeChange || selectedEventId !== event.id) return;
+    if (!interactive || !onEventTimeChange) return;
     if (!dayColumnsRef.current) return;
 
     const startVal = parseTimeToHours(event.startTime);
@@ -906,6 +924,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         endTime: event.endTime,
         dayIndex: event.dayIndex,
       },
+      event,
     };
     setDraggingEventId(event.id);
     setHoveredSlot(null);
@@ -915,7 +934,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
   // Touch handler for mobile dragging
   const handleEventTouchStart = (event: CalendarEvent, e: React.TouchEvent<HTMLDivElement>) => {
-    if (!interactive || !onEventTimeChange || selectedEventId !== event.id) return;
+    if (!interactive || !onEventTimeChange) return;
     if (!dayColumnsRef.current) return;
     if (e.touches.length !== 1) return; // Only single touch
 
@@ -944,6 +963,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         endTime: event.endTime,
         dayIndex: event.dayIndex,
       },
+      event,
     };
     setDraggingEventId(event.id);
     setHoveredSlot(null);
@@ -1728,7 +1748,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 {events.filter(e => e.dayIndex === actualDayIndex).map(event => {
                   const isSelected = selectedEventId === event.id;
                   const isDragging = draggingEventId === event.id;
-                  const canDrag = interactive && onEventTimeChange && isSelected;
+                  const canDrag = interactive && !!onEventTimeChange;
                   const isOverlapping = overlappingSet.has(event.id);
                   const shouldHideBorder = hideUnselectedBorders && !isSelected && !isOverlapping;
 
@@ -1754,12 +1774,21 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                       <div
                         data-component="EventBlock"
                         data-event-id={event.id}
-                        onClick={() => interactive && onEventClick && onEventClick(event)}
+                        onClick={() => {
+                          if (justHandledDragRef.current) return;
+                          interactive && onEventClick && onEventClick(event);
+                        }}
                         onMouseDown={(e) => handleEventMouseDown(event, e)}
                         onTouchStart={(e) => handleEventTouchStart(event, e)}
                         onTouchEnd={(e: React.TouchEvent) => {
-                          // Handle tap on mobile - only trigger if not dragging
-                          if (interactive && onEventClick && !isDragging && selectedEventId !== event.id) {
+                          // If drag tracking is active, suppress — handleUp handles the outcome
+                          if (dragInfoRef.current) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return;
+                          }
+                          // Fallback for when onEventTimeChange is not provided
+                          if (interactive && onEventClick && selectedEventId !== event.id) {
                             e.preventDefault();
                             e.stopPropagation();
                             onEventClick(event);
@@ -2020,9 +2049,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       </div>
 
         {/* CALENDAR FOOTER - Branding watermark */}
-        {/* <div data-component="CalendarFooter" className="mt-4 flex justify-center items-center opacity-50 text-xs">
-          <span>Generated by ScheduleStyler</span>
-        </div> */}
+        {SHOW_WATERMARK && (
+          <div data-component="CalendarFooter" className="mt-4 flex justify-center items-center opacity-50 text-xs">
+            <span>Generated by ScheduleStyler.com</span>
+          </div>
+        )}
       </div>
     </div>
     </OuterWrapper>

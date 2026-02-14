@@ -2869,6 +2869,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
             setSelectedEventId(null);
             setColorPickerPosition(null);
           },
+          onAspectRatioChange: (aspectRatio: number) => {
+            onUpdateTemplate({
+              ...template,
+              aspectRatio,
+              calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 },
+            });
+          },
         }}
         layoutProps={{
           template,

@@ -225,7 +225,7 @@
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--text-on-accent);
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-glow) 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 10%, var(--accent-secondary) 80%);
   border: none;
   border-radius: 0.75rem;
   cursor: pointer;

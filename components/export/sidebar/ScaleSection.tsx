@@ -11,6 +11,7 @@ export const ScaleSection: React.FC<ScaleSectionExtendedProps> = ({
   template,
   onUpdateTemplate,
   onEnableMockup,
+  onAspectRatioChange,
 }) => {
   return (
     <div className="space-y-4">
@@ -34,7 +35,14 @@ export const ScaleSection: React.FC<ScaleSectionExtendedProps> = ({
             max="1"
             step="0.01"
             value={template.aspectRatio}
-            onChange={(e) => onUpdateTemplate({ ...template, aspectRatio: parseFloat(e.target.value) })}
+            onChange={(e) => {
+              const newRatio = parseFloat(e.target.value);
+              if (onAspectRatioChange) {
+                onAspectRatioChange(newRatio);
+              } else {
+                onUpdateTemplate({ ...template, aspectRatio: newRatio });
+              }
+            }}
             className="flex-1 h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
             disabled={template.lockscreenMockup}
           />
@@ -48,7 +56,14 @@ export const ScaleSection: React.FC<ScaleSectionExtendedProps> = ({
             { id: 'mobile', label: <><Smartphone size={12} /> Mobile</>, value: 'mobile' as const },
           ]}
           value={template.aspectRatio <= 0.5 ? 'desktop' : 'mobile'}
-          onChange={(val) => onUpdateTemplate({ ...template, aspectRatio: val === 'desktop' ? 0 : 1 })}
+          onChange={(val) => {
+            const newRatio = val === 'desktop' ? 0 : 1;
+            if (onAspectRatioChange) {
+              onAspectRatioChange(newRatio);
+            } else {
+              onUpdateTemplate({ ...template, aspectRatio: newRatio });
+            }
+          }}
           disabled={template.lockscreenMockup}
         />
       </div>
