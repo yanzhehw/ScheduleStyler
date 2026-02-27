@@ -115,7 +115,7 @@ export const EditSidebar: React.FC<EditSidebarProps> = ({
               onClick={onNext}
               className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
             >
-              Next
+              Glow Up
             </button>
           </div>
         )}

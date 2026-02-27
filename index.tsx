@@ -2,6 +2,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import App from './App';
 import { ThemeProvider } from './lib/ThemeProvider';
 
@@ -17,6 +19,8 @@ root.render(
       <BrowserRouter>
         <ThemeProvider>
           <App />
+          <Analytics />
+          <SpeedInsights />
         </ThemeProvider>
       </BrowserRouter>
     </HelmetProvider>
