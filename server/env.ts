@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 // Validate required environment variables
 const required = [
-  "NEXT_PUBLIC_SUPABASE_URL",
+  "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
 ];
 
@@ -20,7 +20,7 @@ for (const key of required) {
 }
 
 export const env = {
-  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  SUPABASE_URL: process.env.SUPABASE_URL!,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
   SERVER_PORT: process.env.SERVER_PORT || "3001",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,

@@ -119,7 +119,7 @@ export const ThemeSection: React.FC<ThemeSectionProps> = ({
 
       {/* Color Palettes Section */}
       <div className="space-y-2">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider">Other Palettes</div>
+        <div className="text-[10px] text-gray-500 uppercase tracking-wider">Palettes for Blocks</div>
         <div className="grid grid-cols-2 gap-2">
           {colorPalettes.map((palette) => {
             const isActive = currentPaletteId === palette.id;

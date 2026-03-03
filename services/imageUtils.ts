@@ -1,4 +1,4 @@
-import * as htmlToImage from 'https://esm.sh/html-to-image@1.11.11';
+import * as htmlToImage from 'html-to-image';
 
 export const convertFileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {

@@ -1,19 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
-
-const getSupabase = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error('Missing Supabase environment variables');
-  }
-
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-};
+import { getSupabase } from '../lib/supabase';
 
 function verifySignature(payload: string, signature: string | undefined): boolean {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { getR2Client } from '../lib/r2';
 
 interface BackgroundMetadata {
   id: string;
@@ -14,26 +15,6 @@ interface BackgroundsResponse {
   landscape: BackgroundMetadata[];
   portrait: BackgroundMetadata[];
   map: Record<string, string>;
-}
-
-function getR2Client(): S3Client {
-  const accountId = process.env.R2_ACCOUNT_ID || '';
-  const endpoint = accountId.startsWith('https://')
-    ? accountId
-    : `https://${accountId}.r2.cloudflarestorage.com`;
-
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error('R2 credentials not configured');
-  }
-
-  return new S3Client({
-    region: 'auto',
-    endpoint,
-    credentials: { accessKeyId, secretAccessKey },
-  });
 }
 
 async function listBackgrounds(): Promise<BackgroundsResponse> {

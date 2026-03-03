@@ -1,0 +1,188 @@
+import React from 'react';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, OnboardingComponent } from '../../../types';
+import { CalendarCanvas } from '../../CalendarCanvas';
+
+// Import lockscreen mockup overlay (webp with png fallback)
+import lockscreenMockupWebp from '../../../assets/backgrounds/lock-screen-mockup.webp';
+import lockscreenMockupPng from '../../../assets/backgrounds/lock-screen-mockup.png';
+
+interface MobilePreviewPanelProps {
+  events: CalendarEvent[];
+  template: TemplateConfig;
+  supportsZoom: boolean;
+  zoom: number;
+  canvasDimensions: { width: number; height: number; minCardWidth: number; minCardHeight: number };
+  previewPanelRef: React.RefObject<HTMLDivElement>;
+  colorPickerRef: React.RefObject<HTMLDivElement>;
+  handleBlankClick: () => void;
+  handleEventClick: (event: CalendarEvent) => void;
+  selectedComponent: SelectableExportComponent;
+  setSelectedComponent: (component: SelectableExportComponent) => void;
+  setSelectedEventId: (id: string | null) => void;
+  setMobileActiveTab: (tab: string | null) => void;
+  onboardingPending: {
+    calendarCard: boolean;
+    dayHeader: boolean;
+    timeColumn: boolean;
+    eventBlock: boolean;
+  };
+  onboardingEventId: string | null;
+  handleOnboardingOk: (component: OnboardingComponent) => void;
+  setCanvasDimensions: (dims: { width: number; height: number; minCardWidth: number; minCardHeight: number }) => void;
+}
+
+export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
+  events,
+  template,
+  supportsZoom,
+  zoom,
+  canvasDimensions,
+  previewPanelRef,
+  colorPickerRef,
+  handleBlankClick,
+  handleEventClick,
+  selectedComponent,
+  setSelectedComponent,
+  setSelectedEventId,
+  setMobileActiveTab,
+  onboardingPending,
+  onboardingEventId,
+  handleOnboardingOk,
+  setCanvasDimensions,
+}) => {
+  return (
+    <div
+      data-component="MobilePreviewPanel"
+      ref={previewPanelRef}
+      className="absolute inset-0 overflow-auto"
+      style={{ touchAction: 'manipulation' }}
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (colorPickerRef.current?.contains(target)) return;
+        handleBlankClick();
+      }}
+      onTouchEnd={(e: React.TouchEvent) => {
+        const target = e.target as HTMLElement;
+        if (colorPickerRef.current?.contains(target)) return;
+        // Only trigger blank click if tapping on the panel itself, not on interactive elements
+        if (target.closest('[data-component="EventBlock"]') ||
+            target.closest('[data-component="DayHeader"]') ||
+            target.closest('[data-component="TimeColumn"]') ||
+            target.closest('[data-component="DayColumn"]') ||
+            target.closest('[data-component="CalendarCard"]')) return;
+        handleBlankClick();
+      }}
+    >
+      {/* Scale spacer - provides scrollable area for transform scale */}
+      <div
+        className="min-h-full p-4 flex items-start justify-center"
+        style={zoom > 1 ? {
+          minWidth: canvasDimensions.width * zoom + 32,
+          minHeight: canvasDimensions.height * zoom + 32,
+          width: '100%',
+        } : { width: '100%' }}
+      >
+        <div
+          className="transition-all duration-200 origin-top"
+          style={(supportsZoom ? { zoom } : { transform: `scale(${zoom})`, transformOrigin: 'top center' }) as React.CSSProperties}
+        >
+          {template.lockscreenMockup ? (
+            <div data-component="LockscreenMockup" className="relative">
+              <div
+                id="calendar-export-node"
+                className="relative z-40"
+                style={{ borderRadius: '8%' }}
+              >
+                <CalendarCanvas
+                  events={events}
+                  template={template}
+                  interactive={true}
+                  onEventClick={handleEventClick}
+                  onBlankClick={handleBlankClick}
+                  visualScale={supportsZoom ? 1 : zoom}
+                  showFullTitle={template.showCourseSection}
+                  mockupClipBorderRadius="8%"
+                  mockupOverlay={
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{
+                        width: `${(3772 / 3345) * 100}%`,
+                        left: '50%',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 30,
+                      }}
+                    >
+                      <picture>
+                        <source srcSet={lockscreenMockupWebp} type="image/webp" />
+                        <img
+                          src={lockscreenMockupPng}
+                          alt="iPhone Lockscreen Frame"
+                          className="w-full h-auto"
+                        />
+                      </picture>
+                    </div>
+                  }
+                  onHeaderClick={() => {
+                    setSelectedEventId(null);
+                    setSelectedComponent('dayHeader');
+                    setMobileActiveTab('header');
+                  }}
+                  onTimeColumnClick={() => {
+                    setSelectedEventId(null);
+                    setSelectedComponent('timeColumn');
+                    setMobileActiveTab('time');
+                  }}
+                  isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                  onCalendarCardSelect={() => {
+                    setSelectedComponent('calendarCard');
+                    setSelectedEventId(null);
+                    setMobileActiveTab('scale');
+                  }}
+                  highlightMode={selectedComponent}
+                  onboardingComponents={onboardingPending}
+                  onboardingEventId={onboardingEventId}
+                  onOnboardingOk={handleOnboardingOk}
+                  onDimensionsComputed={setCanvasDimensions}
+                />
+              </div>
+            </div>
+          ) : (
+            <div id="calendar-export-node">
+              <CalendarCanvas
+                events={events}
+                template={template}
+                interactive={true}
+                onEventClick={handleEventClick}
+                onBlankClick={handleBlankClick}
+                visualScale={supportsZoom ? 1 : zoom}
+                showFullTitle={template.showCourseSection}
+                onHeaderClick={() => {
+                  setSelectedEventId(null);
+                  setSelectedComponent('dayHeader');
+                  setMobileActiveTab('header');
+                }}
+                onTimeColumnClick={() => {
+                  setSelectedEventId(null);
+                  setSelectedComponent('timeColumn');
+                  setMobileActiveTab('time');
+                }}
+                isCalendarCardSelected={selectedComponent === 'calendarCard'}
+                onCalendarCardSelect={() => {
+                  setSelectedComponent('calendarCard');
+                  setSelectedEventId(null);
+                  setMobileActiveTab('scale');
+                }}
+                highlightMode={selectedComponent}
+                onboardingComponents={onboardingPending}
+                onboardingEventId={onboardingEventId}
+                onOnboardingOk={handleOnboardingOk}
+                onDimensionsComputed={setCanvasDimensions}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

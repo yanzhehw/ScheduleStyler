@@ -1,8 +1,8 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Upload, FileImage, Play, PenLine, Check, KeyRound, Lock, AlertTriangle, X, Timer, Star } from 'lucide-react';
-import { TextShimmer } from './ui/text-shimmer';
-import { ElectricBorder } from './ui/electric-border';
-import { fetchExamples, type ExampleImage } from '../services/examplesApi';
+import { TextShimmer } from '../ui/text-shimmer';
+import { ElectricBorder } from '../ui/electric-border';
+import { fetchExamples, type ExampleImage } from '../../services/examplesApi';
 
 interface UploadStepProps {
   onFileSelect: (file: File, apiKey?: string, activationToken?: string) => void;

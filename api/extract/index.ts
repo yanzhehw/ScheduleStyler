@@ -1,18 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-// Supabase client for token validation
-function getSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('Missing Supabase configuration');
-  }
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
+import { getSupabase } from '../lib/supabase';
 
 // Validate activation token against database
 async function validateActivationToken(token: string): Promise<{ valid: boolean; code?: string }> {

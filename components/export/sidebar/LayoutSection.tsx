@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, Tag, Clock, MapPin, Type } from 'lucide-react';
-import { ToggleSwitch } from '../../ToggleSwitch';
+import { ToggleSwitch } from '../../small_utility/ToggleSwitch';
 import { LayoutSectionProps } from './types';
 
 interface CachedToggles {

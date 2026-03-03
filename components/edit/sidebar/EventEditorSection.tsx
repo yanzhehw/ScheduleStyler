@@ -1,8 +1,8 @@
 import React from 'react';
 import { Trash2, ListPlus, Save } from 'lucide-react';
 import { ThemedDropdown } from '../../ui/themed-dropdown';
-import { ToggleSwitch } from '../../ToggleSwitch';
-import { AlertBox } from '../../AlertBox';
+import { ToggleSwitch } from '../../small_utility/ToggleSwitch';
+import { AlertBox } from '../../small_utility/AlertBox';
 import { ClassType, CalendarEvent } from '../../../types';
 import { EventEditorSectionProps } from './types';
 

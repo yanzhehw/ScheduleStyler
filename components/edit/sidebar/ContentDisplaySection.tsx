@@ -1,6 +1,6 @@
 import React from 'react';
 import { Layout, ChevronDown, ChevronRight, Tag, Clock, MapPin, Type } from 'lucide-react';
-import { ToggleSwitch } from '../../ToggleSwitch';
+import { ToggleSwitch } from '../../small_utility/ToggleSwitch';
 import { ContentDisplaySectionProps } from './types';
 
 export const ContentDisplaySection: React.FC<ContentDisplaySectionProps> = ({

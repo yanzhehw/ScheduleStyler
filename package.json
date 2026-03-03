@@ -26,6 +26,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "framer-motion": "^12.33.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

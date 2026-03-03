@@ -1,6 +1,6 @@
 import React from 'react';
-import { ThemeFamilyId } from '../types';
-import acrylicTextureUrl from '../assets/Texture_Acrylic.png';
+import { ThemeFamilyId } from '../../types';
+import acrylicTextureUrl from '../../assets/Texture_Acrylic.png';
 
 interface ColorPickerProps {
   availableColors: string[];

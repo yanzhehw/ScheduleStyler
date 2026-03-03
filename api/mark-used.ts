@@ -1,19 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-
-// Create Supabase client directly - Vercel injects env vars automatically
-const getSupabase = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error('Missing Supabase environment variables');
-  }
-
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-};
+import { getSupabase } from './lib/supabase';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow POST
