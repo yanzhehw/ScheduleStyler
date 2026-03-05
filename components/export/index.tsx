@@ -32,7 +32,7 @@ interface ExportStepProps {
 
 export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpdateTemplate, onUpdateEvents, onBack }) => {
   // Backgrounds from R2 storage
-  const { landscapes, portraits, isLoading: isBackgroundsLoading, error: backgroundsError } = useBackgrounds();
+  const { landscapes, portraits, imageMap, isLoading: isBackgroundsLoading, error: backgroundsError } = useBackgrounds();
 
   const supportsZoom = typeof window !== 'undefined'
     && typeof window.CSS?.supports === 'function'
@@ -1080,11 +1080,27 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     fetch('/api/track?action=download', { method: 'POST' });
 
     setIsExporting(true);
-    // Allow React to render the hidden export canvas with exportMode=true
+    // Allow React to render the hidden export canvas
     // Longer timeout to ensure fonts are loaded
     await new Promise(r => setTimeout(r, 300));
-    // Use the hidden export canvas which has exportMode=true for proper rendering
-    await downloadCalendarExport('calendar-export-hidden', 'my-beautiful-calendar');
+
+    // Resolve background image URL (same-origin path) so the export pipeline can
+    // draw it directly via Canvas API, bypassing html-to-image's SVG foreignObject
+    // which fails to render CSS background-image on mobile Safari.
+    const backgroundImageUrl =
+      template.backgroundType === 'image'
+        ? template.backgroundImage === 'custom'
+          ? template.customBackgroundImage
+          : imageMap[template.backgroundImage ?? '']
+        : undefined;
+
+    await downloadCalendarExport('calendar-export-hidden', 'my-beautiful-calendar', {
+      backgroundType: template.backgroundType,
+      backgroundColor: template.backgroundColor,
+      backgroundImageUrl: backgroundImageUrl || undefined,
+      backgroundBlur: template.backgroundBlur,
+      backgroundOverlay: template.backgroundOverlay,
+    });
     setIsExporting(false);
   };
 

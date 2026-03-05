@@ -1,6 +1,6 @@
 # ScheduleStyler
 
-Transform ugly ahh calendar screenshots into good looking Ones.
+Transform ugly ahh calendar screenshots into good looking ones.
 
 ## Before & After
 
@@ -14,40 +14,68 @@ Transform ugly ahh calendar screenshots into good looking Ones.
 <td><img src="assets/examples/after.png" alt="Styled modern calendar" width="400"/></td>
 </tr>
 </table>
-<!-- 
-<p align="center">
-  <img src="assets/Modern_2.png" alt="Alternative styled output" width="600"/>
-</p> -->
 
 ---
 
 ## How It Works
 
-1. **Upload** - Drop in a screenshot of your calendar/Manual Input
-2. **Edit** - Review extracted events and fine tune details
-3. **Export** - Select Styling and download your fire schedule thats ready to plug and play. (High resolution)
+1. **Upload** — Drop in a screenshot of your calendar or enter events manually
+2. **Edit** — Review extracted events and fine-tune details
+3. **Export** — Pick a style and download your schedule in high resolution
+
 ---
+
+## Tech Stack
+
+- **Frontend** — React 19, TypeScript, Vite, Tailwind CSS, Styled Components, Framer Motion
+- **Backend** — Express, TypeScript (Vercel serverless in production)
+- **AI** — Google Gemini 2.0 Flash (image-to-schedule extraction)
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18+)
-- A [Google AI Studio](https://aistudio.google.com/) API key
+- Node.js v18+
+- A [Google Gemini API key](https://aistudio.google.com/apikey)
 
-### Installation
+### Setup
 
 ```bash
-
 # Install dependencies
 npm install
 
-# Set your Gemini API key
-echo "GEMINI_API_KEY=your_api_key_here" > .env.local
+# Create your env file
+echo "GEMINI_API_KEY=your_key_here" > .env.local
 
-# Start the development server
+# Start the dev server (client on :3000, server on :3001)
 npm run dev
 ```
 
-Open localhost in your browser.
+The app uses **BYOK (Bring Your Own Key)** mode — paste your Gemini API key in the UI and all image extraction runs against your own key. No other services are required for local development.
+
+---
+
+## Project Structure
+
+```
+├── api/              # Vercel serverless functions (also used locally via Express adapter)
+│   ├── extract/      # Gemini-powered schedule extraction
+│   ├── backgrounds/  # Background image serving (Cloudflare R2)
+│   └── webhooks/     # GitHub star webhook
+├── components/       # React components (UploadStep, EditStep, ExportStep, etc.)
+├── services/         # Gemini API client
+├── server/           # Express dev server + Vercel adapter
+├── contexts/         # React contexts (backgrounds, examples)
+└── assets/           # Static assets and example images
+```
+
+---
+
+## Deployment
+
+Deployed on **Vercel**. The `/api` directory maps directly to serverless functions. Run `vercel` or push to your connected repo to deploy.
 
 ---
 

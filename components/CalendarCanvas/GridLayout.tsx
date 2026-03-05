@@ -309,7 +309,6 @@ export const GridLayout: React.FC<GridLayoutProps> = ({
                 }}
                 onTouchEnd={(e: React.TouchEvent<HTMLDivElement>) => {
                   if (interactive && onBlankClick && e.target === e.currentTarget) {
-                    e.stopPropagation();
                     onBlankClick();
                   }
                 }}

@@ -380,6 +380,7 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
           hoveredResizeEdge={hoveredResizeEdge}
           onEdgeHover={onEdgeHover}
           onResizeStart={onResizeStart}
+          isToolPanelOpen={!!mobileActiveTab}
         />
       </div>
 

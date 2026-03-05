@@ -32,6 +32,8 @@ interface MobilePreviewPanelProps {
   hoveredResizeEdge: ResizeEdge;
   onEdgeHover: (edge: ResizeEdge) => void;
   onResizeStart: (edge: ResizeEdge, mousePos: { x: number; y: number }) => void;
+  /** Whether a tool panel is currently open, to add extra scroll padding */
+  isToolPanelOpen?: boolean;
 }
 
 export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
@@ -55,6 +57,7 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
   hoveredResizeEdge,
   onEdgeHover,
   onResizeStart,
+  isToolPanelOpen,
 }) => {
   return (
     <div
@@ -83,6 +86,19 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
             target.closest('[data-component="DayColumn"]') ||
             target.closest('[data-component="CalendarCard"]') ||
             target.closest('[data-component^="ResizeEdge"]')) return;
+        const touch = e.changedTouches[0];
+        const cardEl = previewPanelRef.current?.querySelector('[data-component="CalendarCard"]') as HTMLElement | null;
+        if (cardEl && touch) {
+          const rect = cardEl.getBoundingClientRect();
+          const insideCard = touch.clientX >= rect.left && touch.clientX <= rect.right
+            && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+          if (insideCard) {
+            setSelectedComponent('calendarCard');
+            setSelectedEventId(null);
+            setMobileActiveTab('scale');
+            return;
+          }
+        }
         handleBlankClick();
       }}
     >
@@ -93,6 +109,7 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
           minWidth: canvasDimensions.width * zoom + 32,
           minHeight: canvasDimensions.height * zoom + 32,
           width: '100%',
+          paddingBottom: isToolPanelOpen ? '50vh' : undefined,
         }}
       >
         <div
@@ -100,14 +117,10 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
           style={{
             width: canvasDimensions.width,
             height: canvasDimensions.height,
-            ...(supportsZoom
-              ? { zoom }
-              : {
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'top center',
-                  // Collapse unused space when scale < 1 so layout matches visual size
-                  marginBottom: zoom < 1 ? -(canvasDimensions.height * (1 - zoom)) : undefined,
-                }),
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top center',
+            // Collapse unused space when scale < 1 so layout matches visual size
+            marginBottom: zoom < 1 ? -(canvasDimensions.height * (1 - zoom)) : undefined,
           } as React.CSSProperties}
         >
           {template.lockscreenMockup ? (
@@ -123,7 +136,7 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
                   interactive={true}
                   onEventClick={handleEventClick}
                   onBlankClick={handleBlankClick}
-                  visualScale={supportsZoom ? 1 : zoom}
+                  visualScale={zoom}
                   showFullTitle={template.showCourseSection}
                   mockupClipBorderRadius="8%"
                   mockupOverlay={
@@ -182,7 +195,7 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
                 interactive={true}
                 onEventClick={handleEventClick}
                 onBlankClick={handleBlankClick}
-                visualScale={supportsZoom ? 1 : zoom}
+                visualScale={zoom}
                 showFullTitle={template.showCourseSection}
                 onHeaderClick={() => {
                   setSelectedEventId(null);

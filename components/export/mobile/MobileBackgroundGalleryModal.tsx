@@ -34,23 +34,51 @@ export const MobileBackgroundGalleryModal: React.FC<MobileBackgroundGalleryModal
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-3 gap-2">
-            {[...landscapes, ...portraits].map((bg) => (
-              <button
-                key={bg.id}
-                onClick={() => {
-                  onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
-                  onClose();
-                }}
-                className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                  template.backgroundImage === bg.id
-                    ? 'border-blue-500 ring-2 ring-blue-400/50'
-                    : 'border-[var(--border-default)]'
-                }`}
-              >
-                <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
-              </button>
-            ))}
+          <div className="flex gap-3">
+            {/* Landscape column */}
+            <div className="w-[48%] shrink-0 space-y-1.5">
+              <span className="text-[9px] uppercase tracking-wide text-gray-500">Landscape</span>
+              <div className="space-y-1.5">
+                {landscapes.map((bg) => (
+                  <button
+                    key={bg.id}
+                    onClick={() => {
+                      onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
+                      onClose();
+                    }}
+                    className={`relative w-full aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                      template.backgroundImage === bg.id
+                        ? 'border-blue-500 ring-2 ring-blue-400/50'
+                        : 'border-[var(--border-default)]'
+                    }`}
+                  >
+                    <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Portrait columns */}
+            <div className="w-[48%] shrink-0 space-y-1.5">
+              <span className="text-[9px] uppercase tracking-wide text-gray-500">Portrait</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {portraits.map((bg) => (
+                  <button
+                    key={bg.id}
+                    onClick={() => {
+                      onUpdateTemplate({ ...template, backgroundImage: bg.id, customBackgroundImage: undefined });
+                      onClose();
+                    }}
+                    className={`relative w-full aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${
+                      template.backgroundImage === bg.id
+                        ? 'border-blue-500 ring-2 ring-blue-400/50'
+                        : 'border-[var(--border-default)]'
+                    }`}
+                  >
+                    <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

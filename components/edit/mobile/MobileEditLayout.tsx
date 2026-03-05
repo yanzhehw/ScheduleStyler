@@ -538,7 +538,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
       {/* Scrollable canvas area */}
       <div
         className="absolute inset-0 p-6 overflow-auto"
-        style={{ touchAction: 'pan-x pan-y' }}
+        style={{ touchAction: 'manipulation' }}
       >
         {/* Scale spacer - provides scrollable area when zoomed */}
         <div
@@ -553,9 +553,8 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
           <div
             className="origin-top"
             style={{
-              ...(supportsZoom
-                ? { zoom }
-                : { transform: `scale(${zoom})`, transformOrigin: 'top center' }),
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top center',
               opacity: isZoomReady ? 1 : 0,
               transition: 'opacity 150ms ease-out',
             } as React.CSSProperties}
@@ -568,8 +567,8 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
               onBlankClick={onBlankClick}
               showFullTitle={template.showCourseSection}
               selectedEventId={selectedEventId}
-              onEventTimeChange={onEventTimeChange}
-              onEventDragEnd={onEventDragEnd}
+              onEventTimeChange={undefined}
+              onEventDragEnd={undefined}
               onEmptyBlockClick={onOpenNewEventModal}
               hideUnselectedBorders={true}
               overlappingEventIds={overlappingEventIds}
@@ -582,7 +581,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
                 </>
               }
               onOnboardingOk={() => setShowEditOnboarding(false)}
-              visualScale={supportsZoom ? 1 : zoom}
+              visualScale={zoom}
               onDimensionsComputed={onDimensionsComputed}
             />
           </div>
@@ -592,7 +591,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
   );
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 mobile-edit-root">
       <MobileHeaderBar
         left={
           <button onClick={() => setShowReuploadConfirm(true)} className={headerGhostBtnClass} style={{ backgroundColor: 'var(--button-ghost)' }}>

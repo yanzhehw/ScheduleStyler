@@ -55,13 +55,11 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
   };
 
   return (
-    <>
+    <div className="fixed left-0 right-0 bottom-0 z-[310] safe-area-pb flex flex-col">
       {/* Slide-up content panel */}
       {activeTab && (
         <div
-          className="fixed left-0 right-0 z-[300]"
           style={{
-            bottom: (primaryAction || secondaryAction) ? '100px' : '56px',
             maxHeight: 'calc(100vh - 200px)',
             backgroundColor: 'var(--panel-background)',
             borderTop: '1px solid var(--panel-border)',
@@ -102,7 +100,6 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
 
       {/* Footer toolbar */}
       <div
-        className="fixed left-0 right-0 bottom-0 z-[310] safe-area-pb"
         style={{
           backgroundColor: 'var(--panel-background)',
           borderTop: '1px solid var(--panel-border)',
@@ -169,6 +166,6 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
           })}
         </div>
       </div>
-    </>
+    </div>
   );
 };

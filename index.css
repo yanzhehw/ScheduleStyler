@@ -518,7 +518,12 @@
     width: 100%;
   }
 
-  /* Touch-friendly tap targets removed for mobile per request */
+  /* Prevent iOS input focus zoom in mobile edit view */
+  .mobile-edit-root input,
+  .mobile-edit-root select,
+  .mobile-edit-root textarea {
+    font-size: 16px;
+  }
 }
 
 /* Hide desktop sidebar on mobile */

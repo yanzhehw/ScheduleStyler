@@ -53,29 +53,55 @@ export const MobileBackgroundTab: React.FC<MobileBackgroundTabProps> = ({
             </div>
           )}
           {!isBackgroundsLoading && !backgroundsError && (
-            <div className="grid grid-cols-4 gap-1.5 max-h-[108px] overflow-y-auto">
-              {[...landscapes, ...portraits].slice(0, 12).map((bg) => (
-                <button
-                  key={bg.id}
-                  onClick={() => onUpdateTemplate({
-                    ...template,
-                    backgroundImage: bg.id,
-                    customBackgroundImage: undefined
-                  })}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    template.backgroundImage === bg.id && !template.customBackgroundImage
-                      ? 'border-blue-500 ring-2 ring-blue-400/50'
-                      : 'border-[var(--border-default)]'
-                  }`}
-                >
-                  <img
-                    src={bg.thumbnailUrl}
-                    alt={bg.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </button>
-              ))}
+            <div className="overflow-y-auto h-36 custom-scrollbar" style={{ touchAction: 'pan-y' }}>
+              <div className="flex gap-2">
+                {/* Landscape column */}
+                <div className="w-[48%] shrink-0 space-y-1">
+                  <span className="text-[9px] uppercase tracking-wide text-gray-500">Landscape</span>
+                  <div className="space-y-1">
+                    {landscapes.map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => onUpdateTemplate({
+                          ...template,
+                          backgroundImage: bg.id,
+                          customBackgroundImage: undefined
+                        })}
+                        className={`relative w-full aspect-video rounded-md overflow-hidden border-2 transition-all ${
+                          template.backgroundImage === bg.id && !template.customBackgroundImage
+                            ? 'border-blue-500 ring-2 ring-blue-400/50'
+                            : 'border-[var(--border-default)]'
+                        }`}
+                      >
+                        <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Portrait columns */}
+                <div className="w-[48%] shrink-0 space-y-1">
+                  <span className="text-[9px] uppercase tracking-wide text-gray-500">Portrait</span>
+                  <div className="grid grid-cols-2 gap-1">
+                    {portraits.map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => onUpdateTemplate({
+                          ...template,
+                          backgroundImage: bg.id,
+                          customBackgroundImage: undefined
+                        })}
+                        className={`relative w-full aspect-[9/16] rounded-md overflow-hidden border-2 transition-all ${
+                          template.backgroundImage === bg.id && !template.customBackgroundImage
+                            ? 'border-blue-500 ring-2 ring-blue-400/50'
+                            : 'border-[var(--border-default)]'
+                        }`}
+                      >
+                        <img src={bg.thumbnailUrl} alt={bg.name} className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
