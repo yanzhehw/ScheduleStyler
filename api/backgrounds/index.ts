@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { getR2Client } from '../lib/r2';
+import { getR2Client } from '../lib/r2.js';
 
 interface BackgroundMetadata {
   id: string;
@@ -20,7 +20,7 @@ interface BackgroundsResponse {
 async function listBackgrounds(): Promise<BackgroundsResponse> {
   const landscape: BackgroundMetadata[] = [];
   const portrait: BackgroundMetadata[] = [];
-  const bucket = process.env.R2_BUCKET_NAME || 'schedule-styler-backgrounds';
+  const bucket = process.env.R2_BUCKET_NAME || 'schedule-styler-backgrouds';
   const client = getR2Client();
 
   // List landscape images

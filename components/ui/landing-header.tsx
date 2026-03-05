@@ -42,7 +42,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ onGetStarted }) =>
         {/* CTA Button */}
         <button
           onClick={onGetStarted}
-          className="px-5 py-2.5 text-sm font-semibold text-zinc-950 bg-white rounded-full hover:bg-zinc-200 transition-colors"
+          className="hidden md:inline-flex px-5 py-2.5 text-sm font-semibold text-zinc-950 bg-white rounded-full hover:bg-zinc-200 transition-colors"
         >
           Get Started
         </button>

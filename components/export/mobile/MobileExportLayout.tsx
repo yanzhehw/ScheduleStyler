@@ -1,6 +1,6 @@
 import React from 'react';
-import { Clock, Download, Droplet, Image, Layout, Maximize2, Palette } from 'lucide-react';
-import { CalendarEvent, TemplateConfig, SelectableExportComponent, OnboardingComponent, ThemeFamilyId } from '../../../types';
+import { Clock, Download, Droplet, Image, Layout, Maximize2, Palette, Type } from 'lucide-react';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, OnboardingComponent, ThemeFamilyId, ResizeEdge } from '../../../types';
 import { CalendarCanvas } from '../../CalendarCanvas';
 import { MobileFooterToolbar, MobileTab } from '../../small_utility/MobileFooterToolbar';
 import { ColorPalette } from '../../../themes';
@@ -9,12 +9,14 @@ import { MobileThemeTab } from './MobileThemeTab';
 import { MobileBackgroundTab } from './MobileBackgroundTab';
 import { MobileScaleTab } from './MobileScaleTab';
 import { MobileContentTab } from './MobileContentTab';
+import { MobileFontTab } from './MobileFontTab';
 import { MobileColorTab } from './MobileColorTab';
 import { MobileHeaderTab } from './MobileHeaderTab';
 import { MobileTimeTab } from './MobileTimeTab';
 import { MobileExportZoomToolbar } from './MobileExportZoomToolbar';
 import { MobilePreviewPanel } from './MobilePreviewPanel';
 import { MobileBackgroundGalleryModal } from './MobileBackgroundGalleryModal';
+import { MobileHeaderBar, headerGhostBtnClass, headerAccentBtnClass } from '../../small_utility/MobileHeaderBar';
 
 interface MobileExportLayoutProps {
   events: CalendarEvent[];
@@ -63,6 +65,10 @@ interface MobileExportLayoutProps {
   backgroundsError: boolean | null;
   applyThemeColors: (familyId: ThemeFamilyId) => void;
   prevThemeFamilyRef: React.MutableRefObject<ThemeFamilyId>;
+  colorPalettes: { id: string; name: string; colors: string[] }[];
+  activePaletteId: string | null;
+  onPaletteChange: (paletteId: string) => void;
+  onTextColorPresetChange: (preset: 'light' | 'dark') => void;
   themeColors: string[];
   currentPalette: ColorPalette;
   showPalettePicker: boolean;
@@ -74,6 +80,11 @@ interface MobileExportLayoutProps {
   triggerColorUpdate: (diff: boolean) => void;
   handleColorSelect: (color: string) => void;
   setShowFontSelector: (value: boolean) => void;
+  availableFonts: string[];
+  fontPairs: { id: string; name: string; description: string; titleFont: string; subtitleFont: string; detailsFont: string }[];
+  selectedFontPairId: string;
+  setSelectedFontPairId: (id: string) => void;
+  applyFontPair: (pairId: string) => void;
   openTextColorPicker: string | null;
   setOpenTextColorPicker: (field: string | null) => void;
   cachedToggles: {
@@ -88,6 +99,9 @@ interface MobileExportLayoutProps {
     showLocation: boolean;
     showNotes: boolean;
   } | null) => void;
+  hoveredResizeEdge: ResizeEdge;
+  onEdgeHover: (edge: ResizeEdge) => void;
+  onResizeStart: (edge: ResizeEdge, mousePos: { x: number; y: number }) => void;
 }
 
 export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
@@ -131,6 +145,10 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
   backgroundsError,
   applyThemeColors,
   prevThemeFamilyRef,
+  colorPalettes,
+  activePaletteId,
+  onPaletteChange,
+  onTextColorPresetChange,
   themeColors,
   currentPalette,
   showPalettePicker,
@@ -142,10 +160,18 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
   triggerColorUpdate,
   handleColorSelect,
   setShowFontSelector,
+  availableFonts,
+  fontPairs,
+  selectedFontPairId,
+  setSelectedFontPairId,
+  applyFontPair,
   openTextColorPicker,
   setOpenTextColorPicker,
   cachedToggles,
   setCachedToggles,
+  hoveredResizeEdge,
+  onEdgeHover,
+  onResizeStart,
 }) => {
   const themeTabContent = (
     <MobileThemeTab
@@ -154,6 +180,10 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
       applyThemeColors={applyThemeColors}
       prevThemeFamilyRef={prevThemeFamilyRef}
       getDefaultLandscapeId={() => undefined}
+      colorPalettes={colorPalettes}
+      activePaletteId={activePaletteId}
+      onPaletteChange={onPaletteChange}
+      onTextColorPresetChange={onTextColorPresetChange}
     />
   );
 
@@ -175,6 +205,20 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
     <MobileScaleTab
       template={template}
       onUpdateTemplate={onUpdateTemplate}
+    />
+  );
+
+  const fontTabContent = (
+    <MobileFontTab
+      template={template}
+      onUpdateTemplate={onUpdateTemplate}
+      availableFonts={availableFonts}
+      fontPairs={fontPairs}
+      selectedFontPairId={selectedFontPairId}
+      setSelectedFontPairId={setSelectedFontPairId}
+      applyFontPair={applyFontPair}
+      openTextColorPicker={openTextColorPicker}
+      setOpenTextColorPicker={setOpenTextColorPicker}
     />
   );
 
@@ -234,7 +278,7 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
     {
       id: 'color',
       label: 'Color',
-      icon: <Droplet size={20} />,
+      icon: <Droplet size={16} />,
       content: colorTabContent,
     },
   ] : selectedComponent === 'dayHeader' ? [
@@ -242,7 +286,7 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
     {
       id: 'header',
       label: 'Header',
-      icon: <Layout size={20} />,
+      icon: <Layout size={16} />,
       content: headerTabContent,
     },
   ] : selectedComponent === 'timeColumn' ? [
@@ -250,7 +294,7 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
     {
       id: 'time',
       label: 'Time',
-      icon: <Clock size={20} />,
+      icon: <Clock size={16} />,
       content: timeTabContent,
     },
   ] : [
@@ -258,56 +302,54 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
     {
       id: 'theme',
       label: 'Theme',
-      icon: <Palette size={20} />,
+      icon: <Palette size={16} />,
       content: themeTabContent,
     },
     {
       id: 'background',
-      label: 'Background',
-      icon: <Image size={20} />,
+      label: 'BG',
+      icon: <Image size={16} />,
       content: backgroundTabContent,
     },
     {
       id: 'scale',
       label: 'Scale',
-      icon: <Maximize2 size={20} />,
+      icon: <Maximize2 size={16} />,
       content: scaleTabContent,
+    },
+    {
+      id: 'font',
+      label: 'Font',
+      icon: <Type size={16} />,
+      content: fontTabContent,
     },
     {
       id: 'content',
       label: 'Content',
-      icon: <Layout size={20} />,
+      icon: <Layout size={16} />,
       content: contentTabContent,
     },
   ];
 
   return (
     <div className="flex flex-col h-full min-h-0 relative">
-      {/* Mobile Header Bar */}
-      <div
-        className="flex items-center justify-between px-3 py-2 rounded-xl mb-2"
-        style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}
-      >
-        <button
-          onClick={onBack}
-          className="px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded-lg"
-          style={{ backgroundColor: 'var(--button-ghost)' }}
-        >
-          ← Back
-        </button>
-        <h3 className="font-semibold text-white text-sm">Visual Style</h3>
-        <button
-          onClick={handleDownload}
-          disabled={isExporting}
-          className="flex items-center gap-1.5 px-3 py-1.5 btn-accent text-white text-sm font-medium rounded-lg disabled:opacity-50"
-        >
-          <Download size={14} />
-          {isExporting ? '...' : 'Download'}
-        </button>
-      </div>
+      <MobileHeaderBar
+        left={
+          <button onClick={onBack} className={headerGhostBtnClass} style={{ backgroundColor: 'var(--button-ghost)' }}>
+            ← Back
+          </button>
+        }
+        title="Visual Style"
+        right={
+          <button onClick={handleDownload} disabled={isExporting} className={headerAccentBtnClass}>
+            <Download size={11} />
+            {isExporting ? '...' : 'Download'}
+          </button>
+        }
+      />
 
       {/* Preview Panel with zoom controls */}
-      <div className="flex-1 min-h-0 relative mb-[72px]">
+      <div className="flex-1 min-h-0 relative mb-[56px]">
         <MobileExportZoomToolbar
           isZoomToolbarOpen={isZoomToolbarOpen}
           setIsZoomToolbarOpen={setIsZoomToolbarOpen}
@@ -335,6 +377,9 @@ export const MobileExportLayout: React.FC<MobileExportLayoutProps> = ({
           onboardingEventId={onboardingEventId}
           handleOnboardingOk={handleOnboardingOk}
           setCanvasDimensions={setCanvasDimensions}
+          hoveredResizeEdge={hoveredResizeEdge}
+          onEdgeHover={onEdgeHover}
+          onResizeStart={onResizeStart}
         />
       </div>
 

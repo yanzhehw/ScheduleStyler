@@ -11,6 +11,7 @@
  * - MobileContentTab.tsx - Content visibility toggles
  * - MobileHeaderTab.tsx - Day header customization
  * - MobileTimeTab.tsx - Time column customization
+ * - MobileFontTab.tsx - Font controls (font pairs, alignment, per-level settings, text colors)
  * - MobileColorTab.tsx - Event color picker (shown when event is selected)
  * - MobileExportZoomToolbar.tsx - Zoom in/out + percentage + collapse toggle
  * - MobilePreviewPanel.tsx - Main canvas preview area
@@ -25,6 +26,7 @@ export * from './MobileScaleTab';
 export * from './MobileContentTab';
 export * from './MobileHeaderTab';
 export * from './MobileTimeTab';
+export * from './MobileFontTab';
 export * from './MobileColorTab';
 export * from './MobileExportZoomToolbar';
 export * from './MobilePreviewPanel';

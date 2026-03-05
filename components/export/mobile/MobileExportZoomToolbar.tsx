@@ -1,7 +1,7 @@
 import React from 'react';
-import { Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
-interface MobileExportZoomToolbarProps {
+interface MobileZoomToolbarProps {
   isZoomToolbarOpen: boolean;
   setIsZoomToolbarOpen: (open: boolean) => void;
   zoom: number;
@@ -10,7 +10,15 @@ interface MobileExportZoomToolbarProps {
   handleZoomReset: () => void;
 }
 
-export const MobileExportZoomToolbar: React.FC<MobileExportZoomToolbarProps> = ({
+const zoomBtnClass =
+  "h-6 w-6 rounded border flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn focus:outline-none";
+
+/** Blur on touch end to prevent persistent highlight on mobile */
+const blurOnTouch = (e: React.TouchEvent<HTMLButtonElement>) => {
+  e.currentTarget.blur();
+};
+
+export const MobileExportZoomToolbar: React.FC<MobileZoomToolbarProps> = ({
   isZoomToolbarOpen,
   setIsZoomToolbarOpen,
   zoom,
@@ -20,52 +28,49 @@ export const MobileExportZoomToolbar: React.FC<MobileExportZoomToolbarProps> = (
 }) => {
   return (
     <>
-      {/* Zoom Toolbar */}
       {isZoomToolbarOpen && (
-        <div className="absolute top-4 right-4 z-50">
-          <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
-            <button
-              onClick={handleZoomOut}
-              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
-              title="Zoom Out"
-            >
-              <ZoomOut size={16} className="mx-auto text-gray-200" />
+        <div className="absolute top-2 right-2 z-50">
+          <div
+            className="flex items-center gap-1 rounded-lg border p-1 shadow-[0_8px_20px_rgba(2,6,23,0.35)] toolbar-themed"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <button onClick={handleZoomOut} onTouchEnd={blurOnTouch} className={zoomBtnClass} title="Zoom Out">
+              <ZoomOut size={11} className="text-gray-200" />
             </button>
             <button
               onClick={handleZoomReset}
-              className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
+              onTouchEnd={blurOnTouch}
+              className="h-6 min-w-[40px] rounded border px-1.5 flex items-center justify-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn focus:outline-none"
               title="Fit to View"
             >
-              <span className="text-xs font-mono text-gray-100">
+              <span className="text-[9px] font-mono text-gray-100 leading-none">
                 {Math.round(zoom * 100)}%
               </span>
             </button>
-            <button
-              onClick={handleZoomIn}
-              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed inline-btn"
-              title="Zoom In"
-            >
-              <ZoomIn size={16} className="mx-auto text-gray-200" />
+            <button onClick={handleZoomIn} onTouchEnd={blurOnTouch} className={zoomBtnClass} title="Zoom In">
+              <ZoomIn size={11} className="text-gray-200" />
             </button>
             <button
               onClick={() => setIsZoomToolbarOpen(false)}
-              className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed inline-btn"
+              onTouchEnd={blurOnTouch}
+              className={zoomBtnClass}
               title="Hide zoom controls"
             >
-              <Minimize2 size={12} className="text-gray-200" />
+              <X size={11} className="text-gray-400" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Collapsed zoom button */}
       {!isZoomToolbarOpen && (
         <button
           onClick={() => setIsZoomToolbarOpen(true)}
-          className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border shadow-lg transition-all active:scale-95 toolbar-themed inline-btn"
+          onTouchEnd={blurOnTouch}
+          className="absolute top-2 right-2 z-50 h-6 w-6 rounded-lg border shadow-lg transition-all active:scale-95 toolbar-themed inline-btn flex items-center justify-center focus:outline-none"
           title="Show zoom controls"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
-          <ZoomIn size={16} className="mx-auto text-gray-200" />
+          <ZoomIn size={11} className="text-gray-200" />
         </button>
       )}
     </>

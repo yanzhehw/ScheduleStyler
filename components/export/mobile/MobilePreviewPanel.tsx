@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarEvent, TemplateConfig, SelectableExportComponent, OnboardingComponent } from '../../../types';
+import { CalendarEvent, TemplateConfig, SelectableExportComponent, OnboardingComponent, ResizeEdge } from '../../../types';
 import { CalendarCanvas } from '../../CalendarCanvas';
 
 // Import lockscreen mockup overlay (webp with png fallback)
@@ -29,6 +29,9 @@ interface MobilePreviewPanelProps {
   onboardingEventId: string | null;
   handleOnboardingOk: (component: OnboardingComponent) => void;
   setCanvasDimensions: (dims: { width: number; height: number; minCardWidth: number; minCardHeight: number }) => void;
+  hoveredResizeEdge: ResizeEdge;
+  onEdgeHover: (edge: ResizeEdge) => void;
+  onResizeStart: (edge: ResizeEdge, mousePos: { x: number; y: number }) => void;
 }
 
 export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
@@ -49,16 +52,25 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
   onboardingEventId,
   handleOnboardingOk,
   setCanvasDimensions,
+  hoveredResizeEdge,
+  onEdgeHover,
+  onResizeStart,
 }) => {
   return (
     <div
       data-component="MobilePreviewPanel"
       ref={previewPanelRef}
       className="absolute inset-0 overflow-auto"
-      style={{ touchAction: 'manipulation' }}
+      style={{ touchAction: selectedComponent === 'calendarCard' ? 'none' : 'pan-x pan-y' }}
       onMouseDown={(e) => {
         const target = e.target as HTMLElement;
         if (colorPickerRef.current?.contains(target)) return;
+        if (target.closest('[data-component="EventBlock"]') ||
+            target.closest('[data-component="DayHeader"]') ||
+            target.closest('[data-component="TimeColumn"]') ||
+            target.closest('[data-component="DayColumn"]') ||
+            target.closest('[data-component="CalendarCard"]') ||
+            target.closest('[data-component^="ResizeEdge"]')) return;
         handleBlankClick();
       }}
       onTouchEnd={(e: React.TouchEvent) => {
@@ -69,22 +81,34 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
             target.closest('[data-component="DayHeader"]') ||
             target.closest('[data-component="TimeColumn"]') ||
             target.closest('[data-component="DayColumn"]') ||
-            target.closest('[data-component="CalendarCard"]')) return;
+            target.closest('[data-component="CalendarCard"]') ||
+            target.closest('[data-component^="ResizeEdge"]')) return;
         handleBlankClick();
       }}
     >
       {/* Scale spacer - provides scrollable area for transform scale */}
       <div
         className="min-h-full p-4 flex items-start justify-center"
-        style={zoom > 1 ? {
+        style={{
           minWidth: canvasDimensions.width * zoom + 32,
           minHeight: canvasDimensions.height * zoom + 32,
           width: '100%',
-        } : { width: '100%' }}
+        }}
       >
         <div
-          className="transition-all duration-200 origin-top"
-          style={(supportsZoom ? { zoom } : { transform: `scale(${zoom})`, transformOrigin: 'top center' }) as React.CSSProperties}
+          className="transition-all duration-200"
+          style={{
+            width: canvasDimensions.width,
+            height: canvasDimensions.height,
+            ...(supportsZoom
+              ? { zoom }
+              : {
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top center',
+                  // Collapse unused space when scale < 1 so layout matches visual size
+                  marginBottom: zoom < 1 ? -(canvasDimensions.height * (1 - zoom)) : undefined,
+                }),
+          } as React.CSSProperties}
         >
           {template.lockscreenMockup ? (
             <div data-component="LockscreenMockup" className="relative">
@@ -140,6 +164,9 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
                     setMobileActiveTab('scale');
                   }}
                   highlightMode={selectedComponent}
+                  hoveredResizeEdge={hoveredResizeEdge}
+                  onEdgeHover={onEdgeHover}
+                  onResizeStart={onResizeStart}
                   onboardingComponents={onboardingPending}
                   onboardingEventId={onboardingEventId}
                   onOnboardingOk={handleOnboardingOk}
@@ -174,6 +201,9 @@ export const MobilePreviewPanel: React.FC<MobilePreviewPanelProps> = ({
                   setMobileActiveTab('scale');
                 }}
                 highlightMode={selectedComponent}
+                hoveredResizeEdge={hoveredResizeEdge}
+                onEdgeHover={onEdgeHover}
+                onResizeStart={onResizeStart}
                 onboardingComponents={onboardingPending}
                 onboardingEventId={onboardingEventId}
                 onOnboardingOk={handleOnboardingOk}

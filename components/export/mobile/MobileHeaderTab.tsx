@@ -9,21 +9,29 @@ export const MobileHeaderTab: React.FC<MobileHeaderTabProps> = ({
   setOpenTextColorPicker,
 }) => {
   return (
-    <div className="space-y-4">
-      <div className="text-xs text-gray-400 font-medium italic">Day Header Style</div>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] text-gray-400 font-medium italic">Day Header Style</div>
+        <button
+          onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
+          className="inline-btn text-[10px] text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          Reset to Default
+        </button>
+      </div>
 
       {/* Color swatches */}
-      <div className="space-y-2">
-        <label className="text-xs text-gray-400 font-medium">Text Color</label>
-        <div className="grid grid-cols-6 gap-2">
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-gray-400 font-medium">Text Color</label>
+        <div className="grid grid-cols-6 gap-1.5">
           {['#111827', '#374151', '#6b7280', '#9ca3af', '#f3f4f6', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'].map((color) => (
             <button
               key={color}
               onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
-              className={`w-10 h-10 rounded-full border-2 transition-all hover:scale-110 ${
+              className={`inline-btn w-6 h-6 rounded-full border transition-all ${
                 template.headerTextColor === color
-                  ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                  : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
+                  ? 'border-white ring-1 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                  : 'border-[var(--border-default)]'
               }`}
               style={{ backgroundColor: color }}
             />
@@ -32,8 +40,8 @@ export const MobileHeaderTab: React.FC<MobileHeaderTabProps> = ({
       </div>
 
       {/* Backdrop Blur */}
-      <div className="space-y-2 pt-3 border-t border-[var(--border-muted)]">
-        <label className="text-xs text-gray-400 font-medium">Backdrop Blur</label>
+      <div className="space-y-2 pt-2 border-t border-[var(--border-muted)]">
+        <label className="text-[10px] text-gray-400 font-medium">Backdrop Blur</label>
         <input
           type="range"
           min="0"
@@ -41,7 +49,7 @@ export const MobileHeaderTab: React.FC<MobileHeaderTabProps> = ({
           step="1"
           value={template.headerBlurAmount}
           onChange={(e) => onUpdateTemplate({ ...template, headerBlurAmount: parseInt(e.target.value) })}
-          className="w-full h-2 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
         />
         <GlassRadioGroup
           name="header-blur-mode-mobile"
@@ -51,16 +59,9 @@ export const MobileHeaderTab: React.FC<MobileHeaderTabProps> = ({
           ]}
           value={template.headerBlurMode}
           onChange={(val) => onUpdateTemplate({ ...template, headerBlurMode: val })}
+          compact
         />
       </div>
-
-      {/* Reset Button */}
-      <button
-        onClick={() => onUpdateTemplate({ ...template, headerTextColor: undefined, headerBlurAmount: 0 })}
-        className="w-full px-3 py-2 button-ghost-themed rounded-lg text-sm text-gray-200 font-medium transition-colors"
-      >
-        Reset to Default
-      </button>
     </div>
   );
 };

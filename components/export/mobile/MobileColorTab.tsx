@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, TypeIcon } from 'lucide-react';
+import { Palette } from 'lucide-react';
 import { COLOR_PALETTES, ColorPalette } from '../../../themes';
 import { MobileColorTabProps } from './types';
 
@@ -15,8 +15,17 @@ interface MobileColorTabInternalProps extends MobileColorTabProps {
   onUpdateEvents: (events: any[]) => void;
   shuffleColorsForEvents: (differentiateTypes: boolean) => void;
   triggerColorUpdate: (diff: boolean) => void;
-  setShowFontSelector: (value: boolean) => void;
+  setShowFontSelector?: (value: boolean) => void;
 }
+
+const MiniToggle: React.FC<{ label: string; enabled: boolean; onToggle: () => void }> = ({ label, enabled, onToggle }) => (
+  <div className="flex items-center justify-between w-full gap-2 cursor-pointer" onClick={onToggle}>
+    <span className="text-[10px] text-gray-400">{label}</span>
+    <div className={`w-7 h-3.5 rounded-full relative transition-all ${enabled ? 'toggle-accent-bg' : 'toggle-off-bg'}`}>
+      <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${enabled ? 'left-4' : 'left-0.5'}`} />
+    </div>
+  </div>
+);
 
 export const MobileColorTab: React.FC<MobileColorTabInternalProps> = ({
   template,
@@ -46,71 +55,115 @@ export const MobileColorTab: React.FC<MobileColorTabInternalProps> = ({
     );
   }
 
+  const showThemeToggles = template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass';
+
   return (
     <div className="space-y-2">
-      {/* Apply to All + Shuffle row */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded-lg card-section-themed">
-          <span className="text-xs text-gray-300">All Blocks</span>
-          <div
-            onClick={() => {
-              const newValue = !applyColorToAll;
-              setApplyColorToAll(newValue);
-              if (newValue && selectedEvent) {
-                const currentOpacity = selectedEvent.opacity ?? template.eventOpacity;
-                const updatedEvents = events.map(e => ({
-                  ...e,
-                  color: selectedEvent.color,
-                  opacity: currentOpacity,
-                }));
-                onUpdateEvents(updatedEvents);
-                onUpdateTemplate({ ...template, eventOpacity: currentOpacity });
-              } else if (!newValue) {
-                shuffleColorsForEvents(template.differentiateTypes);
-              }
-            }}
-            className={`w-9 h-4 rounded-full relative transition-all duration-300 cursor-pointer ${applyColorToAll ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
-          >
-            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-200 ${applyColorToAll ? 'left-5' : 'left-0.5'}`} />
+      {/* Two-column module: toggles left, swatches right */}
+      <div className="rounded-md border card-section-themed p-2">
+        <div className="flex gap-2">
+          {/* Left column: toggles + opacity */}
+          <div className="flex-1 space-y-1.5">
+            {showThemeToggles && (
+              <MiniToggle
+                label="No Border"
+                enabled={!!template.eventBlockNoBorders}
+                onToggle={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
+              />
+            )}
+            <MiniToggle
+              label="Diff color by course type"
+              enabled={!!template.differentiateTypes}
+              onToggle={() => triggerColorUpdate(!template.differentiateTypes)}
+            />
+            {showThemeToggles && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-400 shrink-0">Opacity</span>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={applyColorToAll ? template.eventOpacity : (selectedEvent.opacity ?? template.eventOpacity)}
+                  onChange={(e) => {
+                    const newOpacity = parseFloat(e.target.value);
+                    if (applyColorToAll) {
+                      onUpdateTemplate({ ...template, eventOpacity: newOpacity });
+                      const updatedEvents = events.map(ev => ({ ...ev, opacity: undefined }));
+                      onUpdateEvents(updatedEvents);
+                    } else {
+                      const updatedEvents = events.map(ev =>
+                        ev.displayTitle === selectedEvent?.displayTitle
+                          ? { ...ev, opacity: newOpacity }
+                          : ev
+                      );
+                      onUpdateEvents(updatedEvents);
+                    }
+                  }}
+                  className="flex-1 h-1 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right column: swatches */}
+          <div className="flex-1 pl-2 border-l border-[var(--border-default)] space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="flex items-center gap-1 cursor-pointer"
+                onClick={() => {
+                  const newValue = !applyColorToAll;
+                  setApplyColorToAll(newValue);
+                  if (newValue && selectedEvent) {
+                    const currentOpacity = selectedEvent.opacity ?? template.eventOpacity;
+                    const updatedEvents = events.map(e => ({ ...e, color: selectedEvent.color, opacity: currentOpacity }));
+                    onUpdateEvents(updatedEvents);
+                    onUpdateTemplate({ ...template, eventOpacity: currentOpacity });
+                  } else if (!newValue) {
+                    shuffleColorsForEvents(template.differentiateTypes);
+                  }
+                }}
+              >
+                <span className="text-[10px] text-gray-400">Apply to all blocks</span>
+                <div className={`w-7 h-3.5 rounded-full relative transition-all ${applyColorToAll ? 'toggle-accent-bg' : 'toggle-off-bg'}`}>
+                  <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${applyColorToAll ? 'left-4' : 'left-0.5'}`} />
+                </div>
+              </div>
+              <button
+                onClick={() => !applyColorToAll && shuffleColorsForEvents(template.differentiateTypes)}
+                className={`inline-btn px-2 py-0.5 text-[9px] font-medium rounded-full border border-[var(--border-default)] button-ghost-themed ${applyColorToAll ? 'text-gray-500 opacity-60 cursor-not-allowed' : 'text-gray-300'}`}
+                disabled={applyColorToAll}
+              >
+                🎲 Shuffle
+              </button>
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {themeColors.map(color => (
+                <button
+                  key={color}
+                  onClick={() => handleColorChange(color)}
+                  className={`inline-btn w-5 h-5 rounded-full border transition-all ${
+                    selectedEvent.color === color
+                      ? 'border-white ring-1 ring-blue-400'
+                      : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setShowPalettePicker(!showPalettePicker)}
+              className="inline-btn text-[9px] text-blue-400 hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1 ml-auto"
+            >
+              <Palette size={8} />
+              {showPalettePicker ? 'Hide' : `${currentPalette.name} · Change`}
+            </button>
           </div>
         </div>
-        {!applyColorToAll && (
-          <button
-            onClick={() => shuffleColorsForEvents(template.differentiateTypes)}
-            className="px-2 py-1.5 text-xs font-medium text-gray-300 rounded-lg border border-[var(--border-default)] button-ghost-themed"
-          >
-            🎲 Shuffle
-          </button>
-        )}
       </div>
-
-      {/* Color swatches - compact */}
-      <div className="grid grid-cols-6 gap-1.5">
-        {themeColors.map(color => (
-          <button
-            key={color}
-            onClick={() => handleColorChange(color)}
-            className={`w-8 h-8 rounded-full border-2 transition-all ${
-              selectedEvent.color === color
-                ? 'border-white ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                : 'border-transparent'
-            }`}
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </div>
-
-      {/* Palette Picker - inline */}
-      <button
-        onClick={() => setShowPalettePicker(!showPalettePicker)}
-        className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors cursor-pointer flex items-center gap-1 ml-auto"
-      >
-        <Palette size={10} />
-        {showPalettePicker ? 'Hide' : `${currentPalette.name} · Change`}
-      </button>
 
       {showPalettePicker && (
-        <div className="p-2 rounded-lg border card-section-themed max-h-[120px] overflow-y-auto">
+        <div className="p-1 rounded-md border card-section-themed max-h-[80px] overflow-y-auto">
           {COLOR_PALETTES.map((palette: ColorPalette) => (
             <button
               key={palette.id}
@@ -144,79 +197,14 @@ export const MobileColorTab: React.FC<MobileColorTabInternalProps> = ({
             >
               <div className="flex gap-0.5">
                 {palette.colors.slice(0, 5).map((color, idx) => (
-                  <div key={idx} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                  <div key={idx} className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                 ))}
               </div>
-              <span className="text-[10px] text-gray-300">{palette.name}</span>
+              <span className="text-[9px] text-gray-300">{palette.name}</span>
             </button>
           ))}
         </div>
       )}
-
-      {/* Compact toggles row */}
-      <div className="flex items-center gap-2 pt-2 border-t border-[var(--border-muted)]">
-        {/* Opacity - only for certain themes */}
-        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-[10px] text-gray-400">Opacity</span>
-            <input
-              type="range"
-              min="0.1"
-              max="1"
-              step="0.05"
-              value={applyColorToAll ? template.eventOpacity : (selectedEvent.opacity ?? template.eventOpacity)}
-              onChange={(e) => {
-                const newOpacity = parseFloat(e.target.value);
-                if (applyColorToAll) {
-                  onUpdateTemplate({ ...template, eventOpacity: newOpacity });
-                  const updatedEvents = events.map(ev => ({ ...ev, opacity: undefined }));
-                  onUpdateEvents(updatedEvents);
-                } else {
-                  const updatedEvents = events.map(ev =>
-                    ev.displayTitle === selectedEvent?.displayTitle
-                      ? { ...ev, opacity: newOpacity }
-                      : ev
-                  );
-                  onUpdateEvents(updatedEvents);
-                }
-              }}
-              className="w-16 h-1 rounded-lg appearance-none cursor-pointer slider-accent slider-track-themed"
-            />
-          </div>
-        )}
-
-        {/* No Borders - only for certain themes */}
-        {(template.themeFamily === 'acrylic' || template.themeFamily === 'solid-grain' || template.themeFamily === 'glass') && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-gray-400">No Border</span>
-            <div
-              onClick={() => onUpdateTemplate({ ...template, eventBlockNoBorders: !template.eventBlockNoBorders })}
-              className={`w-7 h-3.5 rounded-full relative transition-all cursor-pointer ${template.eventBlockNoBorders ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
-            >
-              <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${template.eventBlockNoBorders ? 'left-4' : 'left-0.5'}`} />
-            </div>
-          </div>
-        )}
-
-        {/* Diff Colors */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-400">Diff Lab</span>
-          <div
-            onClick={() => triggerColorUpdate(!template.differentiateTypes)}
-            className={`w-7 h-3.5 rounded-full relative transition-all cursor-pointer ${template.differentiateTypes ? 'toggle-accent-bg' : 'toggle-off-bg'}`}
-          >
-            <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${template.differentiateTypes ? 'left-4' : 'left-0.5'}`} />
-          </div>
-        </div>
-      </div>
-
-      {/* Edit Fonts Button - compact */}
-      <button
-        onClick={() => setShowFontSelector(true)}
-        className="w-full px-2 py-1.5 button-ghost-themed rounded-lg text-xs text-gray-200 font-medium transition-colors flex items-center justify-center gap-1.5 border-t border-[var(--border-muted)] mt-1"
-      >
-        <TypeIcon size={12} /> Edit Fonts
-      </button>
     </div>
   );
 };

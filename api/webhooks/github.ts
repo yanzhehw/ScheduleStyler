@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { getSupabase } from '../lib/supabase';
+import { getSupabase } from '../lib/supabase.js';
 
 function verifySignature(payload: string, signature: string | undefined): boolean {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;

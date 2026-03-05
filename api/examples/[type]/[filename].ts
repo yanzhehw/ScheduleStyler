@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { Readable } from 'stream';
-import { getR2Client } from '../../lib/r2';
+import { getR2Client } from '../../lib/r2.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const decodedFilename = decodeURIComponent(filename);
   const key = `examples/${type}/${decodedFilename}`;
-  const bucket = process.env.R2_BUCKET_NAME || 'schedule-styler-backgrounds';
+  const bucket = process.env.R2_BUCKET_NAME || 'schedule-styler-backgrouds';
 
   try {
     const client = getR2Client();

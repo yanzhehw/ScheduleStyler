@@ -13,9 +13,7 @@ import * as backgroundsFile from "../api/backgrounds/[type]/[filename]";
 import * as examplesIndex from "../api/examples/index";
 import * as examplesFile from "../api/examples/[type]/[filename]";
 import * as extract from "../api/extract/index";
-import * as trackDownload from "../api/track/download";
-import * as trackUser from "../api/track/user";
-import * as trackStats from "../api/track/stats";
+import * as track from "../api/track";
 import * as githubWebhook from "../api/webhooks/github";
 
 const app = express();
@@ -36,9 +34,7 @@ app.all("/api/backgrounds/:type/:filename", adaptVercelHandlerWithParams(backgro
 app.all("/api/examples", adaptVercelHandler(examplesIndex));
 app.all("/api/examples/:type/:filename", adaptVercelHandlerWithParams(examplesFile));
 app.all("/api/extract", adaptVercelHandler(extract));
-app.all("/api/track/download", adaptVercelHandler(trackDownload));
-app.all("/api/track/user", adaptVercelHandler(trackUser));
-app.all("/api/track/stats", adaptVercelHandler(trackStats));
+app.all("/api/track", adaptVercelHandler(track));
 app.all("/api/webhooks/github", adaptVercelHandler(githubWebhook));
 
 // Health check

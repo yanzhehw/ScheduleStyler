@@ -135,12 +135,12 @@ const App: React.FC = () => {
   // Track unique users (once per browser) and fetch stats
   useEffect(() => {
     if (!localStorage.getItem('tracked_user')) {
-      fetch('/api/track/user', { method: 'POST' });
+      fetch('/api/track?action=user', { method: 'POST' });
       localStorage.setItem('tracked_user', 'true');
     }
 
     // Fetch star count from database
-    fetch('/api/track/stats')
+    fetch('/api/track?action=stats')
       .then(res => res.json())
       .then(data => setStarCount(data.stars || 0))
       .catch(() => {});

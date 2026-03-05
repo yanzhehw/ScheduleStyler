@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from "@google/genai";
-import { getSupabase } from '../lib/supabase';
+import { getSupabase } from '../lib/supabase.js';
 
 // Validate activation token against database
 async function validateActivationToken(token: string): Promise<{ valid: boolean; code?: string }> {

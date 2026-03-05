@@ -70,8 +70,8 @@ interface CalendarCanvasProps {
   hoveredResizeEdge?: ResizeEdge;
   /** Callback when mouse moves near edges (for resize cursor) */
   onEdgeHover?: (edge: ResizeEdge) => void;
-  /** Callback when resize drag starts */
-  onResizeStart?: (edge: ResizeEdge, mousePos: { x: number; y: number }) => void;
+  /** Callback when resize drag starts. element is the edge div for attaching touch listeners. */
+  onResizeStart?: (edge: ResizeEdge, mousePos: { x: number; y: number }, element?: HTMLElement) => void;
   /** Selected component highlight mode */
   highlightMode?: 'none' | 'all' | SelectableExportComponent;
   /** Components still showing onboarding highlights */
@@ -928,18 +928,19 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 <MoveDown size={28} color={lineColor} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35))' }} />
               </div>
 
-              {/* Edge hit areas for resize - invisible areas on each edge */}
+              {/* Edge hit areas for resize - 30px for touch-friendly targets */}
               {/* Top edge */}
               <div
                 data-component="ResizeEdge-top"
                 style={{
                   position: 'absolute',
                   left: topLineLeft,
-                  top: cardTop - 6,
+                  top: cardTop - 15,
                   width: topLineWidth,
-                  height: 12,
+                  height: 30,
                   cursor: 'n-resize',
-                  zIndex: 101,
+                  zIndex: 201,
+                  touchAction: 'none',
                 }}
                 onMouseEnter={() => onEdgeHover?.('top')}
                 onMouseLeave={() => onEdgeHover?.(null)}
@@ -948,6 +949,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   e.stopPropagation();
                   onResizeStart?.('top', { x: e.clientX, y: e.clientY });
                 }}
+                onTouchStart={(e: React.TouchEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.touches[0];
+                  onResizeStart?.('top', { x: t.clientX, y: t.clientY }, e.currentTarget as HTMLElement);
+                }}
               />
               {/* Bottom edge */}
               <div
@@ -955,11 +962,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 style={{
                   position: 'absolute',
                   left: topLineLeft,
-                  top: cardBottom - 6,
+                  top: cardBottom - 15,
                   width: topLineWidth,
-                  height: 12,
+                  height: 30,
                   cursor: 's-resize',
-                  zIndex: 101,
+                  zIndex: 201,
+                  touchAction: 'none',
                 }}
                 onMouseEnter={() => onEdgeHover?.('bottom')}
                 onMouseLeave={() => onEdgeHover?.(null)}
@@ -968,18 +976,25 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   e.stopPropagation();
                   onResizeStart?.('bottom', { x: e.clientX, y: e.clientY });
                 }}
+                onTouchStart={(e: React.TouchEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.touches[0];
+                  onResizeStart?.('bottom', { x: t.clientX, y: t.clientY }, e.currentTarget as HTMLElement);
+                }}
               />
               {/* Left edge */}
               <div
                 data-component="ResizeEdge-left"
                 style={{
                   position: 'absolute',
-                  left: cardLeft - 6,
+                  left: cardLeft - 15,
                   top: sideLineTop,
-                  width: 12,
+                  width: 30,
                   height: sideLineHeight,
                   cursor: 'ew-resize',
-                  zIndex: 101,
+                  zIndex: 201,
+                  touchAction: 'none',
                 }}
                 onMouseEnter={() => onEdgeHover?.('left')}
                 onMouseLeave={() => onEdgeHover?.(null)}
@@ -988,18 +1003,25 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   e.stopPropagation();
                   onResizeStart?.('left', { x: e.clientX, y: e.clientY });
                 }}
+                onTouchStart={(e: React.TouchEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.touches[0];
+                  onResizeStart?.('left', { x: t.clientX, y: t.clientY }, e.currentTarget as HTMLElement);
+                }}
               />
               {/* Right edge */}
               <div
                 data-component="ResizeEdge-right"
                 style={{
                   position: 'absolute',
-                  left: cardRight - 6,
+                  left: cardRight - 15,
                   top: sideLineTop,
-                  width: 12,
+                  width: 30,
                   height: sideLineHeight,
                   cursor: 'ew-resize',
-                  zIndex: 101,
+                  zIndex: 201,
+                  touchAction: 'none',
                 }}
                 onMouseEnter={() => onEdgeHover?.('right')}
                 onMouseLeave={() => onEdgeHover?.(null)}
@@ -1007,6 +1029,12 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                   e.preventDefault();
                   e.stopPropagation();
                   onResizeStart?.('right', { x: e.clientX, y: e.clientY });
+                }}
+                onTouchStart={(e: React.TouchEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const t = e.touches[0];
+                  onResizeStart?.('right', { x: t.clientX, y: t.clientY }, e.currentTarget as HTMLElement);
                 }}
               />
             </>
@@ -1096,11 +1124,11 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       className={`flex flex-col p-8 ${themeClasses} transition-all duration-300 rounded-xl ${useOuterContainer ? '' : 'shadow-2xl'} relative ${interactive && onCalendarCardSelect ? 'cursor-pointer' : ''}`}
       style={canvasStyles}
       onMouseEnter={(e) => {
-        if (!interactive) return;
+        if (!interactive || !window.matchMedia('(hover: hover)').matches) return;
         setHoveredComponent(getHoveredComponentFromTarget(e.target as HTMLElement));
       }}
       onMouseMove={(e) => {
-        if (!interactive) return;
+        if (!interactive || !window.matchMedia('(hover: hover)').matches) return;
         const nextHovered = getHoveredComponentFromTarget(e.target as HTMLElement);
         if (nextHovered !== hoveredComponent) {
           setHoveredComponent(nextHovered);

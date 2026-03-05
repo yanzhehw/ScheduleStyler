@@ -71,6 +71,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const [hoveredEdge, setHoveredEdge] = useState<ResizeEdge>(null);
   const [hoverResetToken, setHoverResetToken] = useState(0);
   const resizeUserSelectRef = useRef<string | null>(null);
+  const resizeTouchCleanupRef = useRef<(() => void) | null>(null);
   const [resizeDragState, setResizeDragState] = useState<{
     isResizing: boolean;
     edge: ResizeEdge;
@@ -640,23 +641,103 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
     return () => window.removeEventListener('resize', handleResize);
   }, [calculateAutoFitZoom]);
 
-  // Handle resize start
-  const handleResizeStart = (edge: ResizeEdge, mousePos: { x: number; y: number }) => {
+  // Clamp utility
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+  // Handle resize start — for touch, attaches listeners to the edge element itself
+  // (touch events always fire on the originating element, even when finger moves away).
+  // For mouse, sets state so the useEffect attaches window-level listeners.
+  const handleResizeStart = (edge: ResizeEdge, mousePos: { x: number; y: number }, touchTarget?: HTMLElement) => {
     if (!edge) return;
     if (typeof document !== 'undefined') {
       resizeUserSelectRef.current = document.body.style.userSelect;
       document.body.style.userSelect = 'none';
     }
+
+    const startInsets = { ...template.calendarCardInsets };
+
+    if (touchTarget) {
+      // Touch path: attach listeners directly to the element that received touchstart.
+      // Touch events always dispatch to the originating element regardless of finger position.
+      const computeInsets = (clientX: number, clientY: number) => {
+        const deltaX = clientX - mousePos.x;
+        const deltaY = clientY - mousePos.y;
+        const bgWidth = canvasDimensions.width * zoom;
+        const bgHeight = canvasDimensions.height * zoom;
+        const deltaXPercent = (deltaX / bgWidth) * 100;
+        const deltaYPercent = (deltaY / bgHeight) * 100;
+        const minWidthPercent = Math.max(40, Math.min(100, (canvasDimensions.minCardWidth / canvasDimensions.width) * 100));
+        const minHeightPercent = Math.max(20, Math.min(100, (canvasDimensions.minCardHeight / canvasDimensions.height) * 100));
+        const maxHorizontalInset = Math.min(30, (100 - minWidthPercent) / 2);
+        const maxTopInset = Math.min(45, 100 - minHeightPercent - startInsets.bottom);
+        const maxBottomInset = Math.min(45, 100 - minHeightPercent - startInsets.top);
+        const newInsets = { ...startInsets };
+
+        switch (edge) {
+          case 'top':
+            newInsets.top = clamp(startInsets.top + deltaYPercent, 0, maxTopInset);
+            break;
+          case 'bottom':
+            newInsets.bottom = clamp(startInsets.bottom - deltaYPercent, 0, maxBottomInset);
+            break;
+          case 'left': {
+            const leftChange = deltaXPercent * 2;
+            newInsets.left = clamp(startInsets.left + leftChange, 0, maxHorizontalInset);
+            newInsets.right = newInsets.left;
+            break;
+          }
+          case 'right': {
+            const rightChange = -deltaXPercent * 2;
+            newInsets.right = clamp(startInsets.right + rightChange, 0, maxHorizontalInset);
+            newInsets.left = newInsets.right;
+            break;
+          }
+        }
+
+        const remainingWidth = 100 - newInsets.left - newInsets.right;
+        const remainingHeight = 100 - newInsets.top - newInsets.bottom;
+        if (remainingWidth < minWidthPercent || remainingHeight < minHeightPercent) return null;
+        return newInsets;
+      };
+
+      const handleTouchMove = (e: Event) => {
+        const te = e as TouchEvent;
+        te.preventDefault();
+        const t = te.touches[0];
+        const newInsets = computeInsets(t.clientX, t.clientY);
+        if (newInsets) onUpdateTemplate({ ...template, calendarCardInsets: newInsets });
+      };
+
+      const cleanup = () => {
+        touchTarget.removeEventListener('touchmove', handleTouchMove);
+        touchTarget.removeEventListener('touchend', handleTouchEnd);
+        touchTarget.removeEventListener('touchcancel', handleTouchEnd);
+        resizeTouchCleanupRef.current = null;
+        setResizeDragState(null);
+        if (typeof document !== 'undefined' && resizeUserSelectRef.current !== null) {
+          document.body.style.userSelect = resizeUserSelectRef.current;
+          resizeUserSelectRef.current = null;
+        }
+      };
+
+      const handleTouchEnd = () => { cleanup(); };
+
+      // Clean up any previous touch session
+      resizeTouchCleanupRef.current?.();
+
+      touchTarget.addEventListener('touchmove', handleTouchMove, { passive: false });
+      touchTarget.addEventListener('touchend', handleTouchEnd);
+      touchTarget.addEventListener('touchcancel', handleTouchEnd);
+      resizeTouchCleanupRef.current = cleanup;
+    }
+
     setResizeDragState({
       isResizing: true,
       edge,
       startMousePos: mousePos,
-      startInsets: { ...template.calendarCardInsets },
+      startInsets,
     });
   };
-
-  // Clamp utility
-  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
   const handleVerticalTranslateChange = (value: number) => {
     if (verticalSlackPercent <= 0) return;
@@ -996,7 +1077,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
   const handleDownload = async () => {
     // Fire-and-forget download tracking
-    fetch('/api/track/download', { method: 'POST' });
+    fetch('/api/track?action=download', { method: 'POST' });
 
     setIsExporting(true);
     // Allow React to render the hidden export canvas with exportMode=true
@@ -1052,6 +1133,41 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         backgroundsError={backgroundsError}
         applyThemeColors={applyThemeColors}
         prevThemeFamilyRef={prevThemeFamilyRef}
+        colorPalettes={COLOR_PALETTES}
+        activePaletteId={activePaletteId}
+        onPaletteChange={(paletteId: string) => {
+          setActivePaletteId(paletteId);
+          const newColors = getPalette(paletteId).colors;
+          if (applyColorToAll) {
+            const randomColor = newColors[Math.floor(Math.random() * newColors.length)];
+            const updatedEvents = events.map(event => ({ ...event, color: randomColor }));
+            onUpdateEvents(updatedEvents);
+          } else {
+            const displayTitlesSet = new Set<string>();
+            events.forEach(e => displayTitlesSet.add(e.displayTitle));
+            const displayTitles = Array.from(displayTitlesSet);
+            const colorMap: Record<string, string> = {};
+            displayTitles.forEach((title, idx) => {
+              colorMap[title] = newColors[idx % newColors.length];
+            });
+            const updatedEvents = events.map(event => ({
+              ...event,
+              color: colorMap[event.displayTitle],
+            }));
+            onUpdateEvents(updatedEvents);
+          }
+        }}
+        onTextColorPresetChange={(preset: 'light' | 'dark') => {
+          onUpdateTemplate({
+            ...template,
+            textColorPreset: preset,
+            titleTextColor: undefined,
+            subtitleTextColor: undefined,
+            detailsTextColor: undefined,
+            headerTextColor: undefined,
+            timeColumnTextColor: undefined,
+          });
+        }}
         themeColors={themeColors}
         currentPalette={currentPalette}
         showPalettePicker={showPalettePicker}
@@ -1063,10 +1179,18 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         triggerColorUpdate={triggerColorUpdate}
         handleColorSelect={handleColorSelect}
         setShowFontSelector={setShowFontSelector}
+        availableFonts={availableFonts}
+        fontPairs={fontPairs}
+        selectedFontPairId={selectedFontPairId}
+        setSelectedFontPairId={setSelectedFontPairId}
+        applyFontPair={applyFontPair}
         openTextColorPicker={openTextColorPicker}
         setOpenTextColorPicker={setOpenTextColorPicker}
         cachedToggles={cachedToggles}
         setCachedToggles={setCachedToggles}
+        hoveredResizeEdge={hoveredEdge}
+        onEdgeHover={setHoveredEdge}
+        onResizeStart={handleResizeStart}
       />
     );
   }
@@ -1168,11 +1292,11 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
         <div
           data-component="PreviewViewport"
           className="p-6 flex items-start justify-center"
-          style={zoom > 1 ? {
+          style={{
             minWidth: canvasDimensions.width * zoom + 48,
             minHeight: canvasDimensions.height * zoom + 48,
             width: '100%',
-          } : { minHeight: '100%', width: '100%' }}
+          }}
         >
             {/* ZOOM WRAPPER - Applies zoom transform */}
             <div

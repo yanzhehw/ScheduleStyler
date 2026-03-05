@@ -4,9 +4,6 @@ import {
   CirclePlus,
   Layout,
   Maximize2,
-  ZoomIn,
-  ZoomOut,
-  Minimize2,
   X,
   Monitor,
   Smartphone,
@@ -24,6 +21,8 @@ import { ToggleSwitch } from '../../small_utility/ToggleSwitch';
 import { ThemedDropdown } from '../../ui/themed-dropdown';
 import { GlassRadioGroup } from '../../ui/glass-radio-group';
 import { MobileEditEventPanel } from './MobileEditEventPanel';
+import { MobileHeaderBar, headerGhostBtnClass, headerAccentBtnClass } from '../../small_utility/MobileHeaderBar';
+import { MobileExportZoomToolbar } from '../../export/mobile/MobileExportZoomToolbar';
 
 const CLASS_TYPES: ClassType[] = ['Lecture', 'Tutorial', 'Lab', 'Seminar', 'Unknown', 'Custom'];
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -184,10 +183,10 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
 }) => {
   // Add course tab content
   const addCourseContent = (
-    <div className="space-y-4">
-      {/* Days of Week with Gradient Glow */}
+    <div className="space-y-2">
+      {/* Days of Week */}
       <div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
             <button
               key={day}
@@ -198,17 +197,17 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
                 setAddCourseDraft({ ...addCourseDraft, selectedDays: newSelectedDays });
                 if (addCourseErrors.days) setAddCourseErrors({ ...addCourseErrors, days: undefined });
               }}
-              className="flex-1 relative py-2 px-2 rounded-lg transition-all flex flex-col items-center gap-1"
+              className="flex-1 relative py-1 rounded-md transition-all flex flex-col items-center gap-0.5"
             >
               {addCourseDraft.selectedDays[index] && (
                 <div
-                  className="absolute inset-0 rounded-lg opacity-80"
+                  className="absolute inset-0 rounded-md opacity-80"
                   style={{
                     background: 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
                   }}
                 />
               )}
-              <span className={`relative z-10 text-sm font-semibold transition-colors ${addCourseDraft.selectedDays[index]
+              <span className={`relative z-10 text-xs font-semibold transition-colors ${addCourseDraft.selectedDays[index]
                   ? 'text-blue-300'
                   : addCourseErrors.days
                     ? 'text-red-400/70'
@@ -216,14 +215,14 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
                 }`}>
                 {day}
               </span>
-              <div className={`relative z-10 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${addCourseDraft.selectedDays[index]
+              <div className={`relative z-10 w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-all ${addCourseDraft.selectedDays[index]
                   ? 'border-blue-400 bg-blue-500'
                   : addCourseErrors.days
                     ? 'border-red-400/50'
                     : 'border-[var(--border-default)]'
                 }`}>
                 {addCourseDraft.selectedDays[index] && (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 )}
@@ -232,14 +231,14 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
           ))}
         </div>
         {addCourseErrors.days && (
-          <p className="text-xs text-red-400 mt-1">{addCourseErrors.days}</p>
+          <p className="text-[10px] text-red-400 mt-0.5">{addCourseErrors.days}</p>
         )}
       </div>
 
       {/* Course Code & Class Type */}
       <div>
-        <label className="block text-xs font-medium text-gray-400 mb-1">Course Code & Type</label>
-        <div className="flex gap-2 min-w-0">
+        <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Course Code & Type</label>
+        <div className="flex gap-1.5 min-w-0">
           <input
             type="text"
             value={addCourseDraft.courseCode}
@@ -247,7 +246,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
               setAddCourseDraft({ ...addCourseDraft, courseCode: e.target.value });
               if (addCourseErrors.courseCode) setAddCourseErrors({ ...addCourseErrors, courseCode: undefined });
             }}
-            className={`flex-1 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
+            className={`w-[12.5rem] shrink-0 rounded-md px-2 py-1 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs input-themed ${
               addCourseErrors.courseCode ? 'border-red-500' : ''
             }`}
             placeholder="e.g. CS 101"
@@ -260,103 +259,93 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
             }))}
             value={addCourseDraft.classType}
             onChange={(val) => setAddCourseDraft({ ...addCourseDraft, classType: val as ClassType })}
-            className="w-28"
+            className="flex-1 min-w-0"
           />
         </div>
         {addCourseErrors.courseCode && (
-          <p className="text-xs text-red-400 mt-1">{addCourseErrors.courseCode}</p>
+          <p className="text-[10px] text-red-400 mt-0.5">{addCourseErrors.courseCode}</p>
         )}
       </div>
 
       {/* Custom Class Type */}
       {addCourseDraft.classType === 'Custom' && (
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1">Custom Type Name</label>
+          <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Custom Type</label>
           <input
             type="text"
             value={addCourseDraft.customClassType}
             onChange={(e) => setAddCourseDraft({ ...addCourseDraft, customClassType: e.target.value })}
-            className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            className="w-full rounded-md input-themed px-2 py-1 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
             placeholder="e.g. Workshop"
           />
         </div>
       )}
 
-      {/* Start/End Time */}
+      {/* Start / End / Location — single row */}
       <div>
-        <label className={`block text-xs font-medium mb-1 ${addCourseErrors.time ? 'text-red-400' : 'text-gray-400'}`}>
-          Time (24h format)
+        <label className={`block text-[10px] font-medium mb-0.5 ${addCourseErrors.time ? 'text-red-400' : 'text-gray-400'}`}>
+          Time & Location
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] text-gray-500 mb-1">Start</label>
-            <input
-              type="text"
-              value={addCourseDraft.startTime}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
-                  setAddCourseDraft({ ...addCourseDraft, startTime: val });
-                  if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
-                }
-              }}
-              placeholder="09:00"
-              className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
-                addCourseErrors.time ? 'border-red-500' : ''
-              }`}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] text-gray-500 mb-1">End</label>
-            <input
-              type="text"
-              value={addCourseDraft.endTime}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (/^[0-9:]*$/.test(val) && val.length <= 5) {
-                  setAddCourseDraft({ ...addCourseDraft, endTime: val });
-                  if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
-                }
-              }}
-              placeholder="10:00"
-              className={`w-full rounded-md p-2 text-white text-sm outline-none focus:border-blue-500 font-mono input-themed ${
-                addCourseErrors.time ? 'border-red-500' : ''
-              }`}
-            />
-          </div>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={addCourseDraft.startTime}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                setAddCourseDraft({ ...addCourseDraft, startTime: val });
+                if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+              }
+            }}
+            placeholder="09:00"
+            className={`w-[72px] shrink-0 rounded-md px-2 py-1 text-white text-xs outline-none focus:border-blue-500 font-mono text-center input-themed ${
+              addCourseErrors.time ? 'border-red-500' : ''
+            }`}
+          />
+          <input
+            type="text"
+            value={addCourseDraft.endTime}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (/^[0-9:]*$/.test(val) && val.length <= 5) {
+                setAddCourseDraft({ ...addCourseDraft, endTime: val });
+                if (addCourseErrors.time) setAddCourseErrors({ ...addCourseErrors, time: undefined });
+              }
+            }}
+            placeholder="10:00"
+            className={`w-[72px] shrink-0 rounded-md px-2 py-1 text-white text-xs outline-none focus:border-blue-500 font-mono text-center input-themed ${
+              addCourseErrors.time ? 'border-red-500' : ''
+            }`}
+          />
+          <input
+            type="text"
+            value={addCourseDraft.location}
+            onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
+            placeholder="Location"
+            className="flex-1 min-w-0 rounded-md input-themed px-2 py-1 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+          />
         </div>
         {addCourseErrors.time && (
-          <p className="text-xs text-red-400 mt-1">{addCourseErrors.time}</p>
+          <p className="text-[10px] text-red-400 mt-0.5">{addCourseErrors.time}</p>
         )}
       </div>
 
-      {/* Location */}
-      <div>
-        <label className="block text-xs font-medium text-gray-400 mb-1">Location (optional)</label>
-        <input
-          type="text"
-          value={addCourseDraft.location}
-          onChange={(e) => setAddCourseDraft({ ...addCourseDraft, location: e.target.value })}
-          className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-        />
-      </div>
-
       {/* Action buttons */}
-      <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-1">
         <button
           type="button"
           onClick={onClearAddCourseForm}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm hover:text-white rounded-lg transition-colors button-ghost-themed"
+          className="inline-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs hover:text-white rounded-lg transition-colors button-ghost-themed"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <RotateCcw size={14} /> Clear
+          <RotateCcw size={12} /> Clear
         </button>
         <button
           type="button"
           onClick={onBulkCreateCoursesWithValidation}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium btn-accent text-white rounded-lg"
+          className="inline-btn flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium btn-accent text-white rounded-lg"
         >
-          <CirclePlus size={14} /> Add
+          <CirclePlus size={12} /> Add
         </button>
       </div>
     </div>
@@ -364,84 +353,77 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
 
   const contentDisplayContent = (
     <div className="space-y-2">
-      {/* Include Course Section toggle */}
-      {hasValidCourseSections && (
-        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+      {/* Row 1: Compact + Course Section */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="p-2 rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
           <ToggleSwitch
-            enabled={template.showCourseSection}
-            onToggle={() => onUpdateTemplate({ ...template, showCourseSection: !template.showCourseSection })}
-            label={<span className="flex items-center gap-2"><Tag size={12} /> Include Course Section</span>}
-          />
-        </div>
-      )}
-
-      {/* Compact View */}
-      <div className="p-2 hover:opacity-80 rounded-lg transition-colors border" style={{ borderColor: 'var(--border-default)' }}>
-        <ToggleSwitch
-          enabled={template.compact}
-          onToggle={() => {
-            const newCompact = !template.compact;
-            if (newCompact) {
-              setCachedToggles({
-                showClassType: template.showClassType,
-                showTime: template.showTime,
-                showLocation: template.showLocation,
-                showNotes: template.showNotes
-              });
-              onUpdateTemplate({
-                ...template,
-                compact: true,
-                showClassType: false,
-                showTime: false,
-                showLocation: false,
-                showNotes: false
-              });
-            } else {
-              if (cachedToggles) {
+            enabled={template.compact}
+            onToggle={() => {
+              const newCompact = !template.compact;
+              if (newCompact) {
+                setCachedToggles({
+                  showClassType: template.showClassType,
+                  showTime: template.showTime,
+                  showLocation: template.showLocation,
+                  showNotes: template.showNotes
+                });
                 onUpdateTemplate({
                   ...template,
-                  compact: false,
-                  ...cachedToggles
+                  compact: true,
+                  showClassType: false,
+                  showTime: false,
+                  showLocation: false,
+                  showNotes: false
                 });
               } else {
-                onUpdateTemplate({ ...template, compact: false });
+                if (cachedToggles) {
+                  onUpdateTemplate({ ...template, compact: false, ...cachedToggles });
+                } else {
+                  onUpdateTemplate({ ...template, compact: false });
+                }
               }
-            }
-          }}
-          label="Compact View"
-        />
+            }}
+            label={<span className="text-[11px]">Compact</span>}
+          />
+        </div>
+        {hasValidCourseSections && (
+          <div className="p-2 rounded-lg">
+            <ToggleSwitch
+              enabled={template.showCourseSection}
+              onToggle={() => onUpdateTemplate({ ...template, showCourseSection: !template.showCourseSection })}
+              label={<span className="flex items-center gap-1 text-[11px]"><Tag size={10} /> Section</span>}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Other content options */}
-      <div className={`space-y-2 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
-        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+      {/* Row 2-3: 2x2 grid of content toggles */}
+      <div className={`grid grid-cols-2 gap-1.5 ${template.compact ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className="p-2 rounded-lg">
           <ToggleSwitch
             enabled={template.showClassType}
             onToggle={() => onUpdateTemplate({ ...template, showClassType: !template.showClassType })}
-            label={<span className="flex items-center gap-2"><Tag size={12} /> Show Class Type</span>}
+            label={<span className="flex items-center gap-1 text-[11px]"><Tag size={10} /> Type</span>}
             disabled={template.compact}
           />
         </div>
-
-        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+        <div className="p-2 rounded-lg">
           <ToggleSwitch
             enabled={template.showTime}
             onToggle={() => onUpdateTemplate({ ...template, showTime: !template.showTime })}
-            label={<span className="flex items-center gap-2"><Clock size={12} /> Show Time</span>}
+            label={<span className="flex items-center gap-1 text-[11px]"><Clock size={10} /> Time</span>}
             disabled={template.compact}
           />
         </div>
-
-        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+        <div className="p-2 rounded-lg">
           <ToggleSwitch
             enabled={template.showLocation}
             onToggle={() => onUpdateTemplate({ ...template, showLocation: !template.showLocation })}
-            label={<span className="flex items-center gap-2"><MapPin size={12} /> Show Location</span>}
+            label={<span className="flex items-center gap-1 text-[11px]"><MapPin size={10} /> Location</span>}
             disabled={template.compact}
           />
         </div>
-
-        <div className="p-2 hover:opacity-80 rounded-lg transition-colors">
+        <div className="p-2 rounded-lg">
           <ToggleSwitch
             enabled={template.showNotes}
             onToggle={() => {
@@ -449,7 +431,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
               onUpdateEvents(updatedEvents);
               onUpdateTemplate({ ...template, showNotes: !template.showNotes });
             }}
-            label={<span className="flex items-center gap-2"><Type size={12} /> Show Notes</span>}
+            label={<span className="flex items-center gap-1 text-[11px]"><Type size={10} /> Notes</span>}
             disabled={template.compact}
           />
         </div>
@@ -498,7 +480,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
     {
       id: 'edit-event',
       label: 'Edit',
-      icon: <Edit3 size={20} />,
+      icon: <Edit3 size={16} />,
       content: (
         <MobileEditEventPanel
           selectedEvent={selectedEvent}
@@ -520,19 +502,19 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
     {
       id: 'add-course',
       label: 'Add',
-      icon: <CirclePlus size={20} />,
+      icon: <CirclePlus size={16} />,
       content: addCourseContent,
     },
     {
       id: 'display',
       label: 'Display',
-      icon: <Layout size={20} />,
+      icon: <Layout size={16} />,
       content: contentDisplayContent,
     },
     {
       id: 'ratio',
       label: 'Ratio',
-      icon: <Maximize2 size={20} />,
+      icon: <Maximize2 size={16} />,
       content: aspectRatioContent,
     },
   ];
@@ -541,57 +523,17 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
   const canvasComponent = (
     <div
       ref={canvasContainerRef}
-      className="flex-1 min-h-0 rounded-2xl border relative mb-[72px]"
+      className="flex-1 min-h-0 rounded-2xl border relative mb-[56px]"
       style={{ backgroundColor: 'var(--surface-app)', borderColor: 'var(--border-muted)' }}
     >
-      {/* Zoom Toolbar - positioned outside scrollable area */}
-      {isZoomToolbarOpen && (
-        <div className="absolute top-4 right-4 z-50">
-          <div className="relative flex items-center gap-2 rounded-2xl border p-2 shadow-[0_12px_24px_rgba(2,6,23,0.35)] toolbar-themed">
-            <button
-              onClick={onZoomOut}
-              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
-              title="Zoom Out"
-            >
-              <ZoomOut size={16} className="mx-auto text-gray-200" />
-            </button>
-            <button
-              onClick={onZoomReset}
-              className="h-10 min-w-[72px] rounded-xl border px-3 text-center shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
-              title="Fit to View"
-            >
-              <span className="text-xs font-mono text-gray-100">
-                {Math.round(zoom * 100)}%
-              </span>
-            </button>
-            <button
-              onClick={onZoomIn}
-              className="h-10 w-11 rounded-xl border shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)] transition-all active:scale-95 toolbar-button-themed"
-              title="Zoom In"
-            >
-              <ZoomIn size={16} className="mx-auto text-gray-200" />
-            </button>
-            <button
-              onClick={() => setIsZoomToolbarOpen(false)}
-              className="absolute -top-2 -right-2 rounded-lg border p-1.5 shadow-lg transition-all active:scale-95 toolbar-button-themed"
-              title="Hide zoom controls"
-            >
-              <Minimize2 size={12} className="text-gray-200" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Collapsed zoom button */}
-      {!isZoomToolbarOpen && (
-        <button
-          onClick={() => setIsZoomToolbarOpen(true)}
-          className="absolute top-4 right-4 z-50 h-10 w-10 rounded-xl border shadow-lg transition-all active:scale-95 toolbar-themed"
-          title="Show zoom controls"
-        >
-          <ZoomIn size={16} className="mx-auto text-gray-200" />
-        </button>
-      )}
+      <MobileExportZoomToolbar
+        isZoomToolbarOpen={isZoomToolbarOpen}
+        setIsZoomToolbarOpen={setIsZoomToolbarOpen}
+        zoom={zoom}
+        handleZoomIn={onZoomIn}
+        handleZoomOut={onZoomOut}
+        handleZoomReset={onZoomReset}
+      />
 
       {/* Scrollable canvas area */}
       <div
@@ -601,11 +543,11 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
         {/* Scale spacer - provides scrollable area when zoomed */}
         <div
           className="flex justify-center"
-          style={zoom > 1 ? {
+          style={{
             minWidth: canvasDimensions.width * zoom + 48,
             minHeight: canvasDimensions.height * zoom + 48,
             width: '100%',
-          } : { width: '100%' }}
+          }}
         >
           {/* Zoom wrapper - hidden until initial zoom is calculated to prevent glitch */}
           <div
@@ -651,43 +593,31 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Mobile Header Bar */}
-      <div
-        className="flex items-center justify-between px-3 py-2 rounded-xl mb-2"
-        style={{ backgroundColor: 'var(--panel-background)', borderColor: 'var(--panel-border)' }}
-      >
-        <button
-          onClick={() => setShowReuploadConfirm(true)}
-          className="px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded-lg"
-          style={{ backgroundColor: 'var(--button-ghost)' }}
-        >
-          Re-upload
-        </button>
-        <h3 className="font-semibold text-white text-sm">
-          {selectedEvent ? 'Editing Block' : 'Edit Calendar'}
-        </h3>
-        {selectedEvent ? (
-          <button
-            onClick={() => setSelectedEventId(null)}
-            className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
-          >
-            Done
+      <MobileHeaderBar
+        left={
+          <button onClick={() => setShowReuploadConfirm(true)} className={headerGhostBtnClass} style={{ backgroundColor: 'var(--button-ghost)' }}>
+            Re-upload
           </button>
-        ) : (
-          <button
-            onClick={() => {
-              if (hasOverlaps) {
-                setShowOverlapWarning(true);
-                return;
-              }
-              onNext();
-            }}
-            className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
-          >
-            Next
-          </button>
-        )}
-      </div>
+        }
+        title={selectedEvent ? 'Editing Block' : 'Edit Calendar'}
+        right={
+          selectedEvent ? (
+            <button onClick={() => setSelectedEventId(null)} className={headerAccentBtnClass}>
+              Done
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (hasOverlaps) { setShowOverlapWarning(true); return; }
+                onNext();
+              }}
+              className={headerAccentBtnClass}
+            >
+              Next
+            </button>
+          )
+        }
+      />
 
       {canvasComponent}
 
@@ -706,19 +636,19 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
       {/* Modals */}
       {showOverlapWarning && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center popup-overlay-themed backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 popup-themed">
+          <div className="w-full max-w-[18rem] sm:max-w-md rounded-lg sm:rounded-2xl border shadow-2xl p-3 sm:p-5 mx-4 popup-themed">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-white font-semibold">Overlaps detected</h4>
-                <p className="text-xs text-gray-400 mt-1">
+                <h4 className="text-white text-xs sm:text-base font-semibold">Overlaps detected</h4>
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
                   Some blocks overlap. Please fix if not intended.
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-5">
+            <div className="flex items-center justify-end gap-2 pt-3 sm:pt-5">
               <button
                 onClick={() => setShowOverlapWarning(false)}
-                className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                className="inline-btn px-2.5 py-1 text-[11px] sm:text-sm text-gray-300 hover:text-white transition-colors"
               >
                 Back to Edit
               </button>
@@ -727,7 +657,7 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
                   setShowOverlapWarning(false);
                   onNext();
                 }}
-                className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+                className="inline-btn px-2.5 py-1 text-[11px] sm:text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
               >
                 Proceed with Overlap
               </button>
@@ -755,43 +685,43 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl p-5 mx-4 popup-themed">
-            <div className="flex items-start justify-between gap-3">
+          <div className="w-full max-w-[18rem] sm:max-w-sm rounded-lg border shadow-2xl p-2.5 sm:p-4 mx-4 popup-themed">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <h4 className="text-white font-semibold">Add Class</h4>
-                <p className="text-xs text-gray-400 mt-1">
+                <h4 className="text-white text-[11px] sm:text-sm font-semibold">Add Class</h4>
+                <p className="text-[9px] sm:text-[10px] text-gray-400">
                   {DAY_LABELS[newEventSlot.dayIndex]} • {newEventSlot.startTime} - {newEventSlot.endTime}
                 </p>
               </div>
               <button
                 onClick={onCloseNewEventModal}
-                className="text-gray-500 hover:text-white transition-colors"
+                className="inline-btn text-gray-500 hover:text-white transition-colors"
                 aria-label="Close"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
 
             <form
-              className="mt-4 space-y-4"
+              className="mt-2 space-y-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 onCreateNewEvent();
               }}
             >
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Course Title</label>
+                <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Course Title</label>
                 <input
                   type="text"
                   value={newEventDraft.title}
                   onChange={(e) => setNewEventDraft({ ...newEventDraft, title: e.target.value })}
-                  className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full rounded-md input-themed px-2 py-1.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                   placeholder="e.g. CS 101"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Class Type</label>
+                <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Class Type</label>
                 <ThemedDropdown
                   options={CLASS_TYPES.map((type) => ({
                     id: type,
@@ -806,38 +736,38 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
 
               {newEventDraft.classType === 'Custom' && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">Custom Class Type</label>
+                  <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Custom Class Type</label>
                   <input
                     type="text"
                     value={newEventDraft.customClassType}
                     onChange={(e) => setNewEventDraft({ ...newEventDraft, customClassType: e.target.value })}
-                    className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full rounded-md input-themed px-2 py-1.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                     placeholder="e.g. Workshop"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Location</label>
+                <label className="block text-[10px] font-medium text-gray-400 mb-0.5">Location</label>
                 <input
                   type="text"
                   value={newEventDraft.location}
                   onChange={(e) => setNewEventDraft({ ...newEventDraft, location: e.target.value })}
-                  className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="w-full rounded-md input-themed px-2 py-1.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={onCloseNewEventModal}
-                  className="px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+                  className="inline-btn px-2 py-1 text-[11px] text-gray-300 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium btn-accent text-white rounded-lg"
+                  className="inline-btn px-2.5 py-1 text-[11px] font-medium btn-accent text-white rounded-md"
                 >
                   Done
                 </button>

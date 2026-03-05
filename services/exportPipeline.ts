@@ -383,6 +383,27 @@ export const downloadCalendarExport = async (
   });
   if (!blob) return;
 
+  // On iOS, use Web Share API so users can save to Photos
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
+  if (isIOS && navigator.share && navigator.canShare) {
+    const file = new File([blob], `${fileName}.png`, { type: 'image/png' });
+    const shareData = { files: [file] };
+
+    if (navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        // User cancelled share sheet — silently return
+        if ((err as Error).name === 'AbortError') return;
+        // Other errors fall through to standard download
+      }
+    }
+  }
+
+  // Standard download fallback (desktop and non-iOS)
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.download = `${fileName}.png`;

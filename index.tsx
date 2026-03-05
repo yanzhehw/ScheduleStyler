@@ -19,8 +19,8 @@ root.render(
       <BrowserRouter>
         <ThemeProvider>
           <App />
-          <Analytics />
-          <SpeedInsights />
+          {import.meta.env.PROD && <Analytics />}
+          {import.meta.env.PROD && <SpeedInsights />}
         </ThemeProvider>
       </BrowserRouter>
     </HelmetProvider>

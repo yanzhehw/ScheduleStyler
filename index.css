@@ -500,23 +500,6 @@
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Mobile footer toolbar active tab */
-.mobile-tab-active {
-  position: relative;
-}
-
-.mobile-tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent-primary);
-}
-
 /* Mobile-specific scrollbar (thinner) */
 @media (max-width: 768px) {
   .custom-scrollbar::-webkit-scrollbar {
@@ -535,20 +518,7 @@
     width: 100%;
   }
 
-  /* Touch-friendly tap targets */
-  button,
-  [role="button"],
-  input[type="checkbox"],
-  input[type="radio"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Smaller min-height for inline buttons */
-  .inline-btn {
-    min-height: auto;
-    min-width: auto;
-  }
+  /* Touch-friendly tap targets removed for mobile per request */
 }
 
 /* Hide desktop sidebar on mobile */
@@ -598,4 +568,11 @@
       font-size: 0.7rem;
     }
   }
+}
+
+/* Disable hover effects on touch-only devices (no pointer hover capability) */
+@media (hover: none) {
+  .hover\:brightness-110:hover { filter: none !important; }
+  .hover\:shadow-md:hover { box-shadow: none !important; }
+  .hover\:z-\[200\]:hover { z-index: auto !important; }
 }

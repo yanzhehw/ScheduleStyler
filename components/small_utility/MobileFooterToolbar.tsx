@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, ChevronUp, ChevronDown } from 'lucide-react';
+import React from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export interface MobileTab {
   id: string;
@@ -37,36 +37,21 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
   primaryAction,
   secondaryAction,
 }) => {
-  const [isPanelExpanded, setIsPanelExpanded] = useState(true);
   const activeTab = tabs.find(t => t.id === activeTabId);
 
   const handleTabClick = (tabId: string) => {
     if (activeTabId === tabId) {
-      // Toggle panel expansion if clicking same tab
-      setIsPanelExpanded(!isPanelExpanded);
-      // Notify parent when collapsing
-      if (isPanelExpanded && onPanelClose) {
-        onPanelClose();
-      }
+      // Toggle off — fully close panel so re-clicks trigger a state change
+      onTabChange(null);
+      onPanelClose?.();
     } else {
       onTabChange(tabId);
-      setIsPanelExpanded(true);
     }
-  };
-
-  const handleClosePanel = () => {
-    onTabChange(null);
-    setIsPanelExpanded(true);
-    onPanelClose?.();
   };
 
   const handleCollapseToggle = () => {
-    const wasExpanded = isPanelExpanded;
-    setIsPanelExpanded(!isPanelExpanded);
-    // Notify parent when collapsing (not expanding)
-    if (wasExpanded && onPanelClose) {
-      onPanelClose();
-    }
+    onTabChange(null);
+    onPanelClose?.();
   };
 
   return (
@@ -74,12 +59,10 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
       {/* Slide-up content panel */}
       {activeTab && (
         <div
-          className={`fixed left-0 right-0 z-40 transition-all duration-300 ease-out ${
-            isPanelExpanded ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
-          }`}
+          className="fixed left-0 right-0 z-[300]"
           style={{
-            bottom: (primaryAction || secondaryAction) ? '120px' : '72px',
-            maxHeight: isPanelExpanded ? 'calc(100vh - 200px)' : '0',
+            bottom: (primaryAction || secondaryAction) ? '100px' : '56px',
+            maxHeight: 'calc(100vh - 200px)',
             backgroundColor: 'var(--panel-background)',
             borderTop: '1px solid var(--panel-border)',
             borderTopLeftRadius: '20px',
@@ -89,33 +72,20 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
         >
           {/* Panel header */}
           <div
-            className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0"
+            className="flex items-center justify-between px-4 py-1.5 border-b flex-shrink-0"
             style={{ borderColor: 'var(--panel-border)' }}
           >
             <div className="flex items-center gap-2">
               <span className="text-gray-400">{activeTab.icon}</span>
               <span className="font-medium text-white text-sm">{activeTab.label}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleCollapseToggle}
-                className="p-1.5 rounded-lg transition-colors inline-btn"
-                style={{ backgroundColor: 'var(--button-ghost)' }}
-              >
-                {isPanelExpanded ? (
-                  <ChevronDown size={18} className="text-gray-400" />
-                ) : (
-                  <ChevronUp size={18} className="text-gray-400" />
-                )}
-              </button>
-              <button
-                onClick={handleClosePanel}
-                className="p-1.5 rounded-lg transition-colors inline-btn"
-                style={{ backgroundColor: 'var(--button-ghost)' }}
-              >
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
+            <button
+              onClick={handleCollapseToggle}
+              className="p-1 rounded-lg transition-colors inline-btn"
+              style={{ backgroundColor: 'var(--button-ghost)' }}
+            >
+              <ChevronDown size={16} className="text-gray-400" />
+            </button>
           </div>
 
           {/* Panel content - scrollable */}
@@ -123,7 +93,7 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
             className="overflow-y-auto custom-scrollbar"
             style={{ maxHeight: 'calc(100vh - 280px)', touchAction: 'pan-y' }}
           >
-            <div className="p-4 pb-6">
+            <div className="p-3 pb-5">
               {activeTab.content}
             </div>
           </div>
@@ -132,7 +102,7 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
 
       {/* Footer toolbar */}
       <div
-        className="fixed left-0 right-0 bottom-0 z-50 safe-area-pb"
+        className="fixed left-0 right-0 bottom-0 z-[310] safe-area-pb"
         style={{
           backgroundColor: 'var(--panel-background)',
           borderTop: '1px solid var(--panel-border)',
@@ -165,17 +135,15 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
           </div>
         )}
 
-        {/* Tab icons */}
-        <div className="flex items-center justify-around py-2 px-2">
+        {/* Tab icons — evenly divided */}
+        <div className="flex items-center py-1 px-1">
           {tabs.map((tab) => {
             const isActive = activeTabId === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-                  isActive ? 'mobile-tab-active' : ''
-                }`}
+                className="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all"
                 style={{
                   backgroundColor: isActive ? 'rgba(var(--accent-primary-rgb), 0.15)' : 'transparent',
                 }}
@@ -189,7 +157,7 @@ export const MobileFooterToolbar: React.FC<MobileFooterToolbarProps> = ({
                   {tab.icon}
                 </span>
                 <span
-                  className={`text-[10px] font-medium transition-colors ${
+                  className={`text-[9px] font-medium transition-colors ${
                     isActive ? 'text-accent-active' : 'text-gray-500'
                   }`}
                   style={{ color: isActive ? 'var(--accent-primary)' : undefined }}

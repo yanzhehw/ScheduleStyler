@@ -784,11 +784,11 @@ export const EditStep: React.FC<EditStepProps> = ({
           {/* Scale spacer - provides scrollable area when zoomed */}
           <div
             className="p-6 flex justify-center"
-            style={zoom > 1 ? {
+            style={{
               minWidth: canvasDimensions.width * zoom + 48,
               minHeight: canvasDimensions.height * zoom + 48,
               width: '100%',
-            } : { minHeight: '100%', width: '100%' }}
+            }}
           >
             {/* Zoom wrapper - hidden until initial zoom is calculated to prevent glitch */}
             <div

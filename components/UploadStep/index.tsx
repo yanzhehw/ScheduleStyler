@@ -170,19 +170,19 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
             {isProcessing ? (
               /* Processing state with ElectricBorder */
               <ElectricBorder
-                className="h-full min-h-[300px]"
+                className="h-full min-h-[220px] sm:min-h-[300px]"
               >
-                <div className="p-10 rounded-[22px] text-center bg-[#0f172a] flex-1 flex flex-col items-center justify-center cursor-wait">
+                <div className="p-6 sm:p-10 rounded-[22px] text-center bg-[#0f172a] flex-1 flex flex-col items-center justify-center cursor-wait">
                   <div className="space-y-6">
-                    <div className="mx-auto w-fit p-5 rounded-full bg-blue-500/20 animate-pulse">
-                      <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="mx-auto w-fit p-4 sm:p-5 rounded-full bg-blue-500/20 animate-pulse">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                     <div className="space-y-3">
-                      <h2 className="text-xl font-semibold text-white">Analyzing Schedule</h2>
+                      <h2 className="text-lg sm:text-xl font-semibold text-white">Analyzing Schedule</h2>
                       <div className="h-6 flex items-center justify-center">
                         <TextShimmer
                           duration={1.2}
-                          className="text-sm font-medium [--base-color:theme(colors.cyan.400)] [--base-gradient-color:theme(colors.cyan.100)]"
+                          className="text-xs sm:text-sm font-medium [--base-color:theme(colors.cyan.400)] [--base-gradient-color:theme(colors.cyan.100)]"
                         >
                           {EXTRACTION_MESSAGES[messageIndex]}
                         </TextShimmer>
@@ -195,7 +195,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
               /* Normal upload state */
               <div
                 className={`
-                  relative p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed
+                  relative p-5 sm:p-10 min-h-[150px] sm:min-h-0 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed
                   ${isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'}
                 `}
                 onDrop={handleDrop}
@@ -215,13 +215,13 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                     isUploadLocked ? 'cursor-not-allowed' : 'cursor-pointer'
                   }`}
                 >
-                  <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-6`}>
-                    <div className="mx-auto w-fit p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
-                      <Upload className="w-10 h-10 text-blue-400" />
+                  <div className={`${isUploadLocked ? 'blur-[1.5px]' : ''} space-y-4 sm:space-y-6`}>
+                    <div className="mx-auto w-fit p-3 sm:p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
+                      <Upload className="w-7 h-7 sm:w-10 sm:h-10 text-blue-400" />
                     </div>
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-semibold text-white">Upload Screenshot</h2>
-                      <p className="text-gray-400 text-sm">
+                    <div className="space-y-1 sm:space-y-2">
+                      <h2 className="text-lg sm:text-xl font-semibold text-white">Upload Screenshot</h2>
+                      <p className="hidden sm:block text-gray-400 text-xs sm:text-sm">
                         Drag & drop or click to select a PNG/JPG<br />Our AI automatically extracts your schedule from a screenshot.
                       </p>
                     </div>
@@ -249,15 +249,31 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
               </div>
             )}
 
+            {/* Feature Pills - auto extraction only */}
             {!isProcessing && (
-              <div className="rounded-2xl border p-4 space-y-4" style={{ backgroundColor: 'var(--sidebar-background)', borderColor: 'var(--sidebar-border)' }}>
+              <div
+                className={`flex gap-3 sm:gap-4 text-xs sm:text-sm justify-center sm:hidden ${
+                  isUploadLocked ? 'text-gray-600 opacity-60' : 'text-gray-500'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 rounded-full border pill-themed">
+                  <FileImage size={14} /> <span>Smart Extraction</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 rounded-full border pill-themed">
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-500"></div> <span>Auto Categorization</span>
+                </div>
+              </div>
+            )}
+
+            {!isProcessing && (
+              <div className="rounded-2xl border p-3 sm:p-4 space-y-3" style={{ backgroundColor: 'var(--sidebar-background)', borderColor: 'var(--sidebar-border)' }}>
                 <div className="flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-blue-400" />
-                  <div className="flex items-center gap-2 rounded-full border p-1 text-xs font-semibold text-slate-300 w-fit pill-themed">
+                  <div className="flex items-center gap-2 rounded-full border p-0.5 sm:p-1 text-[11px] sm:text-xs font-semibold text-slate-300 w-fit pill-themed">
                     <button
                     type="button"
                     onClick={() => onKeyModeChange('invite')}
-                    className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full transition-colors whitespace-nowrap ${
                       keyMode === 'invite'
                         ? 'tab-active-themed text-white shadow-sm'
                         : 'tab-inactive-themed'
@@ -268,7 +284,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                   <button
                     type="button"
                     onClick={() => onKeyModeChange('byok')}
-                    className={`px-3 py-1 rounded-full transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full transition-colors whitespace-nowrap ${
                       keyMode === 'byok'
                         ? 'tab-active-themed text-white shadow-sm'
                         : 'tab-inactive-themed'
@@ -281,7 +297,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
 
                 {keyMode === 'invite' ? (
                   <div className="space-y-2">
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={inviteCode}
@@ -295,14 +311,14 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                           }
                         }}
                         placeholder="Enter your invite code"
-                        className="flex-1 rounded-xl border px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
+                        className="flex-1 min-w-0 rounded-xl border px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
                         disabled={isActivating || isActivated}
                       />
                       <button
                         type="button"
                         onClick={handleRedeem}
                         disabled={isActivating || isActivated}
-                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-semibold transition-all whitespace-nowrap ${
                           isActivated
                             ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
                             : 'btn-accent text-white'
@@ -310,7 +326,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       >
                         {isActivated ? (
                           <>
-                            <Check className="w-4 h-4" /> Activated
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Activated
                           </>
                         ) : (
                           'Activate'
@@ -318,22 +334,22 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       </button>
                     </div>
                     {activationError && (
-                      <p className="text-xs text-rose-400">{activationError}</p>
+                      <p className="text-[11px] sm:text-xs text-rose-400">{activationError}</p>
                     )}
                     {/* GitHub star hint */}
                     <a
                       href="https://github.com/yanzhehw/ScheduleStyler"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-xs text-slate-400 hover:text-blue-400 transition-colors mt-1"
+                      className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-400 hover:text-blue-400 transition-colors mt-1"
                     >
-                      <Star size={14} className="text-yellow-400" />
-                      <span>Star on GitHub to use your username invitation code</span>
+                      <Star size={14} className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-400" />
+                      <span>Star on GitHub to use username as free invitation code</span>
                     </a>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={apiKey}
@@ -350,13 +366,13 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                           }
                         }}
                         placeholder="Paste your Gemini key (Kept Local)"
-                        className="flex-1 rounded-xl border px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
+                        className="flex-1 min-w-0 rounded-xl border px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 input-themed"
                       />
                       <button
                         type="button"
                         onClick={handleApplyApiKey}
                         disabled={Boolean(appliedApiKey)}
-                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-semibold transition-all whitespace-nowrap ${
                           appliedApiKey
                             ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
                             : 'btn-accent text-white'
@@ -364,7 +380,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       >
                         {appliedApiKey ? (
                           <>
-                            <Check className="w-4 h-4" /> Applied
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Applied
                           </>
                         ) : (
                           'Apply'
@@ -372,7 +388,7 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
                       </button>
                     </div>
                     {apiKeyValidationError && (
-                      <p className="text-xs text-rose-400">{apiKeyValidationError}</p>
+                      <p className="text-xs sm:text-sm text-rose-400">{apiKeyValidationError}</p>
                     )}
                   </div>
                 )}
@@ -420,15 +436,15 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
           ) : (
             <button
               onClick={onEnterManually}
-              className="h-full min-h-[400px] p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed hover:border-emerald-400 cursor-pointer"
+              className="h-full min-h-[160px] sm:min-h-[400px] p-4 sm:p-10 border-2 border-dashed rounded-3xl text-center transition-all duration-300 dropzone-themed hover:border-emerald-400 cursor-pointer"
             >
-              <div className="flex flex-col items-center gap-5">
-                <div className="p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
-                  <PenLine className="w-10 h-10 text-emerald-400" />
+              <div className="flex flex-col items-center gap-3 sm:gap-5">
+                <div className="p-3 sm:p-5 rounded-full" style={{ backgroundColor: 'var(--surface-elevated)' }}>
+                  <PenLine className="w-7 h-7 sm:w-10 sm:h-10 text-emerald-400" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-semibold text-white">Enter Manually</h2>
-                  <p className="text-gray-400 text-sm">
+                  <h2 className="text-lg sm:text-xl font-semibold text-white">Enter Manually</h2>
+                  <p className="text-gray-400 text-xs sm:text-sm">
                     Start with an empty schedule and add classes yourself
                   </p>
                 </div>
@@ -438,9 +454,9 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
         </div>
       </div>
 
-      {/* Feature Pills */}
+      {/* Feature Pills (desktop placement) */}
       {!isProcessing && (
-        <div className="flex gap-4 mt-8 text-sm text-gray-500">
+        <div className="hidden sm:flex gap-4 mt-8 text-sm text-gray-500">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full border pill-themed">
             <FileImage size={14} /> <span>Smart Extraction</span>
           </div>
@@ -452,17 +468,17 @@ export const UploadStep: React.FC<UploadStepProps> = ({ onFileSelect, onLoadSamp
 
       {/* Try with pre-built buttons */}
       {!isProcessing && (
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-6">
           <button
             onClick={onLoadSample}
-            className="px-4 py-2 text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed"
+            className="px-4 py-2 text-xs sm:text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed whitespace-nowrap"
             style={{ color: 'var(--text-secondary)' }}
           >
             <Play size={14} /> Sample Schedule 1
           </button>
           <button
             onClick={onLoadMcGillSample}
-            className="px-4 py-2 text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed"
+            className="px-4 py-2 text-xs sm:text-sm hover:text-white border rounded-lg transition-colors flex items-center gap-2 pill-themed whitespace-nowrap"
             style={{ color: 'var(--text-secondary)' }}
           >
             <Play size={14} /> Sample Schedule 2
