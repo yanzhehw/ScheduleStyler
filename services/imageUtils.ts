@@ -28,8 +28,6 @@ const GOOGLE_FONTS = [
   'DM+Serif+Display',
   'Montserrat',
   'EB+Garamond',
-  'Space+Grotesk',
-  'Source+Serif+Pro',
 ];
 
 // Fetch and embed Google Fonts CSS

@@ -6,15 +6,33 @@ import { extractCalendarFromImage } from './services/geminiService';
 import { convertFileToBase64 } from './services/imageUtils';
 import { SAMPLE_EVENTS, SAMPLE_CATEGORIES, MCGILL_RAW_API_RESPONSE } from './services/sampleData';
 import { processRawEvents } from './services/geminiService';
-import { UploadStep } from './components/UploadStep';
-import { EditStep } from './components/edit';
-import { ExportStep } from './components/export';
 import { LandingPage } from './components/LandingPage';
-import { AboutPage } from './components/pages/AboutPage';
-import { BlogPage } from './components/pages/BlogPage';
-import { CommunityPage } from './components/pages/CommunityPage';
-import { MeetTheTeamPage } from './components/pages/MeetTheTeamPage';
-import { SupportPage } from './components/pages/SupportPage';
+
+// Code-split: lazy-load all non-landing-page routes
+const UploadStep = React.lazy(() =>
+  import('./components/UploadStep').then(m => ({ default: m.UploadStep }))
+);
+const EditStep = React.lazy(() =>
+  import('./components/edit').then(m => ({ default: m.EditStep }))
+);
+const ExportStep = React.lazy(() =>
+  import('./components/export').then(m => ({ default: m.ExportStep }))
+);
+const AboutPage = React.lazy(() =>
+  import('./components/pages/AboutPage').then(m => ({ default: m.AboutPage }))
+);
+const BlogPage = React.lazy(() =>
+  import('./components/pages/BlogPage').then(m => ({ default: m.BlogPage }))
+);
+const CommunityPage = React.lazy(() =>
+  import('./components/pages/CommunityPage').then(m => ({ default: m.CommunityPage }))
+);
+const MeetTheTeamPage = React.lazy(() =>
+  import('./components/pages/MeetTheTeamPage').then(m => ({ default: m.MeetTheTeamPage }))
+);
+const SupportPage = React.lazy(() =>
+  import('./components/pages/SupportPage').then(m => ({ default: m.SupportPage }))
+);
 import { ConfirmModal } from './components/popups';
 import { BackgroundsProvider } from './contexts/BackgroundsContext';
 import { ExamplesProvider } from './contexts/ExamplesContext';
@@ -331,13 +349,15 @@ const App: React.FC = () => {
   if (isStaticPage) {
     return (
       <BackgroundsProvider>
-        <Routes>
-          <Route path={ROUTES.ABOUT} element={<AboutPage />} />
-          <Route path={ROUTES.BLOG} element={<BlogPage />} />
-          <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
-          <Route path={ROUTES.MEET_THE_TEAM} element={<MeetTheTeamPage />} />
-          <Route path={ROUTES.SUPPORT} element={<SupportPage />} />
-        </Routes>
+        <React.Suspense fallback={<div className="min-h-screen" style={{ backgroundColor: 'var(--surface-app)' }} />}>
+          <Routes>
+            <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+            <Route path={ROUTES.BLOG} element={<BlogPage />} />
+            <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+            <Route path={ROUTES.MEET_THE_TEAM} element={<MeetTheTeamPage />} />
+            <Route path={ROUTES.SUPPORT} element={<SupportPage />} />
+          </Routes>
+        </React.Suspense>
       </BackgroundsProvider>
     );
   }
@@ -407,6 +427,7 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 p-2 md:p-6 overflow-auto">
+        <React.Suspense fallback={<div className="flex-1 flex items-center justify-center" />}>
         <Routes>
           <Route
             path={ROUTES.UPLOAD}
@@ -468,6 +489,7 @@ const App: React.FC = () => {
           {/* Catch-all redirect to home */}
           <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
         </Routes>
+        </React.Suspense>
       </main>
 
       {/* Reupload Confirmation Modal */}

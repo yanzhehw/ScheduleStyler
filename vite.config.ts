@@ -2,7 +2,6 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite'
-import { imagetools } from 'vite-imagetools';
 
 
 export default defineConfig(() => {
@@ -19,7 +18,19 @@ export default defineConfig(() => {
       },
       // SPA fallback - ensures all routes serve index.html for client-side routing
       appType: 'spa' as const,
-      plugins: [react(), tailwindcss(), imagetools()],
+      plugins: [react(), tailwindcss()],
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+              'vendor-framer': ['framer-motion'],
+              'vendor-styled': ['styled-components'],
+              'vendor-export': ['html-to-image'],
+            },
+          },
+        },
+      },
       // API keys are kept server-side only - never exposed to frontend
       resolve: {
         alias: {

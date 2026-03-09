@@ -571,50 +571,6 @@ export const dark1Theme: SiteTheme = {
 export const currentTheme: SiteTheme = dark1Theme;  // Default theme is blue. Change to purpleTheme or tealTheme for A/B testing.
 
 /**
- * Generates CSS custom properties from the current theme
- * These are injected into :root in index.css
- */
-export function getThemeCSSVariables(theme: SiteTheme = currentTheme): string {
-  return `
-  /* Accent Colors */
-  --accent-primary: ${theme.accent.primary};
-  --accent-secondary: ${theme.accent.secondary};
-  --accent-glow: ${theme.accent.glow};
-
-  /* Accent RGB values for rgba() usage */
-  --accent-primary-rgb: ${hexToRgb(theme.accent.primary)};
-  --accent-secondary-rgb: ${hexToRgb(theme.accent.secondary)};
-  --accent-glow-rgb: ${hexToRgb(theme.accent.glow)};
-
-  /* Surface Colors */
-  --surface-app: ${theme.surface.app};
-  --surface-card: ${theme.surface.card};
-  --surface-elevated: ${theme.surface.elevated};
-  --surface-input: ${theme.surface.input};
-  --surface-input-border: ${theme.surface.inputBorder};
-
-  /* Text Colors */
-  --text-primary: ${theme.text.primary};
-  --text-secondary: ${theme.text.secondary};
-  --text-muted: ${theme.text.muted};
-  --text-on-accent: ${theme.text.onAccent};
-
-  /* Semantic Colors */
-  --color-error: ${theme.semantic.error};
-  --color-error-muted: ${theme.semantic.errorMuted};
-  --color-warning: ${theme.semantic.warning};
-  --color-success: ${theme.semantic.success};
-  --color-success-muted: ${theme.semantic.successMuted};
-  --color-info: ${theme.semantic.info};
-
-  /* Border Colors */
-  --border-default: ${theme.border.default};
-  --border-muted: ${theme.border.muted};
-  --border-accent: ${theme.border.accent};
-  `.trim();
-}
-
-/**
  * Converts hex color to RGB values (for use with rgba())
  */
 function hexToRgb(hex: string): string {
@@ -724,5 +680,4 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
   root.style.setProperty('--button-ghost', theme.accent.ghost);
   root.style.setProperty('--button-ghost-hover', theme.accent.ghostHover);
 
-  console.log(`[Theme] Applied: ${theme.name}`);
 }

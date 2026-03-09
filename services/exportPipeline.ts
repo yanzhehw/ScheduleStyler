@@ -154,8 +154,6 @@ const GOOGLE_FONTS = [
   'JetBrains+Mono',
   'Space+Mono',
   'Fira+Code',
-  'Space+Grotesk',
-  'Source+Serif+Pro',
 ];
 
 let fontCSSCache: string | null = null;

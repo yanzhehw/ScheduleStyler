@@ -1,38 +1,6 @@
 import React from "react";
-import {
-  ArrowRight,
-  Play,
-  Target,
-  Crown,
-  Star,
-  // Brand Icons
-  Hexagon,
-  Triangle,
-  Command,
-  Ghost,
-  Gem,
-  Cpu
-} from "lucide-react";
+import { ArrowRight, Play, Star } from "lucide-react";
 import heroImage from "../../assets/examples/okok.webp";
-
-// --- MOCK BRANDS ---
-// Replaced PNGs with Lucide icons to simulate tech logos
-const CLIENTS = [
-  { name: "Acme Corp", icon: Hexagon },
-  { name: "Quantum", icon: Triangle },
-  { name: "Command+Z", icon: Command },
-  { name: "Phantom", icon: Ghost },
-  { name: "Ruby", icon: Gem },
-  { name: "Chipset", icon: Cpu },
-];
-
-// --- SUB-COMPONENTS ---
-const StatItem = ({ value, label }: { value: string; label: string }) => (
-  <div className="flex flex-col items-center justify-center transition-transform hover:-translate-y-1 cursor-default">
-    <span className="text-xl font-bold text-white sm:text-2xl">{value}</span>
-    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium sm:text-xs">{label}</span>
-  </div>
-);
 
 // --- MAIN COMPONENT ---
 interface HeroSectionProps {
@@ -152,6 +120,10 @@ export default function HeroSection({ onGetStarted }: HeroSectionProps) {
                 src={heroImage}
                 alt="Before-After Comparison preview"
                 className="rounded-3xl shadow-2xl w-full pointer-events-none"
+                width={1200}
+                height={800}
+                fetchPriority="high"
+                decoding="async"
               />
             </div>
 
