@@ -457,6 +457,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       borderRadius: template.borderRadius,
       width: `${cardDimensions.width}px`,
       height: `${cardDimensions.height}px`,
+      // Prevent iPadOS Safari from auto-adjusting text sizes during zoom
+      WebkitTextSizeAdjust: '100%',
     };
 
     // Solid-grain has its own colored canvas background with grain texture

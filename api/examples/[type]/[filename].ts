@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       'application/octet-stream';
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', 'public, s-maxage=31536000, max-age=31536000, immutable');
     if (response.ContentLength) {
       res.setHeader('Content-Length', response.ContentLength);
     }

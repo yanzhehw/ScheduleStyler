@@ -92,12 +92,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const now = Date.now();
 
     if (backgroundsCache && now - backgroundsCache.timestamp < CACHE_TTL) {
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
       return res.json(backgroundsCache.data);
     }
 
     const data = await listBackgrounds();
     backgroundsCache = { data, timestamp: now };
 
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return res.json(data);
   } catch (error) {
     console.error('Failed to list backgrounds:', error);

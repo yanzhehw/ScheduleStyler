@@ -246,9 +246,50 @@ const waitForImages = async (root: HTMLElement) => {
 // often fails silently (SVG foreignObject can't load external resources).
 // By converting to data URLs first, we guarantee the image is present
 // regardless of browser or CORS restrictions.
+// Returns true when the browser needs pre-inlined background images.
+// html-to-image handles images natively on desktop Chrome/Firefox, so this
+// is only necessary for mobile Safari (SVG foreignObject can't load external
+// resources) and WebKit-based browsers.
+const needsBackgroundImageInlining = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // Mobile devices always need it
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+  // Desktop Safari needs it
+  if (/Safari/.test(ua) && !/Chrome/.test(ua)) return true;
+  return false;
+};
+
 const inlineCSSBackgroundImages = async (root: HTMLElement): Promise<void> => {
+  // Skip on desktop Chrome/Firefox — html-to-image handles images natively there.
+  if (!needsBackgroundImageInlining()) return;
+
   const elements = Array.from(root.querySelectorAll<HTMLElement>('*'));
   elements.push(root);
+
+  // Deduplicate: fetch each unique URL only once, then apply to all matching elements.
+  const urlToDataUrl = new Map<string, Promise<string | null>>();
+
+  const fetchDataUrl = (url: string): Promise<string | null> => {
+    if (urlToDataUrl.has(url)) return urlToDataUrl.get(url)!;
+    const p = (async () => {
+      try {
+        const res = await fetch(url, { credentials: 'same-origin' });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return null;
+      }
+    })();
+    urlToDataUrl.set(url, p);
+    return p;
+  };
 
   await Promise.all(
     elements.map(async (el) => {
@@ -260,19 +301,9 @@ const inlineCSSBackgroundImages = async (root: HTMLElement): Promise<void> => {
       const url = match[1];
       if (url.startsWith('data:')) return; // already inlined
 
-      try {
-        const res = await fetch(url, { credentials: 'same-origin' });
-        if (!res.ok) return;
-        const blob = await res.blob();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
+      const dataUrl = await fetchDataUrl(url);
+      if (dataUrl) {
         el.style.backgroundImage = `url(${dataUrl})`;
-      } catch {
-        // If fetch fails, leave original URL; html-to-image will try again
       }
     })
   );
@@ -718,7 +749,16 @@ const applyForegroundLayerVisibility = (clone: HTMLElement) => {
     (el.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = 'none';
 
     const overlayInfo = getOverlayTargetInfo(el, clone);
-    if (overlayInfo.target && !overlayInfo.backgroundImage) {
+    // Exclude EventBlocks: their background color must be preserved in the foreground
+    // capture so that borders have proper visual contrast. The blur canvas step already
+    // reconstructs the frosted-glass region beneath each event block, so making the
+    // EventBlock itself transparent here is incorrect and causes borders to appear
+    // washed out / less opaque in the exported image.
+    if (
+      overlayInfo.target &&
+      !overlayInfo.backgroundImage &&
+      !overlayInfo.target.matches('[data-component="EventBlock"]')
+    ) {
       overlayTargets.add(overlayInfo.target);
     }
 

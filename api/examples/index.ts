@@ -94,12 +94,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const now = Date.now();
 
     if (examplesCache && now - examplesCache.timestamp < CACHE_TTL) {
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
       return res.json(examplesCache.data);
     }
 
     const data = await listExamples();
     examplesCache = { data, timestamp: now };
 
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     return res.json(data);
   } catch (error) {
     console.error('Failed to list examples:', error);

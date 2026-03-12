@@ -179,7 +179,7 @@ export const EditStep: React.FC<EditStepProps> = ({
   const hasAppliedInitialZoom = useRef(false);
 
   // Mobile detection and active tab state
-  const isMobile = useMobileDetect();
+  const { isMobile, isTablet } = useMobileDetect();
   const [mobileActiveTab, setMobileActiveTab] = useState<string | null>(null);
 
   // Auto-open edit panel when an event is selected on mobile
@@ -191,10 +191,11 @@ export const EditStep: React.FC<EditStepProps> = ({
     }
   }, [isMobile, selectedEventId]);
 
-  // Check if browser supports CSS zoom
+  // CSS zoom breaks text scaling on iPadOS — force transform: scale() for tablets
   const supportsZoom = typeof window !== 'undefined'
     && typeof window.CSS?.supports === 'function'
-    && window.CSS.supports('zoom', '1');
+    && window.CSS.supports('zoom', '1')
+    && !isTablet;
 
   // Calculate auto-fit zoom to contain the full calendar
   const calculateAutoFitZoom = useCallback(() => {

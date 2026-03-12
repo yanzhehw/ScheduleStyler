@@ -34,9 +34,6 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   // Backgrounds from R2 storage
   const { landscapes, portraits, imageMap, isLoading: isBackgroundsLoading, error: backgroundsError } = useBackgrounds();
 
-  const supportsZoom = typeof window !== 'undefined'
-    && typeof window.CSS?.supports === 'function'
-    && window.CSS.supports('zoom', '1');
   const [isExporting, setIsExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeSidebarSection, setActiveSidebarSection] = useState<'theme' | 'background' | 'scale' | 'layout' | 'grid' | 'font'>('theme');
@@ -318,7 +315,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const previewPanelRef = useRef<HTMLDivElement>(null);
 
   // Mobile detection and active tab state
-  const isMobile = useMobileDetect();
+  const { isMobile, isTablet } = useMobileDetect();
+  // CSS zoom breaks text scaling on iPadOS — force transform: scale() for tablets
+  const supportsZoom = typeof window !== 'undefined'
+    && typeof window.CSS?.supports === 'function'
+    && window.CSS.supports('zoom', '1')
+    && !isTablet;
   const [mobileActiveTab, setMobileActiveTab] = useState<string | null>(null);
 
   // Track previous theme family to detect changes
@@ -1078,6 +1080,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
   const handleDownload = async () => {
     // Fire-and-forget download tracking
     fetch('/api/track?action=download', { method: 'POST' });
+
+    // Google Ads conversion tracking
+    if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+      (window as any).gtag('event', 'conversion', {
+        send_to: 'AW-17951045128/NjuuCK2-v4ccEIjs3O9C',
+      });
+    }
 
     setIsExporting(true);
     // Allow React to render the hidden export canvas

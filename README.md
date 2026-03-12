@@ -1,6 +1,6 @@
 # ScheduleStyler
 
-Transform ugly ahh calendar screenshots into good looking ones.
+Transform ugly ahh calendar screenshots into good looking ones. ScheduleStyler.com
 
 ## Before & After
 
