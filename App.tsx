@@ -111,6 +111,8 @@ const DEFAULT_TEMPLATE: TemplateConfig = {
   backgroundOverlay: 0,
   calendarCardInsets: { top: 0, bottom: 0, left: 0, right: 0 },
   lockscreenMockup: false,
+  includeWeekend: false,
+  firstDayOfWeek: 0,
 };
 
 const App: React.FC = () => {

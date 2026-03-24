@@ -187,16 +187,23 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     setHoveredComponent(getHoveredComponentFromTarget(target));
   }, [hoverResetToken, interactive]);
 
-  // Calculate visible days and their actual day indices
+  // Calculate visible days and their actual day indices, respecting weekend toggle and first-day rotation
   const { visibleDays, visibleDayIndices } = useMemo(() => {
     const hasWeekendEvents = events.some(e => e.dayIndex >= 5);
-    const baseDays = hasWeekendEvents ? ALL_DAYS : ALL_DAYS.slice(0, 5);
-    const baseIndices = hasWeekendEvents
-      ? [0, 1, 2, 3, 4, 5, 6]
-      : [0, 1, 2, 3, 4];
+    const showWeekend = template.includeWeekend || hasWeekendEvents;
+    const totalDays = showWeekend ? 7 : 5;
+    const firstDay = template.firstDayOfWeek ?? 0;
 
-    return { visibleDays: baseDays, visibleDayIndices: baseIndices };
-  }, [events]);
+    // Build rotated day indices starting from firstDayOfWeek
+    const allIndices = Array.from({ length: 7 }, (_, i) => (firstDay + i) % 7);
+    // Filter to only visible days (exclude weekend indices 5,6 if not showing weekend)
+    const filteredIndices = showWeekend
+      ? allIndices
+      : allIndices.filter(idx => idx < 5);
+    const days = filteredIndices.map(idx => ALL_DAYS[idx]);
+
+    return { visibleDays: days, visibleDayIndices: filteredIndices };
+  }, [events, template.includeWeekend, template.firstDayOfWeek]);
 
   // Dynamic Time Range Calculation
   const { startHour, hourRange, hours } = useMemo(() => {
@@ -536,7 +543,8 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       const y = clientY - rect.top - dragInfo.offsetY;
       const dayWidth = rect.width / visibleDays.length;
       const rawDayIndex = Math.floor(x / dayWidth);
-      const nextDayIndex = Math.min(visibleDays.length - 1, Math.max(0, rawDayIndex));
+      const colIndex = Math.min(visibleDays.length - 1, Math.max(0, rawDayIndex));
+      const actualDayIndex = visibleDayIndices[colIndex];
 
       const hourHeightPx = rect.height / hourRange;
       const rawStart = startHour + y / hourHeightPx;
@@ -548,7 +556,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       dragInfo.latest = {
         startTime: formatTimeFromHours(clampedStart),
         endTime: formatTimeFromHours(clampedEnd),
-        dayIndex: nextDayIndex,
+        dayIndex: actualDayIndex,
       };
       onEventTimeChange(dragInfo.eventId, dragInfo.latest);
     };
@@ -586,7 +594,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleUp);
     };
-  }, [draggingEventId, onEventDragEnd, onEventTimeChange, hourRange, startHour, visibleDays.length]);
+  }, [draggingEventId, onEventDragEnd, onEventTimeChange, hourRange, startHour, visibleDays.length, visibleDayIndices]);
 
   const handleGridMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!interactive || !onEmptyBlockClick || draggingEventId) return;
@@ -602,18 +610,19 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     }
 
     const dayWidth = rect.width / visibleDays.length;
-    const dayIndex = Math.min(visibleDays.length - 1, Math.max(0, Math.floor(x / dayWidth)));
+    const colIndex = Math.min(visibleDays.length - 1, Math.max(0, Math.floor(x / dayWidth)));
+    const actualDayIndex = visibleDayIndices[colIndex];
     const hourHeightPx = rect.height / hourRange;
     const rawHour = startHour + y / hourHeightPx;
     const slotStart = Math.min(startHour + hourRange - 1, Math.max(startHour, Math.floor(rawHour)));
 
-    if (!isSlotEmpty(dayIndex, slotStart)) {
+    if (!isSlotEmpty(actualDayIndex, slotStart)) {
       if (hoveredSlot) setHoveredSlot(null);
       return;
     }
 
-    if (!hoveredSlot || hoveredSlot.dayIndex !== dayIndex || hoveredSlot.startHour !== slotStart) {
-      setHoveredSlot({ dayIndex, startHour: slotStart });
+    if (!hoveredSlot || hoveredSlot.dayIndex !== actualDayIndex || hoveredSlot.startHour !== slotStart) {
+      setHoveredSlot({ dayIndex: actualDayIndex, startHour: slotStart });
     }
   };
 
@@ -784,7 +793,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 e.stopPropagation();
                 onResetToFill();
               }}
-              className="absolute top-3 right-3 z-[120] rounded-lg border border-white/15 bg-slate-900/50 px-3 py-2 text-xs text-white/90 shadow-lg backdrop-blur-md transition hover:border-white/30 hover:bg-slate-900/70 hover:text-white"
+              className="absolute top-3 right-3 z-[210] rounded-lg border border-white/15 bg-slate-900/50 px-3 py-2 text-xs text-white/90 shadow-lg backdrop-blur-md transition hover:border-white/30 hover:bg-slate-900/70 hover:text-white"
             >
               Reset to fill canvas
             </button>
@@ -1142,28 +1151,36 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
         }
       }}
       onClick={(e: React.MouseEvent) => {
-        // Only trigger card selection if clicking on the card background (not on events/header/time column)
+        // Toggle card selection when clicking on the card background (not on events/header/time column)
         const target = e.target as HTMLElement;
         const isEventBlock = target.closest('[data-component="EventBlock"]');
         const isDayHeader = target.closest('[data-component="DayHeader"]');
         const isTimeColumn = target.closest('[data-component="TimeColumn"]');
         const isEmptySlot = target.closest('[data-component="EmptySlot"]');
 
-        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive && onCalendarCardSelect) {
-          onCalendarCardSelect();
+        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive) {
+          if (isCalendarCardSelected && onBlankClick) {
+            onBlankClick();
+          } else if (onCalendarCardSelect) {
+            onCalendarCardSelect();
+          }
         }
       }}
       onTouchEnd={(e: React.TouchEvent) => {
-        // Only trigger card selection if tapping on the card background (not on events/header/time column)
+        // Toggle card selection when tapping on the card background (not on events/header/time column)
         const target = e.target as HTMLElement;
         const isEventBlock = target.closest('[data-component="EventBlock"]');
         const isDayHeader = target.closest('[data-component="DayHeader"]');
         const isTimeColumn = target.closest('[data-component="TimeColumn"]');
         const isEmptySlot = target.closest('[data-component="EmptySlot"]');
 
-        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive && onCalendarCardSelect) {
+        if (!isEventBlock && !isDayHeader && !isTimeColumn && !isEmptySlot && interactive) {
           e.stopPropagation();
-          onCalendarCardSelect();
+          if (isCalendarCardSelected && onBlankClick) {
+            onBlankClick();
+          } else if (onCalendarCardSelect) {
+            onCalendarCardSelect();
+          }
         }
       }}
     >

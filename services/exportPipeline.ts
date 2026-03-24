@@ -158,8 +158,6 @@ const GOOGLE_FONTS = [
 
 let fontCSSCache: string | null = null;
 let stagingRoot: HTMLDivElement | null = null;
-let grainTexturePromise: Promise<HTMLImageElement | null> | null = null;
-
 const ensureStagingRoot = () => {
   if (stagingRoot) return stagingRoot;
   const root = document.createElement('div');
@@ -171,17 +169,6 @@ const ensureStagingRoot = () => {
   document.body.appendChild(root);
   stagingRoot = root;
   return root;
-};
-
-const loadGrainTexture = (): Promise<HTMLImageElement | null> => {
-  if (grainTexturePromise) return grainTexturePromise;
-  grainTexturePromise = new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = acrylicTextureUrl;
-  });
-  return grainTexturePromise;
 };
 
 // Fetch and embed Google Fonts CSS
@@ -486,11 +473,16 @@ const collectBlurRegions = (root: HTMLElement): BlurRegion[] => {
     if (width <= 0 || height <= 0) return;
 
     const overlayInfo = getOverlayTargetInfo(el, root);
-    const overlayColor = overlayInfo.backgroundImage
-      ? null
-      : overlayInfo.backgroundColor;
-
     const eventBlock = el.closest<HTMLElement>('[data-component="EventBlock"]');
+    // Skip overlayColor for EventBlock regions: their background is preserved in the
+    // foreground capture (not stripped), so drawing it here too would double the color,
+    // making blocks appear darker and obscuring the grain texture.
+    const overlayColor = eventBlock
+      ? null
+      : overlayInfo.backgroundImage
+        ? null
+        : overlayInfo.backgroundColor;
+
     const hasGrain = eventBlock ? grainEventBlocks.has(eventBlock) : false;
 
     if (debugEnabled) {
@@ -807,16 +799,10 @@ const applyForegroundLayerVisibility = (clone: HTMLElement) => {
     });
   });
 
-  let grainRemoved = 0;
-  clone.querySelectorAll<HTMLElement>('*').forEach((el) => {
-    const style = window.getComputedStyle(el);
-    const bgImage = style.backgroundImage;
-    if (!bgImage || bgImage === 'none') return;
-    if (bgImage.includes('Texture_Acrylic') || bgImage.includes(acrylicTextureUrl)) {
-      grainRemoved += 1;
-      el.style.backgroundImage = 'none';
-    }
-  });
+  // Grain texture overlays are intentionally kept in the foreground capture.
+  // html-to-image renders them in the correct DOM stacking order: above the
+  // EventBlock background but below text (which has relative z-10). This
+  // produces crisp grain without any canvas compositing workarounds.
 
   if (debugEnabled) {
     exportDebugLog('foreground event blocks', eventBlocks.length);
@@ -825,9 +811,6 @@ const applyForegroundLayerVisibility = (clone: HTMLElement) => {
         count: shadowSourceCount,
         samples: shadowSamples,
       });
-    }
-    if (grainRemoved > 0) {
-      exportDebugLog('foreground grain overlays removed', grainRemoved);
     }
   }
 };
@@ -1035,39 +1018,6 @@ const drawEventBlockBorders = (
     });
   }
 };
-
-const drawGrainOverlay = (
-  ctx: CanvasRenderingContext2D,
-  regions: BlurRegion[],
-  scaleX: number,
-  scaleY: number,
-  blurScale: number,
-  pattern: CanvasPattern
-) => {
-  regions.forEach((region) => {
-    if (!region.hasGrain) return;
-    const x = region.x * scaleX;
-    const y = region.y * scaleY;
-    const width = region.width * scaleX;
-    const height = region.height * scaleY;
-    const radius: BlurRadius = {
-      tl: region.radius.tl * blurScale,
-      tr: region.radius.tr * blurScale,
-      br: region.radius.br * blurScale,
-      bl: region.radius.bl * blurScale,
-    };
-
-    ctx.save();
-    addRoundedRectPath(ctx, x, y, width, height, radius);
-    ctx.clip();
-    ctx.globalAlpha = 0.1;
-    ctx.translate(x, y);
-    ctx.fillStyle = pattern;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
-  });
-};
-
 
 const boxBlurHorizontal = (
   src: Uint8ClampedArray,
@@ -1330,25 +1280,6 @@ export const downloadCalendarExport = async (
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  let grainPattern: CanvasPattern | null = null;
-  if (blurRegions.some((region) => region.hasGrain)) {
-    const grainImage = await loadGrainTexture();
-    if (grainImage) {
-      const tileSize = Math.max(1, Math.round(128 * blurScale));
-      const tileCanvas = document.createElement('canvas');
-      tileCanvas.width = tileSize;
-      tileCanvas.height = tileSize;
-      const tileCtx = tileCanvas.getContext('2d');
-      if (tileCtx) {
-        tileCtx.drawImage(grainImage, 0, 0, tileSize, tileSize);
-        grainPattern = ctx.createPattern(tileCanvas, 'repeat');
-      }
-      exportDebugLog('grain pattern ready', { ok: Boolean(grainPattern), tileSize });
-    } else {
-      exportDebugLog('grain pattern ready', { ok: false });
-    }
-  }
-
   // Step 1: draw background directly using Canvas API
   if (options.backgroundType && options.backgroundType !== 'none') {
     await drawBackgroundDirect(ctx, canvas.width, canvas.height, options, pixelRatio);
@@ -1412,10 +1343,6 @@ export const downloadCalendarExport = async (
     drawEventBlockShadows(ctx, eventBlockShadows, scaleX, scaleY, blurScale);
   }
 
-  if (grainPattern) {
-    drawGrainOverlay(ctx, blurRegions, scaleX, scaleY, blurScale, grainPattern);
-  }
-
   // NOTE: Event block borders are now kept in the foreground html-to-image capture
   // instead of being drawn on canvas. The canvas approach (drawEventBlockBorders) had
   // visual mismatches with CSS border rendering. Border data is still collected above
@@ -1425,7 +1352,9 @@ export const downloadCalendarExport = async (
     drawEventBlockBorders(ctx, eventBlockBorders, scaleX, scaleY, blurScale);
   }
 
-  // Step 4: draw foreground (content on transparent background, with CSS borders intact)
+  // Step 4: draw foreground. Grain texture is kept in the foreground capture
+  // (not stripped), so html-to-image renders it in the correct DOM stacking order:
+  // above EventBlock background, below text. No canvas grain drawing needed.
   ctx.drawImage(foregroundImage, 0, 0, canvas.width, canvas.height);
 
   const toBlobStart = exportNow();

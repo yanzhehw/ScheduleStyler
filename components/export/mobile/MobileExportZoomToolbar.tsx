@@ -29,7 +29,7 @@ export const MobileExportZoomToolbar: React.FC<MobileZoomToolbarProps> = ({
   return (
     <>
       {isZoomToolbarOpen && (
-        <div className="absolute top-2 right-2 z-50">
+        <div className="absolute top-2 right-2 z-[210]">
           <div
             className="flex items-center gap-1 rounded-lg border p-1 shadow-[0_8px_20px_rgba(2,6,23,0.35)] toolbar-themed"
             style={{ WebkitTapHighlightColor: 'transparent' }}
@@ -66,7 +66,7 @@ export const MobileExportZoomToolbar: React.FC<MobileZoomToolbarProps> = ({
         <button
           onClick={() => setIsZoomToolbarOpen(true)}
           onTouchEnd={blurOnTouch}
-          className="absolute top-2 right-2 z-50 h-6 w-6 rounded-lg border shadow-lg transition-all active:scale-95 toolbar-themed inline-btn flex items-center justify-center focus:outline-none"
+          className="absolute top-2 right-2 z-[210] h-6 w-6 rounded-lg border shadow-lg transition-all active:scale-95 toolbar-themed inline-btn flex items-center justify-center focus:outline-none"
           title="Show zoom controls"
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >

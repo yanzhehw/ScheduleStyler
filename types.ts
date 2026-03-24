@@ -560,6 +560,11 @@ export interface TemplateConfig {
   /** Whether to show iPhone lockscreen mockup overlay */
   lockscreenMockup: boolean;
 
+  /** Force show weekend columns (Sat/Sun) even if no events fall on them */
+  includeWeekend: boolean;
+
+  /** First day of the week (0=Mon, 1=Tue, ... 6=Sun). Columns rotate so this day is column 0. */
+  firstDayOfWeek: number;
 }
 
 export interface ProcessedData {

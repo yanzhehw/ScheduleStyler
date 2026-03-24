@@ -16,7 +16,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         <title>Schedule Styler - Free College Schedule Maker</title>
         <meta name="description" content="Transform messy timetable screenshots into aesthetic schedules. Free online college schedule maker with lockscreen-ready exports." />
       </Helmet>
-      <div className="relative min-h-screen w-full overflow-auto bg-zinc-950">
+      <div className="relative min-h-screen w-full">
       <LandingHeader onGetStarted={onGetStarted} />
       <div className="flex min-h-screen w-full items-center justify-center">
         <HeroSection onGetStarted={onGetStarted} />

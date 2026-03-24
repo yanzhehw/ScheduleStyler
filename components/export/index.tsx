@@ -446,6 +446,14 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
 
   // Handle event click - show color picker with smart positioning
   const handleEventClick = (event: CalendarEvent) => {
+    // Toggle: clicking an already-selected event deselects it
+    if (selectedEventId === event.id) {
+      setSelectedEventId(null);
+      setColorPickerPosition(null);
+      setShowPalettePicker(false);
+      return;
+    }
+
     clearComponentSelection();
     setHeaderTextEditorOpen(false);
     setTimeColumnEditorOpen(false);
@@ -1378,6 +1386,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       </div>
                     }
                       onHeaderClick={() => {
+                        if (selectedComponent === 'dayHeader') {
+                          clearComponentSelection();
+                          return;
+                        }
                         setHeaderTextEditorOpen(true);
                         setTimeColumnEditorOpen(false);
                         setTimeEditorPosition(null);
@@ -1388,6 +1400,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                         setHeaderEditorPosition(target ? getCalloutPosition(target, { width: 240, height: 210 }) : null);
                       }}
                       onTimeColumnClick={() => {
+                        if (selectedComponent === 'timeColumn') {
+                          clearComponentSelection();
+                          return;
+                        }
                         setTimeColumnEditorOpen(true);
                         setHeaderTextEditorOpen(false);
                         setHeaderEditorPosition(null);
@@ -1432,6 +1448,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     visualScale={supportsZoom ? 1 : zoom}
                     showFullTitle={template.showCourseSection}
                   onHeaderClick={() => {
+                    if (selectedComponent === 'dayHeader') {
+                      clearComponentSelection();
+                      return;
+                    }
                     setHeaderTextEditorOpen(true);
                     setTimeColumnEditorOpen(false);
                     setTimeEditorPosition(null);
@@ -1442,6 +1462,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                     setHeaderEditorPosition(target ? getCalloutPosition(target, { width: 240, height: 210 }) : null);
                   }}
                   onTimeColumnClick={() => {
+                    if (selectedComponent === 'timeColumn') {
+                      clearComponentSelection();
+                      return;
+                    }
                     setTimeColumnEditorOpen(true);
                     setHeaderTextEditorOpen(false);
                     setHeaderEditorPosition(null);

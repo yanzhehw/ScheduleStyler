@@ -9,7 +9,7 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onGetStarted }: HeroSectionProps) {
   return (
-    <div className="relative grid h-full w-full place-items-center bg-zinc-950 text-white overflow-hidden font-sans">
+    <div className="relative grid h-full w-full place-items-center text-white font-sans">
       {/*
         SCOPED ANIMATIONS
       */}

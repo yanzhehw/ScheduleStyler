@@ -12,6 +12,7 @@ import {
   MapPin,
   Type,
   RotateCcw,
+  CalendarDays,
 } from 'lucide-react';
 import { CalendarEvent, TemplateConfig, ClassType } from '../../../types';
 import { CalendarCanvas } from '../../CalendarCanvas';
@@ -435,6 +436,32 @@ export const MobileEditLayout: React.FC<MobileEditLayoutProps> = ({
             disabled={template.compact}
           />
         </div>
+        {/* Include Weekend */}
+        <div className="p-2 rounded-lg">
+          <ToggleSwitch
+            enabled={template.includeWeekend}
+            onToggle={() => onUpdateTemplate({ ...template, includeWeekend: !template.includeWeekend })}
+            label={<span className="flex items-center gap-1 text-[11px]"><CalendarDays size={10} /> Weekend</span>}
+          />
+        </div>
+        {/* First Day of Week */}
+        {template.includeWeekend && (
+          <div className="p-2 rounded-lg">
+            <label className="flex items-center justify-between text-[11px] text-gray-300">
+              <span className="flex items-center gap-1"><CalendarDays size={10} /> First Day</span>
+              <select
+                value={template.firstDayOfWeek ?? 0}
+                onChange={(e) => onUpdateTemplate({ ...template, firstDayOfWeek: parseInt(e.target.value) })}
+                className="bg-transparent border rounded px-1.5 py-0.5 text-[10px] text-gray-200 focus:outline-none"
+                style={{ borderColor: 'var(--border-default)' }}
+              >
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+                  <option key={i} value={i} className="bg-gray-800 text-gray-200">{day}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
     </div>
   );
