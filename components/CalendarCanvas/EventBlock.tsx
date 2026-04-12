@@ -47,6 +47,7 @@ export interface EventBlockProps {
   addSlotStyle: React.CSSProperties;
   addSlotTextColor: string;
   onEmptyBlockClick?: (slot: { dayIndex: number; startTime: string; endTime: string }) => void;
+  clearHoveredSlot?: () => void;
   onEventClick?: (event: CalendarEvent) => void;
   handleEventMouseDown: (event: CalendarEvent, e: React.MouseEvent<HTMLDivElement>) => void;
   handleEventTouchStart: (event: CalendarEvent, e: React.TouchEvent<HTMLDivElement>) => void;
@@ -84,6 +85,7 @@ export const EventBlock: React.FC<EventBlockProps> = ({
   addSlotStyle,
   addSlotTextColor,
   onEmptyBlockClick,
+  clearHoveredSlot,
   onEventClick,
   handleEventMouseDown,
   handleEventTouchStart,
@@ -107,6 +109,7 @@ export const EventBlock: React.FC<EventBlockProps> = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
+            clearHoveredSlot?.();
             const startTime = formatTimeFromHours(hoveredSlotForDay.startHour);
             const endTime = formatTimeFromHours(hoveredSlotForDay.startHour + 1);
             onEmptyBlockClick({
@@ -115,6 +118,7 @@ export const EventBlock: React.FC<EventBlockProps> = ({
               endTime,
             });
           }}
+          onPointerLeave={() => clearHoveredSlot?.()}
         >
           <Plus size={18} strokeWidth={2.5} />
         </div>
@@ -237,7 +241,7 @@ export const EventBlock: React.FC<EventBlockProps> = ({
                   boxShadow: '0 0 0 1px rgba(6, 182, 212, 0.25)',
                 } : {}),
                 color: '#fff',
-                zIndex: isDragging ? 30 : isSelected ? 20 : 10,
+                zIndex: isDragging ? 30 : showEventOnboarding ? 25 : isSelected ? 20 : 10,
                 userSelect: isDragging ? 'none' : 'auto',
               }}
             >
@@ -372,47 +376,48 @@ export const EventBlock: React.FC<EventBlockProps> = ({
                 </div>
               )}
 
-              {showEventOnboarding && (
-                <div
-                  data-component="OnboardingCallout-eventBlock"
-                  className="absolute z-[200]"
-                  style={{
-                    left: 'calc(100% + 12px)',
-                    top: `${calloutTopPx}px`,
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'auto',
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center gap-0">
-                    {/* Arrow pointing left towards the event block */}
-                    <div
-                      style={{
-                        width: 0,
-                        height: 0,
-                        borderTop: '6px solid transparent',
-                        borderBottom: '6px solid transparent',
-                        borderRight: '8px solid rgba(6, 182, 212, 0.4)',
-                      }}
-                    />
-                    <div className="relative group bg-cyan-500/20 border border-cyan-500/35 rounded-lg p-2.5 text-xs text-cyan-200/90 backdrop-blur-md max-w-[350px]">
-                      {eventBlockOnboardingMessage ? (
-                        <p className="whitespace-nowrap">
-                          <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
-                          {eventBlockOnboardingMessage}
-                        </p>
-                      ) : (
-                        <p className="break-words">
-                          <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
-                          Click on block to edit color/font/layout.
-                        </p>
-                      )}
-                    </div>
+            </div>
+            {/* Callout rendered OUTSIDE event block to avoid overflow:hidden clipping */}
+            {showEventOnboarding && (
+              <div
+                data-component="OnboardingCallout-eventBlock"
+                className="absolute z-[200]"
+                style={{
+                  left: 'calc(100% + 8px)',
+                  top: `${calloutTopPx}px`,
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'auto',
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-0">
+                  {/* Arrow pointing left towards the event block */}
+                  <div
+                    style={{
+                      width: 0,
+                      height: 0,
+                      borderTop: '6px solid transparent',
+                      borderBottom: '6px solid transparent',
+                      borderRight: '8px solid rgba(6, 182, 212, 0.4)',
+                    }}
+                  />
+                  <div className="relative group bg-cyan-500/20 border border-cyan-500/35 rounded-lg p-2.5 text-xs text-cyan-200/90 backdrop-blur-md max-w-[350px]">
+                    {eventBlockOnboardingMessage ? (
+                      <p className="whitespace-nowrap">
+                        <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
+                        {eventBlockOnboardingMessage}
+                      </p>
+                    ) : (
+                      <p className="break-words">
+                        <MousePointerClick size={13} className="inline-block mr-1.5 -mt-0.5 text-cyan-400" />
+                        Click on block to edit color/font/layout.
+                      </p>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </React.Fragment>
         );
       })}

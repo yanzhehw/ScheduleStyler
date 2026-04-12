@@ -28,10 +28,10 @@ export const MobileTimeTab: React.FC<MobileTimeTabProps> = ({
             <button
               key={color}
               onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
-              className={`inline-btn w-6 h-6 rounded-full border transition-all ${
+              className={`inline-btn w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
                 template.timeColumnTextColor === color
-                  ? 'border-white ring-1 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                  : 'border-[var(--border-default)]'
+                  ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
+                  : 'border-white/20 hover:border-white/40'
               }`}
               style={{ backgroundColor: color }}
             />

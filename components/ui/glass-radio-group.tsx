@@ -105,7 +105,7 @@ const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean; $co
   }
 
   .glass-radio-group input:checked + label {
-    color: #fff;
+    color: #000;
   }
 
   .glass-glider {
@@ -117,9 +117,9 @@ const StyledWrapper = styled.div<{ $optionCount: number; $disabled: boolean; $co
     z-index: 1;
     /* Uses CSS variables from index.css for theming - darkened with color-mix */
     background: linear-gradient(
-      140deg,
-      color-mix(in srgb, rgb(var(--accent-primary-rgb, 59, 130, 246)), black 10%),
-      color-mix(in srgb, var(--accent-secondary, #60a5fa), black 5%)
+      135deg,
+      color-mix(in srgb, rgb(var(--accent-primary-rgb, 59, 130, 246)), black 10%) 10%,
+      color-mix(in srgb, var(--accent-secondary, #60a5fa), black 5%) 100%
     );
     box-shadow:
       0 0 18px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.5),

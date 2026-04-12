@@ -222,17 +222,17 @@
   position: relative;
   padding: 0.75rem 1.5rem;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.875rem; 
   color: var(--text-on-accent);
-  background: linear-gradient(135deg, var(--accent-primary) 10%, var(--accent-secondary) 80%);
+  background: linear-gradient(135deg, var(--accent-primary) 10%, var(--accent-secondary) 100%);
   border: none;
   border-radius: 0.75rem;
   cursor: pointer;
   overflow: hidden;
   transition: all 0.3s ease;
   box-shadow:
-    0 0 20px rgba(var(--accent-primary-rgb), 0.4),
-    0 0 40px rgba(var(--accent-glow-rgb), 0.2),
+    0 0 10px rgba(var(--accent-primary-rgb), 0.2),
+    0 0 20px rgba(var(--accent-glow-rgb), 0.1),
     0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -255,8 +255,8 @@
 .glow-btn:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 0 30px rgba(var(--accent-primary-rgb), 0.6),
-    0 0 60px rgba(var(--accent-glow-rgb), 0.4),
+    0 0 30px rgba(var(--accent-primary-rgb), 0.4),
+    0 0 60px rgba(var(--accent-glow-rgb), 0.3),
     0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -268,8 +268,8 @@
 .glow-btn[data-state="clicked"] {
   transform: translateY(0) scale(0.98);
   box-shadow:
-    0 0 15px rgba(var(--accent-primary-rgb), 0.5),
-    0 0 30px rgba(var(--accent-glow-rgb), 0.3),
+    0 0 5px rgba(var(--accent-primary-rgb), 0.2),
+    0 0 15px rgba(var(--accent-glow-rgb), 0.1),
     0 2px 10px rgba(0, 0, 0, 0.2);
 }
 

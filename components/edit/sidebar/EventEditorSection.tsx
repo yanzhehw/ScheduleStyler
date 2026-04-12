@@ -178,7 +178,7 @@ export const EventEditorSection: React.FC<EventEditorSectionProps> = ({
               template.showCourseSection ? 'title' : 'displayTitle',
               e.target.value
             )}
-            className="flex-1 rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm"
+            className="flex-1 rounded-lg input-themed p-2.5 text-white outline-none font-bold text-sm"
             placeholder="e.g. CS 101"
           />
           <ThemedDropdown
@@ -202,7 +202,7 @@ export const EventEditorSection: React.FC<EventEditorSectionProps> = ({
             type="text"
             value={selectedEvent.customClassType || ''}
             onChange={(e) => handleUpdateEvent('customClassType', e.target.value)}
-            className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            className="w-full rounded-lg input-themed p-2.5 text-white outline-none text-sm"
             placeholder="e.g. Workshop, Office Hours"
           />
         </div>

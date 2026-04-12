@@ -428,7 +428,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 p-2 md:p-6 overflow-auto">
+      <main className="flex-1 min-h-0 p-0 overflow-auto">
         <React.Suspense fallback={<div className="flex-1 flex items-center justify-center" />}>
         <Routes>
           <Route

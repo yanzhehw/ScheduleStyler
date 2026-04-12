@@ -94,7 +94,7 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
     <div
       data-component="ExportSidebar"
       className={`
-        min-h-0 overflow-hidden rounded-2xl border flex shadow-xl transition-all duration-500
+        min-h-0 overflow-hidden border-l flex transition-all duration-500
         ${isSidebarOpen ? 'opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 border-0 p-0'}
       `}
       style={{
@@ -142,7 +142,7 @@ export const ExportSidebar: React.FC<ExportSidebarProps> = ({
         <div
           data-component="SidebarHeader"
           className="p-4 border-b flex items-center justify-between whitespace-nowrap"
-          style={{ borderColor: 'var(--panel-border)' }}
+          style={{ borderColor: 'var(--panel-border)', backgroundColor: 'var(--sidebar-header-bg)' }}
         >
           <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
             {SECTION_TITLES[activeSidebarSection]}

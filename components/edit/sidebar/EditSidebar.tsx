@@ -80,7 +80,7 @@ export const EditSidebar: React.FC<EditSidebarProps> = ({
   return (
     <div
       data-component="EditSidebarWrapper"
-      className="w-[320px] min-w-[280px] max-w-[360px] rounded-2xl border flex flex-col shadow-xl min-h-0 max-h-full"
+      className="w-[320px] min-w-[280px] max-w-[360px] border-l flex flex-col min-h-0"
       style={{
         backgroundColor: 'var(--panel-background)',
         borderColor: 'var(--panel-border)',
@@ -89,7 +89,7 @@ export const EditSidebar: React.FC<EditSidebarProps> = ({
       {/* SIDEBAR HEADER */}
       <div
         className="p-4 border-b flex items-center justify-between shrink-0"
-        style={{ borderColor: 'var(--panel-border)' }}
+        style={{ borderColor: 'var(--panel-border)', backgroundColor: 'var(--sidebar-header-bg)' }}
       >
         <h3 className="font-semibold text-lg shrink-0" style={{ color: 'var(--text-primary)' }}>
           {selectedEvent ? 'Edit Event' : 'Edit Schedule'}
@@ -115,7 +115,7 @@ export const EditSidebar: React.FC<EditSidebarProps> = ({
               onClick={onNext}
               className="px-4 py-1.5 btn-accent text-white text-sm font-medium rounded-lg"
             >
-              Glow Up
+              Next
             </button>
           </div>
         )}

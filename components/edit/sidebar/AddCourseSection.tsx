@@ -65,7 +65,7 @@ export const AddCourseSection: React.FC<AddCourseSectionProps> = ({
                       ? 'border-blue-400 bg-blue-500'
                       : errors.days
                         ? 'border-red-400/50'
-                        : 'border-[var(--border-default)]'
+                        : 'border-[var(--border-day-selector)]'
                     }`}>
                     {draft.selectedDays[index] && (
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -92,7 +92,7 @@ export const AddCourseSection: React.FC<AddCourseSectionProps> = ({
                   setDraft({ ...draft, courseCode: e.target.value });
                   if (errors.courseCode) setErrors({ ...errors, courseCode: undefined });
                 }}
-                className={`w-35 shrink-0 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm input-themed ${
+                className={`w-35 shrink-0 rounded-lg p-2.5 text-white outline-none text-sm input-themed ${
                   errors.courseCode ? 'border-red-500' : ''
                 }`}
                 placeholder="e.g. CS 101"
@@ -121,7 +121,7 @@ export const AddCourseSection: React.FC<AddCourseSectionProps> = ({
                 type="text"
                 value={draft.customClassType}
                 onChange={(e) => setDraft({ ...draft, customClassType: e.target.value })}
-                className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                className="w-full rounded-lg input-themed p-2.5 text-white outline-none text-sm"
                 placeholder="e.g. Workshop"
               />
             </div>
@@ -198,7 +198,7 @@ export const AddCourseSection: React.FC<AddCourseSectionProps> = ({
               type="text"
               value={draft.location}
               onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-              className="w-full rounded-lg input-themed p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              className="w-full rounded-lg input-themed p-2.5 text-white outline-none text-sm"
             />
           </div>
 

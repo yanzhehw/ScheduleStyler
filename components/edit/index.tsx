@@ -736,8 +736,8 @@ export const EditStep: React.FC<EditStepProps> = ({
       {/* Left: Interactive Canvas - centers the schedule when aspect ratio changes */}
       <div
         ref={canvasContainerRef}
-        className="flex-1 min-h-0 rounded-2xl border relative"
-        style={{ backgroundColor: 'var(--surface-app)', borderColor: 'var(--border-muted)' }}
+        className="flex-1 min-h-0 relative"
+        style={{ backgroundColor: 'var(--surface-app)' }}
       >
         {/* Zoom Toolbar - positioned outside scrollable area */}
         {isZoomToolbarOpen && (

@@ -1919,10 +1919,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       <button
                         key={color}
                         onClick={() => onUpdateTemplate({ ...template, headerTextColor: color })}
-                        className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                        className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
                           template.headerTextColor === color
                             ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
+                            : 'border-white/20 hover:border-white/40'
                         }`}
                         style={{ backgroundColor: color }}
                         title={color}
@@ -2013,10 +2013,10 @@ export const ExportStep: React.FC<ExportStepProps> = ({ events, template, onUpda
                       <button
                         key={color}
                         onClick={() => onUpdateTemplate({ ...template, timeColumnTextColor: color })}
-                        className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                        className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
                           template.timeColumnTextColor === color
                             ? 'border-white scale-110 ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900'
-                            : 'border-[var(--border-default)] hover:border-[var(--text-muted)]'
+                            : 'border-white/20 hover:border-white/40'
                         }`}
                         style={{ backgroundColor: color }}
                         title={color}

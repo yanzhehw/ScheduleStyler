@@ -175,6 +175,20 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [interactive]);
 
+  // Clear hovered slot when pointer leaves grid bounds (reliable even with fast mouse moves)
+  useEffect(() => {
+    if (!hoveredSlot || !dayColumnsRef.current) return;
+    const handleDocMouseMove = (e: MouseEvent) => {
+      const rect = dayColumnsRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+        setHoveredSlot(null);
+      }
+    };
+    document.addEventListener('mousemove', handleDocMouseMove);
+    return () => document.removeEventListener('mousemove', handleDocMouseMove);
+  }, [hoveredSlot]);
+
   useEffect(() => {
     if (!interactive) return;
     if (hoverResetToken === undefined) return;
@@ -498,16 +512,14 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
 
   const addSlotStyle = useMemo(() => {
     return {
-      background: isLightTheme ? 'rgba(255,255,255,0.78)' : 'rgba(15,23,42,0.4)',
-      borderColor: isLightTheme ? 'rgba(148,163,184,0.65)' : 'rgba(148,163,184,0.25)',
-      boxShadow: isLightTheme
-        ? 'inset 3px 3px 8px rgba(0,0,0,0.12), inset -3px -3px 8px rgba(255,255,255,0.85), 0 8px 18px rgba(15,23,42,0.12)'
-        : 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+      background: 'var(--add-slot-background)',
+      borderColor: 'var(--add-slot-border-color)',
+      boxShadow: 'var(--add-slot-box-shadow)',
       transform: 'translateY(1px)',
     } as React.CSSProperties;
-  }, [isLightTheme]);
+  }, []);
 
-  const addSlotTextColor = isLightTheme ? '#0f172a' : '#e2e8f0';
+  const addSlotTextColor = 'var(--add-slot-text-color)';
   const selectedBorderColor = isLightTheme ? 'rgba(37, 99, 235, 0.9)' : 'rgba(191, 219, 254, 0.95)';
   const isOnboardingActive = (component: OnboardingComponent) =>
     onboardingComponents?.[component] ?? false;
@@ -915,6 +927,68 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 }}
               />
 
+              {/* Resize handles at center of each edge */}
+              {/* Top handle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardLeft + (cardRight - cardLeft) / 2 - 16,
+                  top: cardTop - 3,
+                  width: 32,
+                  height: lineWidth + 6,
+                  borderRadius: 4,
+                  background: lineColor,
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.3)',
+                  pointerEvents: 'none',
+                  zIndex: 202,
+                }}
+              />
+              {/* Bottom handle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardLeft + (cardRight - cardLeft) / 2 - 16,
+                  top: cardBottom - 3,
+                  width: 32,
+                  height: lineWidth + 6,
+                  borderRadius: 4,
+                  background: lineColor,
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.3)',
+                  pointerEvents: 'none',
+                  zIndex: 202,
+                }}
+              />
+              {/* Left handle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardLeft - 3,
+                  top: cardTop + (cardBottom - cardTop) / 2 - 16,
+                  width: lineWidth + 6,
+                  height: 32,
+                  borderRadius: 4,
+                  background: lineColor,
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.3)',
+                  pointerEvents: 'none',
+                  zIndex: 202,
+                }}
+              />
+              {/* Right handle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cardRight - 3,
+                  top: cardTop + (cardBottom - cardTop) / 2 - 16,
+                  width: lineWidth + 6,
+                  height: 32,
+                  borderRadius: 4,
+                  background: lineColor,
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.3)',
+                  pointerEvents: 'none',
+                  zIndex: 202,
+                }}
+              />
+
               {/* Arrow indicators on top-right showing vertical adjustment */}
               <div
                 style={{
@@ -1259,6 +1333,7 @@ export const CalendarCanvas: React.FC<CalendarCanvasProps> = ({
                 addSlotStyle={addSlotStyle}
                 addSlotTextColor={addSlotTextColor}
                 onEmptyBlockClick={onEmptyBlockClick}
+                clearHoveredSlot={() => setHoveredSlot(null)}
                 onEventClick={onEventClick}
                 handleEventMouseDown={handleEventMouseDown}
                 handleEventTouchStart={handleEventTouchStart}

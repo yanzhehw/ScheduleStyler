@@ -75,6 +75,7 @@ export interface SiteTheme {
     default: string;
     muted: string;
     accent: string;
+    daySelector: string;
   };
 
   // Zoom controls/floating UI
@@ -107,6 +108,14 @@ export interface SiteTheme {
   // Widget controls (toggles, sliders)
   widget: {
     background: string;   // Background for toggle off state and slider track
+  };
+
+  // Empty slot "add" button (hover-to-add on calendar grid)
+  addSlot: {
+    background: string;
+    borderColor: string;
+    boxShadow: string;
+    textColor: string;
   };
 }
 
@@ -176,6 +185,7 @@ export const darkTheme: SiteTheme = {
     default: "#2a2a2a",
     muted: "#1e1e1e",
     accent: "#d4ff3a",
+    daySelector: '#2a2a2a',
   },
 
   // Zoom controls/floating UI
@@ -207,6 +217,13 @@ export const darkTheme: SiteTheme = {
   // Widget controls (toggles, sliders)
   widget: {
     background: "#333333",
+  },
+
+  addSlot: {
+    background: 'rgba(15,23,42,0.4)',
+    borderColor: 'rgba(148,163,184,0.25)',
+    boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+    textColor: '#e2e8f0',
   },
 };
 
@@ -269,6 +286,7 @@ export const blueTheme: SiteTheme = {
     default: '#374151',
     muted: '#1f2937',
     accent: '#3b82f6',
+    daySelector: '#374151',
   },
 
   zoomControls: {
@@ -296,6 +314,13 @@ export const blueTheme: SiteTheme = {
 
   widget: {
     background: '#374151',                     // gray-700
+  },
+
+  addSlot: {
+    background: 'rgba(15,23,42,0.4)',
+    borderColor: 'rgba(148,163,184,0.25)',
+    boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+    textColor: '#e2e8f0',
   },
 };
 
@@ -358,6 +383,7 @@ export const purpleTheme: SiteTheme = {
     default: '#3d3456',
     muted: '#2d2440',
     accent: '#8b5cf6',
+    daySelector: '#3d3456',
   },
 
   zoomControls: {
@@ -385,6 +411,13 @@ export const purpleTheme: SiteTheme = {
 
   widget: {
     background: '#3d3456',                     // purple-border
+  },
+
+  addSlot: {
+    background: 'rgba(15,23,42,0.4)',
+    borderColor: 'rgba(148,163,184,0.25)',
+    boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+    textColor: '#e2e8f0',
   },
 };
 
@@ -447,6 +480,7 @@ export const tealTheme: SiteTheme = {
     default: '#2d4a4a',
     muted: '#1f3d3d',
     accent: '#14b8a6',
+    daySelector: '#2d4a4a',
   },
 
   zoomControls: {
@@ -475,6 +509,13 @@ export const tealTheme: SiteTheme = {
   widget: {
     background: '#2d4a4a',                     // teal-border
   },
+
+  addSlot: {
+    background: 'rgba(15,23,42,0.4)',
+    borderColor: 'rgba(148,163,184,0.25)',
+    boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+    textColor: '#e2e8f0',
+  },
 };
 
 //Dark 1 Theme
@@ -482,38 +523,38 @@ export const dark1Theme: SiteTheme = {
   name: 'Dark1',
 
   accent: {
-    primary: '#dadada',
-    secondary: '#b6d1f2',
+    primary: '#dcdcdc',
+    secondary: '#a1c1e9',
     glow: '#f8d9a481',
-    ghost: '#29353d',
+    ghost: '#39393999',
     ghostHover: '#383e48',
   },
 
   surface: {
-    app: '#09090b',
-    header: 'rgba(34, 43, 49, 0.5)',          // gray-900/50
-    card: '#1e293b',
-    elevated: '#2b3b43',
+    app: '#090909',
+    header: '#0d0d0d',
+    card: '#151515', //also scorllbar 
+    elevated: '#242424',
     input: '#192626',
-    inputBorder: '#374151',
-    calendarCard: '#0d1a1a40',
+    inputBorder: '#37415100',
+    calendarCard: '#151515',
   },
 
   sidebar: {
-    background: '#141414',
+    background: '#0d0d0d',
     border: '#1f2937',
-    headerBg: '#111827',
+    headerBg: '#0d0d0d',
     cardSection: {
-      background: '#1e1e1e',
-      border: '#374951',
+      background: '#151515',
+      border: '#FFFFFF00',
     },
   },
 
   uploadBox: {
-    background: '#161616',
+    background: '#0d0d0d',
     border: '#4b5563',
-    hoverBorder: '#ffdca1',
-    hoverBackground: '#ffffff1a',
+    hoverBorder: '#b7e4fb',
+    hoverBackground: '#ffffff10',
   },
 
   text: {
@@ -533,36 +574,44 @@ export const dark1Theme: SiteTheme = {
   },
 
   border: {
-    default: '#374951',
-    muted: '#1f2937',
+    default: '#1f1f1f',
+    muted: '#1f1f1f',
     accent: '#4e8ff8',
+    daySelector: '#4a4747',
   },
 
   zoomControls: {
-    background: 'rgba(22, 22, 24, 0.69)',      // slate-900/70
-    border: 'rgba(85, 85, 85, 0.7)',          // slate-600/70
-    buttonBg: 'rgba(37, 37, 41, 0.69)',         // slate-800/80
-    buttonHoverBg: 'rgba(71, 72, 72, 0.8)',    // slate-700/80
+    background: 'rgba(22, 22, 22, 0.53)',      // slate-900/70
+    border: '#1f1f1f',          // slate-600/70
+    buttonBg: 'rgba(30, 30, 30, 0.89)',         // slate-800/80
+    buttonHoverBg: 'rgba(45, 45, 45, 0.8)',    // slate-700/80
   },
 
   pill: {
-    background: '#161618',      // gray-800/50
-    border: '#374b51',                         // gray-700
+    background: '#161618',
+    border: '#373737',
     selected: {
-      activeBg: '#263a40',                     // slate-800
-      inactiveText: '#80999f',                 // slate-400
-      hoverText: '#e2e8f0',                    // slate-200
+      activeBg: '#263a40',
+      inactiveText: '#80999f',
+      hoverText: '#e2e8f0',
     },
   },
 
   popup: {
-    background: '#141414',                     // gray-900
-    border: '#374d51',                         // gray-700
-    overlay: 'rgba(0, 0, 0, 0.55)',            // black/55
+    background: '#141414',
+    border: '#1e2425',
+    overlay: 'rgba(0, 0, 0, 0.55)',
   },
 
   widget: {
-    background: '#313a48',                     // gray-700
+    background: '#292c30',
+  },
+
+  addSlot: {
+    background: 'rgba(40,40,42,0.4)',
+    borderColor: '#99a6b940',
+    boxShadow: 'inset 4px 4px 10px rgba(0,0,0,0.55), inset -4px -4px 10px rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.28)',
+    textColor: '#e2e8f0',
   },
 };
 // ============================================
@@ -620,6 +669,7 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
 
   // Sidebar colors
   root.style.setProperty('--sidebar-background', theme.sidebar.background);
+  root.style.setProperty('--panel-background', theme.sidebar.background);
   root.style.setProperty('--sidebar-border', theme.sidebar.border);
   root.style.setProperty('--sidebar-header-bg', theme.sidebar.headerBg);
 
@@ -647,6 +697,8 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
   root.style.setProperty('--border-default', theme.border.default);
   root.style.setProperty('--border-muted', theme.border.muted);
   root.style.setProperty('--border-accent', theme.border.accent);
+  root.style.setProperty('--panel-border', theme.border.default);
+  root.style.setProperty('--border-day-selector', theme.border.daySelector);
 
   // Zoom controls colors
   root.style.setProperty('--toolbar-background', theme.zoomControls.background);
@@ -679,5 +731,11 @@ export function injectTheme(theme: SiteTheme = currentTheme): void {
   // Ghost button colors (from accent)
   root.style.setProperty('--button-ghost', theme.accent.ghost);
   root.style.setProperty('--button-ghost-hover', theme.accent.ghostHover);
+
+  // Add slot (empty slot hover-to-add on calendar grid)
+  root.style.setProperty('--add-slot-background', theme.addSlot.background);
+  root.style.setProperty('--add-slot-border-color', theme.addSlot.borderColor);
+  root.style.setProperty('--add-slot-box-shadow', theme.addSlot.boxShadow);
+  root.style.setProperty('--add-slot-text-color', theme.addSlot.textColor);
 
 }
