@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { Star } from 'lucide-react';
+import { Star } from 'lucide-react'; //imports github star icon
 import { CalendarEvent, Category, TemplateConfig } from './types';
 import { extractCalendarFromImage } from './services/geminiService';
 import { convertFileToBase64 } from './services/imageUtils';
@@ -23,6 +23,9 @@ const AboutPage = React.lazy(() =>
 );
 const BlogPage = React.lazy(() =>
   import('./components/pages/BlogPage').then(m => ({ default: m.BlogPage }))
+);
+const FAQsPage = React.lazy(() =>
+  import('./components/pages/FAQsPage').then(m => ({ default: m.FAQsPage }))
 );
 const CommunityPage = React.lazy(() =>
   import('./components/pages/CommunityPage').then(m => ({ default: m.CommunityPage }))
@@ -50,6 +53,7 @@ const ROUTES = {
   EXPORT: '/export',
   ABOUT: '/about',
   BLOG: '/blog',
+  FAQS: '/faqs',
   COMMUNITY: '/community',
   MEET_THE_TEAM: '/meet-the-team',
   SUPPORT: '/support',
@@ -334,7 +338,7 @@ const App: React.FC = () => {
   // Determine current step index for header highlighting
   const currentStepIndex = STEP_INFO.findIndex(s => s.path === location.pathname);
   const isLandingPage = location.pathname === ROUTES.HOME;
-  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.COMMUNITY, ROUTES.MEET_THE_TEAM, ROUTES.SUPPORT].includes(location.pathname as typeof ROUTES.ABOUT);
+  const isStaticPage = [ROUTES.ABOUT, ROUTES.BLOG, ROUTES.FAQS, ROUTES.COMMUNITY, ROUTES.MEET_THE_TEAM, ROUTES.SUPPORT].includes(location.pathname as typeof ROUTES.ABOUT);
 
   // Landing page renders full-screen without header
   if (isLandingPage) {
@@ -355,6 +359,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path={ROUTES.ABOUT} element={<AboutPage />} />
             <Route path={ROUTES.BLOG} element={<BlogPage />} />
+            <Route path={ROUTES.FAQS} element={<FAQsPage />} />
             <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
             <Route path={ROUTES.MEET_THE_TEAM} element={<MeetTheTeamPage />} />
             <Route path={ROUTES.SUPPORT} element={<SupportPage />} />
